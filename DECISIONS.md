@@ -106,6 +106,18 @@ Per this project's own engineering rules (test in a real browser before calling 
 
 ---
 
+## 10. Stripe: same shared test account as Root Cafe App, on user direction
+
+**Decision:** `.env.local` uses the same Stripe test-mode keys (`acct_1TrzfLFkpzs5V6yx`) that `Root Cafe - App` uses, per explicit user instruction to look there for test credentials. Confirmed via that app's own `.env.local` and via `stripe config --list` on this machine, which is already authenticated to the same account.
+
+**Webhook secret is NOT copied from Root Cafe as-is.** A `STRIPE_WEBHOOK_SECRET` is scoped to whichever endpoint URL it was issued for — Root Cafe's is tied to its own registered production/dev endpoint and would silently fail to verify PS Cleaning's events. Used `stripe listen --print-secret` instead (same authenticated CLI), which returns the *local-forwarding* secret — valid only while running `stripe listen --forward-to http://localhost:3000/api/webhooks/stripe` for local testing. **Before this app is ever deployed, it needs its own webhook endpoint registered in the Stripe dashboard and the secret that registration issues** — reusing the local-dev value in production would not verify real events.
+
+**Why this is different from the Supabase decision, and worth flagging even though it was explicitly directed:** a Postgres table can be namespaced (`PS_CLEAN_` prefix) so two businesses' data cleanly coexists in one database with no risk of mixing them up. Stripe has no equivalent namespacing — every Customer, PaymentIntent, and charge PS Cleaning creates lives in the *same* Stripe account as Root Café's real transactions, distinguishable only by the `metadata.ps_clean_*` fields this app already sets on everything it creates (see `lib/actions/booking.ts`). That's a fine, reversible setup for test-mode development, but two genuinely separate businesses sharing one Stripe account for **live** payments would mix their real financial/tax records together, which most accountants (and Stripe's own ToS expectations around what a single account represents) would flag. Treat this as a development convenience only — a dedicated Stripe account is a prerequisite before this business takes a real card payment, not just a "nice to have" the way the shared Supabase project is.
+
+**Reversibility:** High for now (test mode, no real money moved) — but switching to a dedicated account later just means swapping the three env vars and registering a new webhook endpoint; no data migration, since nothing in `PS_CLEAN_*` tables stores anything Stripe-account-specific beyond IDs that would simply be regenerated.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

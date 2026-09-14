@@ -50,3 +50,30 @@ export function candidateStartTimes(ranges: FreeRange[], opts: SlotOptions): Dat
 
   return starts;
 }
+
+export interface TimeOfDayGroup {
+  label: "Morning" | "Afternoon" | "Evening";
+  times: Date[];
+}
+
+// Buckets a sorted list of candidate start times by time of day, purely for
+// making a long list of slots scannable at a glance — a wall of 15-20
+// identical-looking buttons reads as noise, not choice. Boundaries use the
+// LOCAL hour (the browser's, which for this UK-only business is
+// Europe/London) since "morning" is a wall-clock concept, not a UTC one.
+export function groupByTimeOfDay(times: Date[]): TimeOfDayGroup[] {
+  const groups: TimeOfDayGroup[] = [
+    { label: "Morning", times: [] },
+    { label: "Afternoon", times: [] },
+    { label: "Evening", times: [] },
+  ];
+
+  for (const time of times) {
+    const hour = time.getHours();
+    if (hour < 12) groups[0].times.push(time);
+    else if (hour < 17) groups[1].times.push(time);
+    else groups[2].times.push(time);
+  }
+
+  return groups.filter((g) => g.times.length > 0);
+}

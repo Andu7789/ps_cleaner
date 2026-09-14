@@ -2,30 +2,60 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarX2 } from "lucide-react";
 import { getAvailableSlotsAction } from "@/lib/actions/booking";
-import { candidateStartTimes } from "@/lib/slots";
+import { candidateStartTimes, groupByTimeOfDay } from "@/lib/slots";
+import { toDateKey } from "@/lib/calendar";
 import { formatTime } from "@/lib/format";
+import { Calendar } from "@/components/booking/calendar";
 import type { Cleaner, FreeSlotRange, Service } from "@/lib/types";
 
-function nextDays(count: number): Date[] {
-  const days: Date[] = [];
-  const today = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    days.push(d);
-  }
-  return days;
+const BOOKING_WINDOW_DAYS = 28;
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
 
-function toDateParam(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function CleanerAvatar({ cleaner }: { cleaner: Cleaner }) {
+  return (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+      style={{ backgroundColor: cleaner.calendar_color }}
+      aria-hidden="true"
+    >
+      {initials(cleaner.full_name)}
+    </span>
+  );
+}
+
+function AvailabilitySkeleton() {
+  return (
+    <div className="space-y-5" aria-hidden="true">
+      {[0, 1].map((row) => (
+        <div key={row} className="flex items-start gap-3">
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-muted" />
+          <div className="flex-1 space-y-2.5">
+            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+            <div className="flex flex-wrap gap-2">
+              {[0, 1, 2, 3].map((pill) => (
+                <div key={pill} className="h-8 w-16 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function SlotPicker({ service, cleaners }: { service: Service; cleaners: Cleaner[] }) {
   const router = useRouter();
-  const days = useMemo(() => nextDays(14), []);
-  const [selectedDate, setSelectedDate] = useState(days[0]);
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   // null = no successful fetch has landed yet for the current date. Kept
   // stale (not reset to null) across a date change so switching dates
   // doesn't flash a loading state — matches this workspace's convention
@@ -37,7 +67,7 @@ export function SlotPicker({ service, cleaners }: { service: Service; cleaners: 
 
   useEffect(() => {
     let cancelled = false;
-    getAvailableSlotsAction(service.id, toDateParam(selectedDate))
+    getAvailableSlotsAction(service.id, toDateKey(selectedDate))
       .then((data) => {
         if (!cancelled) {
           setRanges(data);
@@ -68,11 +98,19 @@ export function SlotPicker({ service, cleaners }: { service: Service; cleaners: 
           durationMinutes: service.duration_minutes,
           bufferBeforeMinutes: service.buffer_before_minutes,
           bufferAfterMinutes: service.buffer_after_minutes,
+          // Coarser than the RPC's own precision on purpose: 15-minute
+          // granularity produces 15-20 nearly-identical buttons per
+          // cleaner for a typical service, which reads as noise rather
+          // than choice. 30 minutes is plenty of precision for booking a
+          // multi-hour clean and keeps the list scannable.
+          stepMinutes: 30,
         })
       );
     }
     return result;
   }, [ranges, service]);
+
+  const availableCleaners = Array.from(slotsByCleanerId.entries()).filter(([, starts]) => starts.length > 0);
 
   function chooseSlot(cleanerId: string, startsAt: Date) {
     const params = new URLSearchParams({ cleanerId, startsAt: startsAt.toISOString() });
@@ -80,52 +118,67 @@ export function SlotPicker({ service, cleaners }: { service: Service; cleaners: 
   }
 
   return (
-    <div>
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {days.map((d) => {
-          const isSelected = toDateParam(d) === toDateParam(selectedDate);
-          return (
-            <button
-              key={toDateParam(d)}
-              onClick={() => setSelectedDate(d)}
-              className={`shrink-0 rounded-lg border px-3 py-2 text-sm ${
-                isSelected ? "border-brand bg-brand text-brand-foreground" : "border-border bg-card text-foreground"
-              }`}
-            >
-              {d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-            </button>
-          );
-        })}
+    <div className="grid gap-6 md:grid-cols-[320px_1fr] md:gap-8">
+      <div>
+        <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} windowDays={BOOKING_WINDOW_DAYS} />
       </div>
 
-      <div className="mt-6 space-y-6">
-        {loading && <p className="text-sm text-muted-foreground">Loading availability…</p>}
-        {error && <p className="text-sm text-danger">{error}</p>}
-        {!loading &&
-          !error &&
-          Array.from(slotsByCleanerId.entries()).map(([cleanerId, starts]) => {
-            const cleaner = cleanerById.get(cleanerId);
-            if (!cleaner || starts.length === 0) return null;
-            return (
-              <div key={cleanerId}>
-                <h3 className="font-medium text-foreground">{cleaner.full_name}</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {starts.map((s) => (
-                    <button
-                      key={s.toISOString()}
-                      onClick={() => chooseSlot(cleanerId, s)}
-                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm hover:border-brand hover:text-brand"
-                    >
-                      {formatTime(s.toISOString())}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        {!loading && !error && slotsByCleanerId.size === 0 && (
-          <p className="text-sm text-muted-foreground">No availability on this day — try another date.</p>
-        )}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-foreground">
+          {selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+        </h2>
+
+        <div className="mt-4" key={toDateKey(selectedDate)}>
+          {loading && <AvailabilitySkeleton />}
+
+          {!loading && error && <p className="text-sm text-danger">{error}</p>}
+
+          {!loading && !error && availableCleaners.length > 0 && (
+            <div className="ps-clean-fade-in divide-y divide-border">
+              {availableCleaners.map(([cleanerId, starts]) => {
+                const cleaner = cleanerById.get(cleanerId);
+                if (!cleaner) return null;
+                return (
+                  <div key={cleanerId} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                    <CleanerAvatar cleaner={cleaner} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{cleaner.full_name}</p>
+                      <div className="mt-2.5 space-y-3">
+                        {groupByTimeOfDay(starts).map((group) => (
+                          <div key={group.label}>
+                            <p className="text-xs text-muted-foreground">{group.label}</p>
+                            <div className="mt-1.5 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                              {group.times.map((s) => (
+                                <button
+                                  key={s.toISOString()}
+                                  type="button"
+                                  onClick={() => chooseSlot(cleanerId, s)}
+                                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-brand hover:bg-brand hover:text-brand-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                >
+                                  {formatTime(s.toISOString())}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!loading && !error && availableCleaners.length === 0 && (
+            <div className="ps-clean-fade-in flex flex-col items-center px-4 py-10 text-center">
+              <CalendarX2 className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground">No availability on this day</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try another date on the calendar — most days have open slots.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

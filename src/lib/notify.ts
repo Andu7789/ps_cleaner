@@ -15,7 +15,7 @@ export interface NotifyBookingContext {
   customerPhone: string | null;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<{ id?: string }> {
+export async function sendEmail(to: string, subject: string, html: string): Promise<{ id?: string }> {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) throw new Error("Email isn't configured (RESEND_API_KEY missing)");
 
@@ -50,6 +50,24 @@ async function sendSms(to: string, body: string): Promise<{ sid?: string }> {
   });
   if (!res.ok) throw new Error(`Twilio request failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as { sid?: string };
+}
+
+// Deliberately NOT Supabase's built-in signInWithOtp email — that template
+// lives in this shared Supabase project's Auth settings (Dashboard >
+// Authentication > Email Templates), which Root Café's app has already
+// customized ("Sign in to Root Café") for its own use. That setting is
+// project-wide, not per-app, so PS Cleaning generates its own magic link
+// via the admin API (see requestMagicLinkAction) and sends it through this
+// email instead, rather than touching a template another live app depends
+// on. See DECISIONS.md.
+export async function sendMagicLinkEmail(businessName: string, email: string, actionLink: string): Promise<void> {
+  const html = emailShell(
+    businessName,
+    `<p>Click below to sign in to ${businessName}.</p>
+     <p><a href="${actionLink}" style="color: #0f766e;">Sign in</a></p>
+     <p style="font-size: 12px; color: #5b6b68;">If you didn't request this, you can safely ignore this email.</p>`
+  );
+  await sendEmail(email, `Sign in to ${businessName}`, html);
 }
 
 function emailShell(businessName: string, bodyHtml: string): string {

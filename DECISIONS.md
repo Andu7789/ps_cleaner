@@ -94,6 +94,18 @@ Per this project's own engineering rules (test in a real browser before calling 
 
 ---
 
+## 9. Magic-link sign-in emails are sent by PS Cleaning's own code, not Supabase's built-in email
+
+**What happened:** the user noticed a PS Cleaning sign-in email arrived reading "Sign in to Root Café". `requestMagicLinkAction` originally called `supabase.auth.signInWithOtp()`, which sends Supabase Auth's own built-in "Magic Link" email template. That template is configured once per Supabase **project** (Dashboard > Authentication > Email Templates) — not per app — and Root Café's app had already customized it for itself. Since PS Cleaning shares this Supabase project (see decision #1), every app's `signInWithOtp()` call was sending the same Root-Café-branded email.
+
+**Decision:** don't touch that shared template — changing it to suit PS Cleaning would rebrand Root Café's real, live sign-in emails, which is exactly the kind of cross-app blast radius this project must never have. Instead, `requestMagicLinkAction` now calls `supabase.auth.admin.generateLink({ type: "magiclink", ... })` via the service-role client — this creates the same PKCE magic-link token as `signInWithOtp` but sends nothing — and PS Cleaning emails the resulting `action_link` itself via `sendMagicLinkEmail` in `lib/notify.ts`, using its own subject/branding through Resend, same as every other PS Cleaning notification.
+
+**Why this is the right general pattern for a shared-Supabase-project app:** anything configured at the project level rather than the row/table level (Auth email templates, Auth providers, project-wide settings) is out of bounds for the same reason `PS_CLEAN_`-prefixing tables is required — it isn't namespaced per app, so changing it changes it for everyone. The fix here generalizes: whenever Supabase Auth's own emails would be needed (password reset, email-change confirmation, etc.), the same `generateLink()` + custom-send approach should be used rather than the built-in triggered email, since Core scope has no such flows to touch — but if the Growth/Pro roadmap ever adds one, use `admin.generateLink()` for it too rather than relying on the shared template.
+
+**Reversibility:** High — this only changed how the link is generated and delivered; the callback/session-exchange handling in `src/lib/supabase/middleware.ts` (via `proxy.ts`) is unchanged and works identically either way.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

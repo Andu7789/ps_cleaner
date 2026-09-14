@@ -3,21 +3,37 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getBusinessSettings } from "@/lib/business";
+import { sendMagicLinkEmail } from "@/lib/notify";
 
 export async function requestMagicLinkAction(email: string, next?: string) {
-  const supabase = await createClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  // middleware.ts reads `next` off the same URL Supabase appends `code` to
-  // and redirects there once the session is exchanged — this is how a
-  // customer picking a slot, then signing in, lands back at checkout
-  // instead of the generic /account page.
+  // proxy.ts reads `next` off the same URL Supabase appends `code` to and
+  // redirects there once the session is exchanged — this is how a customer
+  // picking a slot, then signing in, lands back at checkout instead of the
+  // generic /account page.
   const redirectTo = `${siteUrl}/?next=${encodeURIComponent(next ?? "/account")}`;
-  const { error } = await supabase.auth.signInWithOtp({
+
+  // Deliberately NOT supabase.auth.signInWithOtp() — that sends Supabase's
+  // own built-in "Magic Link" email, whose template is a project-wide Auth
+  // setting in this shared Supabase project that Root Café's app has
+  // already branded for itself. generateLink() (service-role only) creates
+  // the same PKCE link without sending anything, so PS Cleaning can email
+  // it with its own branding instead. See DECISIONS.md.
+  const service = createServiceClient();
+  const { data, error } = await service.auth.admin.generateLink({
+    type: "magiclink",
     email,
-    options: { emailRedirectTo: redirectTo },
+    options: { redirectTo },
   });
   if (error) throw new Error(error.message);
+
+  const actionLink = data.properties?.action_link;
+  if (!actionLink) throw new Error("Couldn't generate a sign-in link");
+
+  const settings = await getBusinessSettings();
+  await sendMagicLinkEmail(settings.business_name, email, actionLink);
 }
 
 export async function signOutAction() {

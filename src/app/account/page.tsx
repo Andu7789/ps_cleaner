@@ -3,7 +3,6 @@ import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { signOutAction } from "@/lib/actions/customer";
-import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import type { Booking, Cleaner, Service } from "@/lib/types";
 
 type BookingRow = Booking & { PS_CLEAN_services: Service | null; PS_CLEAN_cleaners: Cleaner | null };
@@ -44,7 +43,11 @@ export default async function AccountPage() {
         <h2 className="font-semibold text-foreground">Upcoming bookings</h2>
         <div className="mt-3 space-y-3">
           {upcoming.map((b) => (
-            <div key={b.id} className="rounded-xl border border-border bg-card p-4">
+            <Link
+              key={b.id}
+              href={`/account/bookings/${b.id}`}
+              className="block rounded-xl border border-border bg-card p-4 transition hover:border-brand"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground">{b.PS_CLEAN_services?.name}</p>
@@ -54,11 +57,16 @@ export default async function AccountPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-foreground">{formatPence(b.price_pence)}</p>
-                  <p className="text-xs capitalize text-muted-foreground">{b.status.replace("_", " ")}</p>
+                  <p
+                    className={`text-xs capitalize ${
+                      b.status === "pending_payment" ? "font-medium text-danger" : "text-muted-foreground"
+                    }`}
+                  >
+                    {b.status === "pending_payment" ? "Payment needed" : b.status.replace("_", " ")}
+                  </p>
                 </div>
               </div>
-              {b.status === "confirmed" && <CancelBookingButton bookingId={b.id} />}
-            </div>
+            </Link>
           ))}
           {upcoming.length === 0 && (
             <p className="text-sm text-muted-foreground">

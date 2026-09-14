@@ -19,6 +19,18 @@ function ConfirmForm({ bookingId, amountDuePence }: { bookingId: string; amountD
     setPending(true);
     setError(null);
 
+    // Required before confirmPayment — without it Stripe.js throws
+    // "We could not retrieve data from the specified Element" because the
+    // Payment Element's collected field values (and any wallet-specific
+    // data, e.g. Apple/Google Pay) are never finalized for confirmPayment
+    // to read. Easy to miss since older code samples predate this step.
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setError(submitError.message ?? "Please check your payment details and try again.");
+      setPending(false);
+      return;
+    }
+
     const { error: confirmError } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",

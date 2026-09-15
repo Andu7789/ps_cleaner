@@ -22,8 +22,8 @@ The database currently has placeholder demo data seeded for testing (cleaner "Ja
 - [ ] Waitlist / cancellation fill notifications
 - [x] Customer ratings/reviews after each clean — `PS_CLEAN_reviews`, `/account/bookings/[id]` review form, star rating + count shown on the booking picker
 - [x] Add-on services at checkout (upsells) — `PS_CLEAN_addons`/`PS_CLEAN_service_addons`, admin at `/admin/addons`, checkout lets customers select extras
-- [ ] Referral scheme
-- [ ] Loyalty/credit system (e.g. book 5, 6th half price)
+- [x] Referral scheme — `/r/[code]` links, £10 credit both ways on the referred customer's first completed booking
+- [x] Loyalty/credit system — every 5th completed booking earns a spendable credit worth half its price; one shared `PS_CLEAN_customer_credits` ledger backs both this and referrals
 - [ ] Cleaner payout tracking (hours/jobs completed)
 
 ## Pro tier

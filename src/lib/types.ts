@@ -139,6 +139,19 @@ export interface CleanerRating {
   review_count: number;
 }
 
+export interface CleanerPayout {
+  id: string;
+  cleaner_id: string;
+  period_start: string;
+  period_end: string;
+  booking_count: number;
+  total_minutes: number;
+  total_revenue_pence: number;
+  notes: string | null;
+  paid_by: string | null;
+  created_at: string;
+}
+
 export interface Payment {
   id: string;
   booking_id: string;

@@ -18,13 +18,15 @@ The database currently has placeholder demo data seeded for testing (cleaner "Ja
 
 ## Growth tier
 
-- [ ] Recurring/regular bookings with auto-rebooking
-- [ ] Waitlist / cancellation fill notifications
+- [x] Recurring/regular bookings with auto-rebooking — `PS_CLEAN_recurring_bookings`, "Make it regular" on a confirmed booking, pause/resume from `/account`, daily `/api/cron/generate-recurring-bookings` generates the next occurrence via `ps_clean_create_booking` (service_role bypass) so it gets the same conflict-checking as a manual booking
+- [x] Waitlist / cancellation fill notifications — `PS_CLEAN_waitlist_entries`, notified on cancellation from any of the three cancellation paths (customer, admin, system/webhook)
 - [x] Customer ratings/reviews after each clean — `PS_CLEAN_reviews`, `/account/bookings/[id]` review form, star rating + count shown on the booking picker
 - [x] Add-on services at checkout (upsells) — `PS_CLEAN_addons`/`PS_CLEAN_service_addons`, admin at `/admin/addons`, checkout lets customers select extras
 - [x] Referral scheme — `/r/[code]` links, £10 credit both ways on the referred customer's first completed booking
 - [x] Loyalty/credit system — every 5th completed booking earns a spendable credit worth half its price; one shared `PS_CLEAN_customer_credits` ledger backs both this and referrals
-- [ ] Cleaner payout tracking (hours/jobs completed)
+- [x] Cleaner payout tracking (hours/jobs completed) — `PS_CLEAN_cleaner_payouts`, admin at `/admin/payouts`
+
+**All 7 Growth-tier items are now built and deployed.**
 
 ## Pro tier
 

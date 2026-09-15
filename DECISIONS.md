@@ -213,6 +213,20 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 17. Cleaner portal: week schedule, customer database, earnings summary
+
+**What was added:** `PS_CLEAN_recurring_bookings` had no cleaner read policy at all before this (only the owning customer or an admin could see a recurring series) — added `recurring_bookings read own as cleaner` (direct `cleaner_id` column check, same shape as the existing `bookings read own as cleaner` policy from migration 0021, no recursion risk). Everything else needed for this — a week's worth of bookings, which customers a cleaner has served, their own invoices — was already readable via existing RLS policies from migrations 0020/0021, so no other schema change was needed.
+
+- **`/cleaner/schedule`**: a Monday-first week view (prev/next navigation via a `?week=` date-key param) grouping the same bookings the Today page already queries, just widened to a 7-day window, plus a "Your regular customers" list from the newly-readable recurring bookings. Jobs generated from a recurring series get a small "Recurring" badge.
+- **`/cleaner/customers`**: every customer a cleaner has ever had a booking with, aggregated client-side from their own booking history (name, address, phone, job count, last visit) — the same fetch-then-aggregate style used everywhere else in this codebase for small per-tenant datasets (e.g. the admin reports page), not a new RPC.
+- **Earnings summary** (top of `/cleaner/invoices`): "this week" / "this month" totals computed directly from completed bookings × the cleaner's pay rate — deliberately *not* derived from invoice `issued_at` dates, since a job earned this week may not be invoiced yet, and an invoice's period rarely lines up with a calendar week or month anyway. This meant extracting the pay-rate math (`computePayable`) out of `lib/actions/invoices.ts` into its own module, `lib/pay-rate.ts` — a `"use server"` file may only export async server actions, so the shared calculation couldn't stay there once something outside an action needed to call it.
+
+**Found and left alone during testing:** while inserting a test booking to verify the schedule page, discovered `jane@example.com` (one of the demo cleaner accounts from earlier sessions) also has a real `PS_CLEAN_customers` profile ("Fred") with a genuine confirmed upcoming booking against the new Rug Cleaning service — not something this session created. Left it untouched rather than force through the original cleanup (which failed on exactly this foreign-key reference) — a customer/cleaner sharing one login is unusual but not invalid, and deleting real, currently-confirmed booking data to tidy up an unrelated test would be the wrong tradeoff.
+
+**Reversibility:** High. All additive — one new RLS policy, two new pages, a summary section, and a moved (not duplicated) pure function.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

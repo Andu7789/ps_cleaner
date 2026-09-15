@@ -21,9 +21,15 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
           </button>
         </form>
       </div>
-      <nav className="flex gap-4 border-b border-border py-3 text-sm">
+      <nav className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border py-3 text-sm">
         <Link href="/cleaner" className="font-medium text-foreground hover:text-brand">
           Today
+        </Link>
+        <Link href="/cleaner/schedule" className="font-medium text-foreground hover:text-brand">
+          Schedule
+        </Link>
+        <Link href="/cleaner/customers" className="font-medium text-foreground hover:text-brand">
+          Customers
         </Link>
         <Link href="/cleaner/invoices" className="font-medium text-foreground hover:text-brand">
           Invoices

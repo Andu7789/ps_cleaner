@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/format";
+import { computePayable } from "@/lib/pay-rate";
 import type { PayRateType } from "@/lib/types";
 
 interface EligibleBooking {
@@ -12,22 +13,6 @@ interface EligibleBooking {
   ends_at: string;
   price_pence: number;
   PS_CLEAN_services: { name: string } | null;
-}
-
-// Cents-precision rounding at the line-item level (not just the total) so
-// an invoice's line items always sum exactly to its total — no rounding
-// remainder to explain to a cleaner being paid down to the penny.
-function computePayable(
-  booking: { price_pence: number; starts_at: string; ends_at: string },
-  payRateType: PayRateType,
-  payRateValue: number
-): number {
-  if (payRateType === "percentage") return Math.round((booking.price_pence * payRateValue) / 100);
-  if (payRateType === "hourly") {
-    const hours = (new Date(booking.ends_at).getTime() - new Date(booking.starts_at).getTime()) / 3_600_000;
-    return Math.round(hours * payRateValue);
-  }
-  return Math.round(payRateValue);
 }
 
 export interface InvoicePreviewLine {

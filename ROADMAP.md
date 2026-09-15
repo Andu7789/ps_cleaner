@@ -38,6 +38,7 @@ The database currently has placeholder demo data seeded for testing (cleaner "Ja
 ## Ideas surfaced during the Pro build (not yet tiered)
 
 - [x] Cleaner invoicing (upgrades the old "payout tracking" into real numbered invoices, itemized from actual completed jobs, computed from each cleaner's own pay rate, visible to both admin and the cleaner) — `/admin/invoices`, `/cleaner/invoices`, see DECISIONS.md #16. The old `PS_CLEAN_cleaner_payouts` table/page (`/admin/payouts`) is left in place, untouched, but no longer linked from the nav — superseded, not deleted.
+- [x] Cleaner portal expansion: week schedule (not just today), a customer database (everyone they've cleaned for, most recent first), visibility into their own recurring/regular customers, and a real earnings summary (this week / this month, computed from actual completed jobs + their pay rate, not from invoice dates) — `/cleaner/schedule`, `/cleaner/customers`, `/cleaner/invoices`. See DECISIONS.md #17.
 
 **Two real bugs found and fixed while building this tier — see DECISIONS.md #14:** magic-link sign-in never actually completed for anyone (implicit-flow token in a URL fragment vs. the app's PKCE-only callback route), and a cleaner could read/write another cleaner's booking photos (a pre-existing project-wide "Allow all" storage policy silently overriding this app's own bucket-scoped RLS). Both confirmed live and fixed before this tier shipped.
 

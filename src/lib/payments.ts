@@ -2,6 +2,49 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 import { sendBookingConfirmation } from "@/lib/notify";
 
+// Marks a still-pending booking confirmed and sends the confirmation
+// notification — shared by whatever actually clears the amount due,
+// whether that's a Stripe payment succeeding or a customer covering the
+// whole thing with credit (see createBookingAction). No-ops if the
+// booking isn't 'pending_payment' (already confirmed, or cancelled),
+// so it's safe to call speculatively rather than needing the caller to
+// check first.
+export async function confirmBookingAndNotify(service: SupabaseClient, bookingId: string): Promise<void> {
+  const { data: booking } = await service
+    .from("PS_CLEAN_bookings")
+    .select(
+      "id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking || booking.status !== "pending_payment") return;
+
+  await service.from("PS_CLEAN_bookings").update({ status: "confirmed", updated_at: new Date().toISOString() }).eq("id", bookingId);
+
+  const [{ data: customer }, { data: cleaner }, { data: svc }, { data: address }, { data: settings }] =
+    await Promise.all([
+      service.from("PS_CLEAN_customers").select("full_name, email, phone").eq("id", booking.customer_id).maybeSingle(),
+      service.from("PS_CLEAN_cleaners").select("full_name").eq("id", booking.cleaner_id).maybeSingle(),
+      service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
+      service.from("PS_CLEAN_customer_addresses").select("line1, city, postcode").eq("id", booking.address_id).maybeSingle(),
+      service.from("PS_CLEAN_business_settings").select("business_name").eq("id", true).maybeSingle(),
+    ]);
+
+  await sendBookingConfirmation({
+    bookingId: booking.id,
+    businessName: settings?.business_name ?? "Cleaning Company",
+    serviceName: svc?.name ?? "Clean",
+    cleanerName: cleaner?.full_name ?? "your cleaner",
+    startsAt: booking.starts_at,
+    addressLine: address ? `${address.line1}, ${address.city} ${address.postcode}` : "your address",
+    pricePence: booking.price_pence,
+    depositPence: booking.deposit_pence,
+    customerName: customer?.full_name ?? null,
+    customerEmail: customer?.email ?? null,
+    customerPhone: customer?.phone ?? null,
+  });
+}
+
 // The single place that reconciles a succeeded Stripe PaymentIntent against
 // our own booking state: marks the payment row succeeded, bumps the
 // booking's amount_paid_pence, confirms it if this was the first payment to
@@ -24,20 +67,15 @@ export async function applySucceededPaymentIntent(service: SupabaseClient, inten
 
   const { data: booking } = await service
     .from("PS_CLEAN_bookings")
-    .select(
-      "id, status, amount_paid_pence, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
-    )
+    .select("id, amount_paid_pence")
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking) return;
 
-  const wasPendingPayment = booking.status === "pending_payment";
-  const newAmountPaid = booking.amount_paid_pence + (payment?.amount_pence ?? 0);
   await service
     .from("PS_CLEAN_bookings")
     .update({
-      amount_paid_pence: newAmountPaid,
-      status: wasPendingPayment ? "confirmed" : booking.status,
+      amount_paid_pence: booking.amount_paid_pence + (payment?.amount_pence ?? 0),
       updated_at: new Date().toISOString(),
     })
     .eq("id", bookingId);
@@ -52,28 +90,5 @@ export async function applySucceededPaymentIntent(service: SupabaseClient, inten
       .eq("stripe_customer_id", customerId);
   }
 
-  if (wasPendingPayment) {
-    const [{ data: customer }, { data: cleaner }, { data: svc }, { data: address }, { data: settings }] =
-      await Promise.all([
-        service.from("PS_CLEAN_customers").select("full_name, email, phone").eq("id", booking.customer_id).maybeSingle(),
-        service.from("PS_CLEAN_cleaners").select("full_name").eq("id", booking.cleaner_id).maybeSingle(),
-        service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
-        service.from("PS_CLEAN_customer_addresses").select("line1, city, postcode").eq("id", booking.address_id).maybeSingle(),
-        service.from("PS_CLEAN_business_settings").select("business_name").eq("id", true).maybeSingle(),
-      ]);
-
-    await sendBookingConfirmation({
-      bookingId: booking.id,
-      businessName: settings?.business_name ?? "Cleaning Company",
-      serviceName: svc?.name ?? "Clean",
-      cleanerName: cleaner?.full_name ?? "your cleaner",
-      startsAt: booking.starts_at,
-      addressLine: address ? `${address.line1}, ${address.city} ${address.postcode}` : "your address",
-      pricePence: booking.price_pence,
-      depositPence: booking.deposit_pence,
-      customerName: customer?.full_name ?? null,
-      customerEmail: customer?.email ?? null,
-      customerPhone: customer?.phone ?? null,
-    });
-  }
+  await confirmBookingAndNotify(service, bookingId);
 }

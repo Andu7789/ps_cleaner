@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
+import { confirmBookingAndNotify } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { Customer, PaymentType } from "@/lib/types";
@@ -74,17 +75,22 @@ export interface CreateBookingInput {
   startsAt: string;
   notes?: string;
   addonIds?: string[];
+  applyCreditPence?: number;
 }
 
 export interface CreateBookingResult {
   bookingId: string;
-  clientSecret: string;
+  // null when credit fully covered the amount due — nothing left to pay,
+  // no PaymentIntent was created (Stripe doesn't support a £0 one), and
+  // the booking is already 'confirmed'.
+  clientSecret: string | null;
   amountDuePence: number;
 }
 
 // Creates the booking row via the ps_clean_create_booking RPC — the actual
-// source of truth for "no double-booking" (see DECISIONS.md #4) — then
-// starts payment for it.
+// source of truth for "no double-booking" (see DECISIONS.md #4) — applies
+// any credit the customer chose to redeem, then starts payment for
+// whatever's left.
 export async function createBookingAction(input: CreateBookingInput): Promise<CreateBookingResult> {
   const { customer } = await requireCustomer();
   const supabase = await createClient();
@@ -102,8 +108,24 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     .single();
 
   if (error) throw new Error(error.message);
-  const bookingRow = booking as { id: string; price_pence: number; deposit_pence: number };
+  let bookingRow = booking as { id: string; price_pence: number; deposit_pence: number };
+
+  if (input.applyCreditPence && input.applyCreditPence > 0) {
+    const { data: redeemed, error: redeemError } = await supabase
+      .rpc("ps_clean_redeem_credit", { p_booking_id: bookingRow.id, p_amount_pence: input.applyCreditPence })
+      .single();
+    if (redeemError) throw new Error(redeemError.message);
+    bookingRow = redeemed as typeof bookingRow;
+  }
+
   const amountDuePence = bookingRow.deposit_pence > 0 ? bookingRow.deposit_pence : bookingRow.price_pence;
+
+  if (amountDuePence <= 0) {
+    const service = createServiceClient();
+    await confirmBookingAndNotify(service, bookingRow.id);
+    return { bookingId: bookingRow.id, clientSecret: null, amountDuePence: 0 };
+  }
+
   const paymentType: PaymentType = bookingRow.deposit_pence > 0 ? "deposit" : "full";
 
   const stripe = getStripe();

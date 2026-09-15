@@ -1,11 +1,21 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getBusinessSettings } from "@/lib/business";
 import { sendMagicLinkEmail } from "@/lib/notify";
+
+function generateReferralCode(): string {
+  // Short, shareable, unambiguous (no 0/O/1/I) — this is meant to be typed
+  // or read aloud, not just clicked.
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return code;
+}
 
 export async function requestMagicLinkAction(email: string, next?: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -45,14 +55,44 @@ export async function signOutAction() {
 export async function createCustomerProfileAction(fullName: string, phone: string, next?: string) {
   const user = await requireUser();
   const supabase = await createClient();
-  const { error } = await supabase.from("PS_CLEAN_customers").insert({
-    user_id: user.id,
-    full_name: fullName,
-    email: user.email,
-    phone,
-  });
-  if (error) throw new Error(error.message);
-  redirect(next || "/account");
+  const service = createServiceClient();
+
+  // Resolve who referred this signup, if anyone — set by /r/[code], read
+  // once and cleared here so it can't be reapplied to a later account.
+  const cookieStore = await cookies();
+  const refCode = cookieStore.get("ps_clean_ref")?.value;
+  let referredByCustomerId: string | null = null;
+  if (refCode) {
+    const { data: referrer } = await service
+      .from("PS_CLEAN_customers")
+      .select("id")
+      .eq("referral_code", refCode.toUpperCase())
+      .maybeSingle();
+    referredByCustomerId = referrer?.id ?? null;
+    cookieStore.delete("ps_clean_ref");
+  }
+
+  // Retry on the rare collision rather than pre-checking then inserting —
+  // closes the same race a check-then-insert always has, for a cost of a
+  // few extra attempts that will essentially never actually happen at 32^6
+  // possible codes.
+  let lastError: string | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { error } = await supabase.from("PS_CLEAN_customers").insert({
+      user_id: user.id,
+      full_name: fullName,
+      email: user.email,
+      phone,
+      referral_code: generateReferralCode(),
+      referred_by_customer_id: referredByCustomerId,
+    });
+    if (!error) {
+      redirect(next || "/account");
+    }
+    if (error.code !== "23505") throw new Error(error.message);
+    lastError = error.message;
+  }
+  throw new Error(lastError ?? "Couldn't create your account — please try again.");
 }
 
 export interface AddressInput {

@@ -73,8 +73,21 @@ export interface Customer {
   phone: string | null;
   stripe_customer_id: string | null;
   stripe_default_payment_method_id: string | null;
+  referral_code: string | null;
+  referred_by_customer_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type CreditReason = "referral_bonus" | "referred_signup_bonus" | "loyalty_reward" | "redeemed";
+
+export interface CustomerCredit {
+  id: string;
+  customer_id: string;
+  amount_pence: number;
+  reason: CreditReason;
+  related_booking_id: string | null;
+  created_at: string;
 }
 
 export interface CustomerAddress {

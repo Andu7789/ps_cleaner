@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createBookingAction } from "@/lib/actions/booking";
 import { addAddressAction } from "@/lib/actions/customer";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
@@ -15,6 +16,7 @@ interface Props {
   startsAt: string;
   addresses: CustomerAddress[];
   addons: Addon[];
+  creditBalancePence: number;
 }
 
 export function CheckoutForm({
@@ -25,11 +27,14 @@ export function CheckoutForm({
   startsAt,
   addresses: initialAddresses,
   addons,
+  creditBalancePence,
 }: Props) {
+  const router = useRouter();
   const [addresses] = useState(initialAddresses);
   const [addressId, setAddressId] = useState(initialAddresses.find((a) => a.is_default)?.id ?? initialAddresses[0]?.id ?? "");
   const [showNewAddress, setShowNewAddress] = useState(initialAddresses.length === 0);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+  const [useCredit, setUseCredit] = useState(creditBalancePence > 0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<{ bookingId: string; clientSecret: string; amountDuePence: number } | null>(null);
@@ -40,7 +45,9 @@ export function CheckoutForm({
   // due now if there's no deposit, or get folded into the later balance if
   // there is one — one payment-timing rule, not two (see the migration
   // comment on ps_clean_create_booking for why).
-  const amountDue = service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : grandTotal;
+  const amountDueBeforeCredit = service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : grandTotal;
+  const creditApplied = useCredit ? Math.min(creditBalancePence, amountDueBeforeCredit) : 0;
+  const amountDue = amountDueBeforeCredit - creditApplied;
 
   function toggleAddon(addonId: string) {
     setSelectedAddonIds((prev) => (prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]));
@@ -83,8 +90,14 @@ export function CheckoutForm({
         addressId,
         startsAt,
         addonIds: selectedAddonIds,
+        applyCreditPence: creditApplied,
       });
-      if (!result.clientSecret) throw new Error("Couldn't start payment — please try again.");
+      if (!result.clientSecret) {
+        // Credit covered the whole amount due — nothing left to pay, and
+        // the booking is already confirmed server-side.
+        router.push(`/book/confirmation?bookingId=${result.bookingId}`);
+        return;
+      }
       setBooking({ bookingId: result.bookingId, clientSecret: result.clientSecret, amountDuePence: result.amountDuePence });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't create this booking");
@@ -122,7 +135,19 @@ export function CheckoutForm({
           {formatPence(amountDue)} due now
           {service.deposit_pence ? ` (deposit — ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}
         </p>
+        {creditApplied > 0 && (
+          <p className="mt-1 text-xs text-success">{formatPence(creditApplied)} credit applied</p>
+        )}
       </div>
+
+      {creditBalancePence > 0 && (
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-sm">
+          <span className="flex items-center gap-2">
+            <input type="checkbox" className="accent-brand" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />
+            Use my {formatPence(creditBalancePence)} credit
+          </span>
+        </label>
+      )}
 
       {addons.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-5">
@@ -204,7 +229,7 @@ export function CheckoutForm({
         disabled={pending || !addressId}
         className="w-full rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground disabled:opacity-60"
       >
-        {pending ? "Booking…" : "Continue to payment"}
+        {pending ? "Booking…" : amountDue <= 0 ? "Confirm booking" : "Continue to payment"}
       </button>
     </div>
   );

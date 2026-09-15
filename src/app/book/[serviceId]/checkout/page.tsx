@@ -24,16 +24,18 @@ export default async function CheckoutPage({
   if (!customer) redirect(`/account/setup?next=${encodeURIComponent(currentUrl)}`);
 
   const supabase = await createClient();
-  const [{ data: service }, { data: cleaner }, { data: addresses }, { data: addonLinks }] = await Promise.all([
-    supabase.from("PS_CLEAN_services").select("*").eq("id", serviceId).maybeSingle(),
-    supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
-    supabase
-      .from("PS_CLEAN_customer_addresses")
-      .select("*")
-      .eq("customer_id", customer.id)
-      .order("created_at", { ascending: true }),
-    supabase.from("PS_CLEAN_service_addons").select("PS_CLEAN_addons(*)").eq("service_id", serviceId),
-  ]);
+  const [{ data: service }, { data: cleaner }, { data: addresses }, { data: addonLinks }, { data: creditBalance }] =
+    await Promise.all([
+      supabase.from("PS_CLEAN_services").select("*").eq("id", serviceId).maybeSingle(),
+      supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
+      supabase
+        .from("PS_CLEAN_customer_addresses")
+        .select("*")
+        .eq("customer_id", customer.id)
+        .order("created_at", { ascending: true }),
+      supabase.from("PS_CLEAN_service_addons").select("PS_CLEAN_addons(*)").eq("service_id", serviceId),
+      supabase.rpc("ps_clean_customer_credit_balance", { p_customer_id: customer.id }),
+    ]);
 
   if (!service || !cleaner) redirect(`/book/${serviceId}`);
 
@@ -53,6 +55,7 @@ export default async function CheckoutPage({
           startsAt={startsAt}
           addresses={(addresses ?? []) as CustomerAddress[]}
           addons={addons}
+          creditBalancePence={creditBalance ?? 0}
         />
       </div>
     </div>

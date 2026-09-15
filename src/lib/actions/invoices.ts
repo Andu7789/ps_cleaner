@@ -139,7 +139,7 @@ export async function markInvoicePaidAction(invoiceId: string) {
     .eq("id", invoiceId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/invoices");
-  revalidatePath(`/admin/invoices/${invoiceId}`);
+  revalidatePath(`/admin/invoice/${invoiceId}`);
 }
 
 export async function voidInvoiceAction(invoiceId: string) {
@@ -161,7 +161,7 @@ export async function voidInvoiceAction(invoiceId: string) {
     .eq("id", invoiceId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/invoices");
-  revalidatePath(`/admin/invoices/${invoiceId}`);
+  revalidatePath(`/admin/invoice/${invoiceId}`);
 }
 
 export async function updateCleanerPayRateAction(cleanerId: string, payRateType: PayRateType, payRateValue: number) {

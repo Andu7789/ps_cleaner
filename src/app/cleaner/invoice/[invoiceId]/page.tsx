@@ -6,7 +6,10 @@ import { getBusinessSettings } from "@/lib/business";
 import { InvoiceDocument } from "@/components/invoices/invoice-document";
 import type { CleanerInvoice, CleanerInvoiceItem } from "@/lib/types";
 
-export default async function CleanerInvoiceDetailPage({ params }: { params: Promise<{ invoiceId: string }> }) {
+// Deliberately outside /cleaner/(protected) — same reasoning as the admin
+// invoice document route: this is meant to be read/printed/saved on its
+// own, not browsed alongside the Today/Invoices tab nav.
+export default async function CleanerInvoiceDocumentPage({ params }: { params: Promise<{ invoiceId: string }> }) {
   const { invoiceId } = await params;
   const { cleaner } = await requireCleaner();
   const supabase = await createClient();
@@ -20,8 +23,8 @@ export default async function CleanerInvoiceDetailPage({ params }: { params: Pro
   if (!invoice) notFound();
 
   return (
-    <div>
-      <Link href="/cleaner/invoices" className="text-sm text-muted-foreground hover:underline">
+    <div className="mx-auto max-w-2xl px-4 py-10">
+      <Link href="/cleaner/invoices" className="text-sm text-muted-foreground hover:underline print:hidden">
         &larr; Your invoices
       </Link>
       <div className="mt-4">

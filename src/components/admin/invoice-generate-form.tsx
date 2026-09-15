@@ -56,7 +56,7 @@ export function InvoiceGenerateForm({ cleaners, defaultCleanerId }: { cleaners: 
         new Date(`${periodEnd}T23:59:59`).toISOString(),
         notes || undefined
       );
-      router.push(`/admin/invoices/${invoiceId}`);
+      router.push(`/admin/invoice/${invoiceId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't generate this invoice");
       setGenerating(false);

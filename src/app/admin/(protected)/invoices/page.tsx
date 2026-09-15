@@ -50,7 +50,7 @@ export default async function AdminInvoicesPage({
           {((invoices ?? []) as InvoiceRow[]).map((inv) => (
             <Link
               key={inv.id}
-              href={`/admin/invoices/${inv.id}`}
+              href={`/admin/invoice/${inv.id}`}
               className="flex items-center justify-between rounded-lg border border-border bg-card p-3 text-sm transition hover:border-brand"
             >
               <div>

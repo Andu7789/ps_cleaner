@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSettings } from "@/lib/business";
 import { InvoiceDocument } from "@/components/invoices/invoice-document";
@@ -8,7 +9,13 @@ import type { Cleaner, CleanerInvoice, CleanerInvoiceItem } from "@/lib/types";
 
 type InvoiceRow = CleanerInvoice & { PS_CLEAN_cleaners: Cleaner | null };
 
-export default async function AdminInvoiceDetailPage({ params }: { params: Promise<{ invoiceId: string }> }) {
+// Deliberately outside the /admin/(protected) route group, the same way
+// /admin/login sits outside it — an invoice is a document meant to be
+// read, printed, or saved as a PDF on its own, not browsed via the admin
+// section tabs, which would print/export alongside it otherwise. Auth is
+// checked directly here instead of inheriting it from that layout.
+export default async function AdminInvoiceDocumentPage({ params }: { params: Promise<{ invoiceId: string }> }) {
+  await requireAdmin();
   const { invoiceId } = await params;
   const supabase = await createClient();
 
@@ -22,8 +29,8 @@ export default async function AdminInvoiceDetailPage({ params }: { params: Promi
   const inv = invoice as InvoiceRow;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href="/admin/invoices" className="text-sm text-muted-foreground hover:underline">
+    <div className="mx-auto max-w-2xl px-4 py-10">
+      <Link href="/admin/invoices" className="text-sm text-muted-foreground hover:underline print:hidden">
         &larr; All invoices
       </Link>
       <div className="mt-4">

@@ -28,7 +28,7 @@ export default async function CleanerInvoicesPage() {
         {invoices.map((inv) => (
           <Link
             key={inv.id}
-            href={`/cleaner/invoices/${inv.id}`}
+            href={`/cleaner/invoice/${inv.id}`}
             className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition hover:border-brand"
           >
             <div>

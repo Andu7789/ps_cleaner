@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { cancelBookingAsSystem } from "@/lib/bookings";
 import { sendBookingConfirmation } from "@/lib/notify";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -110,14 +111,12 @@ export async function POST(request: Request) {
         .eq("stripe_payment_intent_id", intent.id);
 
       // Free the slot immediately rather than leaving it stuck in
-      // 'pending_payment' forever — see ROADMAP.md for the follow-up of a
-      // scheduled cleanup job for abandoned checkouts instead of relying
-      // only on this webhook firing.
+      // 'pending_payment' forever. This webhook only fires if Stripe
+      // reaches us at all — a customer who just closes the tab mid-checkout
+      // leaves no event to react to, which is what the scheduled cleanup in
+      // /api/cron/cancel-stale-bookings is for.
       if (bookingId) {
-        await service.rpc("ps_clean_cancel_booking", {
-          p_booking_id: bookingId,
-          p_reason: "Payment failed",
-        });
+        await cancelBookingAsSystem(service, bookingId, "Payment failed");
       }
       break;
     }

@@ -116,6 +116,30 @@ Per this project's own engineering rules (test in a real browser before calling 
 
 **Reversibility:** High for now (test mode, no real money moved) — but switching to a dedicated account later just means swapping the three env vars and registering a new webhook endpoint; no data migration, since nothing in `PS_CLEAN_*` tables stores anything Stripe-account-specific beyond IDs that would simply be regenerated.
 
+**This actually bit us once already:** two real test bookings got charged successfully on Stripe's side while testing locally, but stayed stuck at `status = 'pending_payment'` in the database, because nothing was running `stripe listen` to forward webhook events to `localhost` — Stripe has nowhere else to deliver them. Manually reconciled those two bookings (matched their PaymentIntents' actual `succeeded` status via the Stripe API and applied the same update the webhook would have). Added `pnpm stripe:listen` (see `package.json` and `README.md`) as the fix going forward — it needs to be running in a second terminal any time a payment is being tested locally, not just once at setup.
+
+---
+
+## 11. System-initiated writes use the service client directly, never the customer-facing RPCs
+
+**What happened:** the NULL-safe ownership fix in decision #7 correctly closed the unauthenticated-impersonation hole in `ps_clean_cancel_booking`, but it had a side effect nobody had reason to check at the time: the Stripe webhook's own call to that same RPC (to free a slot when a payment fails) started failing too. `ps_clean_is_admin()` and `ps_clean_current_customer_id()` both key off `auth.uid()`, which is `NULL` for a service-role request — there's no signed-in user to be. Confirmed live: `ps_clean_cancel_booking` called with the service-role key against a real booking returned `42501 Not your booking`. This wasn't a hypothetical — it was live-tested against real bookings from this session's own testing (see below) and would have silently broken the webhook's auto-cancel-on-payment-failure path in production.
+
+**Decision:** system-initiated cancellations (the Stripe webhook, and the new stale-booking cleanup) go through a direct table update via the service-role client (`lib/bookings.ts` → `cancelBookingAsSystem`), not the `ps_clean_cancel_booking` RPC. `service_role` already has `BYPASSRLS` at the Postgres role level — every other write the webhook makes (updating payment status, confirming a booking, saving a payment method) already relies on exactly this, so routing cancellation through it too is consistent, not a special case. The RPC itself is unchanged and still correctly customer/admin-gated — it's simply the wrong tool for a call with no signed-in user behind it.
+
+**General rule this establishes:** the `ps_clean_*` RPCs in `0004_functions.sql` are the customer-facing surface and should stay strictly ownership-checked. Anything system-initiated (webhooks, cron jobs, admin scripts) should write directly via the service-role client instead of trying to satisfy those RPCs' auth checks — attempting to make an RPC serve both a real user's request and a system process's request is exactly how decision #7's fix broke something else that looked unrelated.
+
+**How this was caught:** while building the abandoned-checkout cleanup (see below), reconciliation of this session's own test bookings surfaced two that had actually succeeded on Stripe but stayed `pending_payment` in the database (see decision #10's addendum) — investigating why exposed this RPC/service-role gap before it could cause the same silent failure for the new cleanup job.
+
+---
+
+## 12. Abandoned-checkout cleanup: `/api/cron/cancel-stale-bookings`
+
+**Decision:** any booking still at `pending_payment` 30 minutes after creation gets auto-cancelled, freeing its slot. Closes the gap the Stripe webhook can't: a customer who abandons checkout without Stripe ever generating a payment-failed event (closed the tab, never entered card details) leaves no event for the webhook to react to, so the booking — and the slot it holds — would otherwise sit there forever.
+
+**Why 30 minutes:** long enough that a customer slowly filling in card details isn't at risk of getting cancelled out from under them, short enough that a genuinely abandoned slot doesn't block real bookings for hours. Not a value with strong justification behind it — a reasonable first default, easy to tune later (`STALE_AFTER_MINUTES` in the route file) once there's real usage data on how long checkout actually takes people.
+
+**Needs the same post-deployment scheduling as the other two cron routes** (see ROADMAP.md) — it's built and manually verified working (see decision #11), just not on an actual timer yet.
+
 ---
 
 ## Flagged for review (not fixed — outside this app's ownership)

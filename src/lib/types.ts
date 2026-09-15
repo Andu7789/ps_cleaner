@@ -2,6 +2,8 @@ export type BookingStatus = "pending_payment" | "confirmed" | "cancelled" | "com
 export type PaymentType = "deposit" | "full" | "balance" | "refund" | "cancellation_fee";
 export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
 
+export type PayRateType = "percentage" | "hourly" | "fixed_per_job";
+
 export interface Cleaner {
   id: string;
   user_id: string | null;
@@ -12,6 +14,8 @@ export interface Cleaner {
   photo_url: string | null;
   calendar_color: string;
   is_active: boolean;
+  pay_rate_type: PayRateType;
+  pay_rate_value: number;
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +171,33 @@ export interface CleanerPayout {
   total_revenue_pence: number;
   notes: string | null;
   paid_by: string | null;
+  created_at: string;
+}
+
+export type InvoiceStatus = "issued" | "paid" | "void";
+
+export interface CleanerInvoice {
+  id: string;
+  invoice_number: string;
+  cleaner_id: string;
+  period_start: string;
+  period_end: string;
+  status: InvoiceStatus;
+  total_pence: number;
+  notes: string | null;
+  created_by: string | null;
+  issued_at: string;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CleanerInvoiceItem {
+  id: string;
+  invoice_id: string;
+  booking_id: string | null;
+  description: string;
+  amount_pence: number;
   created_at: string;
 }
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { requireCleaner } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/customer";
 
@@ -20,6 +21,14 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
           </button>
         </form>
       </div>
+      <nav className="flex gap-4 border-b border-border py-3 text-sm">
+        <Link href="/cleaner" className="font-medium text-foreground hover:text-brand">
+          Today
+        </Link>
+        <Link href="/cleaner/invoices" className="font-medium text-foreground hover:text-brand">
+          Invoices
+        </Link>
+      </nav>
       <div className="py-6">{children}</div>
     </div>
   );

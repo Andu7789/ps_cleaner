@@ -6,7 +6,9 @@ import {
   deleteTimeOffAction,
   deleteWorkingHoursAction,
 } from "@/lib/actions/admin";
+import Link from "next/link";
 import { QualificationCard } from "@/components/admin/qualification-card";
+import { PayRateForm } from "@/components/admin/pay-rate-form";
 import { formatDate } from "@/lib/format";
 import type { Cleaner, CleanerRating, Review, Service, TimeOff, WorkingHours } from "@/lib/types";
 
@@ -68,7 +70,24 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-foreground">{(cleaner as Cleaner).full_name}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-foreground">{(cleaner as Cleaner).full_name}</h1>
+        <Link href={`/admin/invoices?cleanerId=${cleanerId}`} className="text-sm font-medium text-brand hover:underline">
+          View invoices →
+        </Link>
+      </div>
+
+      <section className="mt-6">
+        <h2 className="font-semibold text-foreground">Pay rate</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Used to calculate what this cleaner is owed when you generate an invoice.</p>
+        <div className="mt-2">
+          <PayRateForm
+            cleanerId={cleanerId}
+            initialType={(cleaner as Cleaner).pay_rate_type}
+            initialValue={(cleaner as Cleaner).pay_rate_value}
+          />
+        </div>
+      </section>
 
       <section className="mt-6">
         <div className="flex items-center gap-3">

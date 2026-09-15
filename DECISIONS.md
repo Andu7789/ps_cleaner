@@ -194,6 +194,25 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 16. Cleaner invoicing: real numbered documents, not just a revenue log
+
+**What was there before:** `PS_CLEAN_cleaner_payouts` (Growth tier) recorded a manually-triggered summary — booking count, hours, and *customer-facing revenue* — per cleaner per period. It had no concept of what a cleaner is actually paid (which is rarely the same as the job's price to the customer), no line items, no invoice numbering, and no persistent document a cleaner could be shown or reference later.
+
+**Decision:** built a proper invoicing layer on top, rather than extending the payouts table in place:
+
+- `PS_CLEAN_cleaners` gained `pay_rate_type` (`percentage` | `hourly` | `fixed_per_job`) and `pay_rate_value` — a cleaner's actual pay rate, editable from their admin profile. `percentage` is a plain 0-100 number; the other two are pence, consistent with every other money column in this schema.
+- `PS_CLEAN_cleaner_invoices` + `PS_CLEAN_cleaner_invoice_items`: a real, numbered (`INV-00001`, via a Postgres sequence), stored document per cleaner per period, with one line item per completed job, computed from that cleaner's pay rate at generation time — not the job's customer price.
+- A booking can only ever appear on one invoice, enforced by a partial unique index on `invoice_items.booking_id` (`where booking_id is not null`), not just application logic — the same "constraint is the real guarantee, app code is a courtesy layer" pattern as the booking-conflict `EXCLUDE` constraint (decision #4).
+- **Voiding an invoice deletes its line items** (not just flips a status flag) — found necessary during testing: without this, the unique constraint above would permanently block a mistakenly-invoiced job from ever being paid out on a corrected invoice. The invoice header (number, period, total) stays as an audit trail; only the itemized breakdown is released. Verified live: voided an invoice, confirmed the underlying job could immediately be re-invoiced on a fresh one.
+- **The cleaner can see their own invoices** (`/cleaner/invoices`), read-only via RLS (`cleaner_invoices read own` / `cleaner_invoice_items read own`) — this is explicitly "an invoice *for* the cleaner, showing what they're owed," not just an internal admin record, so it belongs in the cleaner portal alongside today's jobs. Confirmed live that a cleaner's own session can read their invoice but a direct write attempt (e.g. trying to mark it paid themselves) is silently no-op'd by RLS, same as any other read-only policy in this schema.
+- The old `PS_CLEAN_cleaner_payouts` table and `/admin/payouts` page are left in place untouched (existing historical records aren't deleted) but the admin nav now points at `/admin/invoices` instead — payouts is superseded, not removed.
+
+**Why not extend the payouts table instead of adding two new ones:** the payouts row shape (one summary row, no line items, revenue not payout amount) couldn't represent "what's actually owed, broken down by job" without a breaking schema change to a table that might already have real historical rows by the time this was built — a clean new pair of tables is more reversible and the old data is never at risk.
+
+**Reversibility:** Medium — the pay-rate columns and new tables are purely additive. Removing the invoicing feature later would just mean hiding the nav link again; nothing else in the schema depends on it.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

@@ -35,6 +35,10 @@ The database currently has placeholder demo data seeded for testing (cleaner "Ja
 - [x] Installable PWA for customers — `public/manifest.webmanifest` + minimal service worker (static assets only, deliberately not offline-first for a live booking system)
 - [ ] Multi-tenant architecture (if sold to more than one cleaning company — see DECISIONS.md #2 for what this touches)
 
+## Ideas surfaced during the Pro build (not yet tiered)
+
+- [x] Cleaner invoicing (upgrades the old "payout tracking" into real numbered invoices, itemized from actual completed jobs, computed from each cleaner's own pay rate, visible to both admin and the cleaner) — `/admin/invoices`, `/cleaner/invoices`, see DECISIONS.md #16. The old `PS_CLEAN_cleaner_payouts` table/page (`/admin/payouts`) is left in place, untouched, but no longer linked from the nav — superseded, not deleted.
+
 **Two real bugs found and fixed while building this tier — see DECISIONS.md #14:** magic-link sign-in never actually completed for anyone (implicit-flow token in a URL fragment vs. the app's PKCE-only callback route), and a cleaner could read/write another cleaner's booking photos (a pre-existing project-wide "Allow all" storage policy silently overriding this app's own bucket-scoped RLS). Both confirmed live and fixed before this tier shipped.
 
 ## Ideas surfaced during the Core build (not yet tiered)

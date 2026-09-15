@@ -3,6 +3,40 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+
+// Records who changed what on a booking and from/to what value — so a
+// rescheduled or status-changed booking can always be explained later.
+// Best-effort: a logging failure must never block the override itself,
+// which has already succeeded by the time this runs.
+async function logBookingChange(
+  supabase: SupabaseClient,
+  actor: User,
+  bookingId: string,
+  field: string,
+  oldValue: string | null,
+  newValue: string | null
+) {
+  try {
+    const { data: admin } = await supabase
+      .from("PS_CLEAN_admin_users")
+      .select("display_name")
+      .eq("user_id", actor.id)
+      .maybeSingle();
+
+    await supabase.from("PS_CLEAN_admin_change_log").insert({
+      booking_id: bookingId,
+      field,
+      old_value: oldValue,
+      new_value: newValue,
+      actor_user_id: actor.id,
+      actor_name: admin?.display_name ?? actor.email ?? null,
+    });
+  } catch {
+    // The override itself already succeeded by the time this runs — a
+    // failed audit-log write shouldn't be treated as the override failing.
+  }
+}
 
 export interface CleanerInput {
   fullName: string;
@@ -153,23 +187,54 @@ export async function deleteTimeOffAction(id: string) {
 // constraint still applies regardless — an admin can move a job to a time
 // outside normal hours, but never onto a slot that's actually double-booked.
 export async function adminRescheduleBookingAction(bookingId: string, startsAt: string, endsAt: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createClient();
+
+  const { data: before } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("starts_at, ends_at")
+    .eq("id", bookingId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("PS_CLEAN_bookings")
     .update({ starts_at: startsAt, ends_at: endsAt, updated_at: new Date().toISOString() })
     .eq("id", bookingId);
   if (error) throw new Error(error.message);
+
+  if (before && (before.starts_at !== startsAt || before.ends_at !== endsAt)) {
+    await logBookingChange(
+      supabase,
+      admin,
+      bookingId,
+      "schedule",
+      `${before.starts_at} – ${before.ends_at}`,
+      `${startsAt} – ${endsAt}`
+    );
+  }
+
   revalidatePath("/admin/bookings");
 }
 
 export async function adminSetBookingStatusAction(bookingId: string, status: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createClient();
+
+  const { data: before } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("status")
+    .eq("id", bookingId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("PS_CLEAN_bookings")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", bookingId);
   if (error) throw new Error(error.message);
+
+  if (before && before.status !== status) {
+    await logBookingChange(supabase, admin, bookingId, "status", before.status, status);
+  }
+
   revalidatePath("/admin/bookings");
 }

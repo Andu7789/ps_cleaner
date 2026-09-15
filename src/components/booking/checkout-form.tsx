@@ -6,7 +6,7 @@ import { createBookingAction } from "@/lib/actions/booking";
 import { addAddressAction } from "@/lib/actions/customer";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { PaymentStep } from "@/components/booking/payment-step";
-import type { Addon, CustomerAddress, Service } from "@/lib/types";
+import type { Addon, BookingAccessMethod, CustomerAddress, Service } from "@/lib/types";
 
 interface Props {
   customerId: string;
@@ -35,6 +35,10 @@ export function CheckoutForm({
   const [showNewAddress, setShowNewAddress] = useState(initialAddresses.length === 0);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [useCredit, setUseCredit] = useState(creditBalancePence > 0);
+  const [wantsMeetCleanerFirst, setWantsMeetCleanerFirst] = useState(false);
+  const [parkingAvailable, setParkingAvailable] = useState(false);
+  const [hasPets, setHasPets] = useState(false);
+  const [accessMethod, setAccessMethod] = useState<BookingAccessMethod>("let_in");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<{ bookingId: string; clientSecret: string; amountDuePence: number } | null>(null);
@@ -91,6 +95,10 @@ export function CheckoutForm({
         startsAt,
         addonIds: selectedAddonIds,
         applyCreditPence: creditApplied,
+        wantsMeetCleanerFirst,
+        parkingAvailable,
+        hasPets,
+        accessMethod,
       });
       if (!result.clientSecret) {
         // Credit covered the whole amount due — nothing left to pay, and
@@ -175,6 +183,42 @@ export function CheckoutForm({
       )}
 
       <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="font-semibold text-foreground">Before your visit</h2>
+        <div className="mt-3 space-y-4 text-sm">
+          <YesNoQuestion
+            label="Do you want to meet your cleaner first?"
+            value={wantsMeetCleanerFirst}
+            onChange={setWantsMeetCleanerFirst}
+          />
+          <YesNoQuestion label="Is parking available nearby?" value={parkingAvailable} onChange={setParkingAvailable} />
+          <YesNoQuestion label="Do you have any pets?" value={hasPets} onChange={setHasPets} />
+          <div>
+            <p className="text-foreground">How will your cleaner access the property?</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAccessMethod("keys")}
+                className={`rounded-lg border px-3 py-1.5 font-medium ${
+                  accessMethod === "keys" ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
+                }`}
+              >
+                I will provide keys
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccessMethod("let_in")}
+                className={`rounded-lg border px-3 py-1.5 font-medium ${
+                  accessMethod === "let_in" ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
+                }`}
+              >
+                I will let them in
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Address</h2>
         {addresses.length > 0 && (
           <div className="mt-3 space-y-2">
@@ -231,6 +275,34 @@ export function CheckoutForm({
       >
         {pending ? "Booking…" : amountDue <= 0 ? "Confirm booking" : "Continue to payment"}
       </button>
+    </div>
+  );
+}
+
+function YesNoQuestion({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div>
+      <p className="text-foreground">{label}</p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={`rounded-lg border px-3 py-1.5 font-medium ${
+            value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
+          }`}
+        >
+          Yes
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={`rounded-lg border px-3 py-1.5 font-medium ${
+            !value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
+          }`}
+        >
+          No
+        </button>
+      </div>
     </div>
   );
 }

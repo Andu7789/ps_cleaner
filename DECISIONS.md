@@ -227,6 +227,18 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 18. Pre-visit checkout questions: real columns, and the RPC-overload trap avoided again
+
+**What was added:** four questions at checkout — "meet your cleaner first?", "parking available?", "any pets?", "keys or let-in?" — stored as real columns on `PS_CLEAN_bookings` (`wants_meet_cleaner_first`, `parking_available`, `has_pets`, `access_method`) rather than folded into the free-text `notes` field, since a cleaner needs to see these reliably (shown on their job detail page under "Before you arrive"), not parse them out of prose.
+
+**Why this touched `ps_clean_create_booking` carefully:** the only write path for a customer-created booking is that RPC (see DECISIONS.md #4 — it's the actual conflict-checking logic, not just an insert). Adding new parameters to it is exactly the situation that caused a real bug once before (DECISIONS.md, the "function overload ambiguity" fix, `ps_clean_0019b`): `CREATE OR REPLACE FUNCTION` with a different parameter list creates a **new overload** instead of replacing the function, and PostgREST then can't tell which one a plain RPC call means (`PGRST203`). This migration explicitly `DROP FUNCTION`s the old exact signature before recreating it with the four new params appended (all with defaults), and confirmed via `pg_get_function_identity_arguments` that exactly one `ps_clean_create_booking` exists afterward — not two. Every existing caller (the checkout flow, the recurring-booking generator, the cron job) keeps working unchanged since the new params are optional and trailing.
+
+**Verified live:** called the updated RPC directly with all four values set, confirmed the returned row actually carried them through (`...,t,t,t,keys)`), then loaded the cleaner's real job detail page and confirmed all four render under "Before you arrive."
+
+**Reversibility:** High — four new nullable-by-default columns and one RPC parameter list change, following the exact same drop-and-recreate pattern already proven safe once before.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

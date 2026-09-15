@@ -6,7 +6,7 @@ import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { confirmBookingAndNotify } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import type { Customer, PaymentType } from "@/lib/types";
+import type { BookingAccessMethod, Customer, PaymentType } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
@@ -77,6 +77,10 @@ export interface CreateBookingInput {
   notes?: string;
   addonIds?: string[];
   applyCreditPence?: number;
+  wantsMeetCleanerFirst?: boolean;
+  parkingAvailable?: boolean;
+  hasPets?: boolean;
+  accessMethod?: BookingAccessMethod;
 }
 
 export interface CreateBookingResult {
@@ -105,6 +109,10 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
       p_starts_at: input.startsAt,
       p_notes: input.notes ?? null,
       p_addon_ids: input.addonIds ?? [],
+      p_wants_meet_cleaner_first: input.wantsMeetCleanerFirst ?? false,
+      p_parking_available: input.parkingAvailable ?? false,
+      p_has_pets: input.hasPets ?? false,
+      p_access_method: input.accessMethod ?? "let_in",
     })
     .single();
 

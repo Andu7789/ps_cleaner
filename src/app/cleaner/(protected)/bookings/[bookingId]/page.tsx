@@ -88,6 +88,16 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
           </p>
         )}
         {job.notes && <p className="mt-2 text-sm text-muted-foreground">Booking notes: {job.notes}</p>}
+
+        <h2 className="mt-4 font-semibold text-foreground">Before you arrive</h2>
+        <ul className="mt-1 space-y-1 text-sm text-foreground">
+          <li>{job.access_method === "keys" ? "Customer will provide keys" : "Customer will let you in"}</li>
+          {job.wants_meet_cleaner_first && <li>Customer wants to meet you first</li>}
+          {job.has_pets && <li>Has pets</li>}
+          <li className="text-muted-foreground">
+            Parking nearby: {job.parking_available ? "Yes" : "No"}
+          </li>
+        </ul>
       </div>
 
       {(job.status === "confirmed" || job.status === "completed") && (

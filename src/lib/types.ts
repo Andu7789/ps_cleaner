@@ -107,6 +107,8 @@ export interface CustomerAddress {
   created_at: string;
 }
 
+export type BookingAccessMethod = "keys" | "let_in";
+
 export interface Booking {
   id: string;
   customer_id: string;
@@ -122,6 +124,10 @@ export interface Booking {
   deposit_pence: number;
   amount_paid_pence: number;
   notes: string | null;
+  wants_meet_cleaner_first: boolean;
+  parking_available: boolean;
+  has_pets: boolean;
+  access_method: BookingAccessMethod;
   cancelled_at: string | null;
   cancellation_reason: string | null;
   recurring_booking_id: string | null;

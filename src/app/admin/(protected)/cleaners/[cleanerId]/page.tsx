@@ -7,26 +7,44 @@ import {
   deleteWorkingHoursAction,
 } from "@/lib/actions/admin";
 import { QualificationCard } from "@/components/admin/qualification-card";
-import type { Cleaner, Service, TimeOff, WorkingHours } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import type { Cleaner, CleanerRating, Review, Service, TimeOff, WorkingHours } from "@/lib/types";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+type ReviewRow = Review & { PS_CLEAN_customers: { full_name: string | null } | null };
 
 export default async function CleanerDetailPage({ params }: { params: Promise<{ cleanerId: string }> }) {
   const { cleanerId } = await params;
   const supabase = await createClient();
 
-  const [{ data: cleaner }, { data: services }, { data: qualifications }, { data: workingHours }, { data: timeOff }] =
-    await Promise.all([
-      supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
-      supabase.from("PS_CLEAN_services").select("*").eq("is_active", true).order("name"),
-      supabase.from("PS_CLEAN_cleaner_services").select("service_id").eq("cleaner_id", cleanerId),
-      supabase.from("PS_CLEAN_cleaner_working_hours").select("*").eq("cleaner_id", cleanerId).order("day_of_week"),
-      supabase.from("PS_CLEAN_cleaner_time_off").select("*").eq("cleaner_id", cleanerId).order("starts_at"),
-    ]);
+  const [
+    { data: cleaner },
+    { data: services },
+    { data: qualifications },
+    { data: workingHours },
+    { data: timeOff },
+    { data: ratingRows },
+    { data: reviews },
+  ] = await Promise.all([
+    supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
+    supabase.from("PS_CLEAN_services").select("*").eq("is_active", true).order("name"),
+    supabase.from("PS_CLEAN_cleaner_services").select("service_id").eq("cleaner_id", cleanerId),
+    supabase.from("PS_CLEAN_cleaner_working_hours").select("*").eq("cleaner_id", cleanerId).order("day_of_week"),
+    supabase.from("PS_CLEAN_cleaner_time_off").select("*").eq("cleaner_id", cleanerId).order("starts_at"),
+    supabase.rpc("ps_clean_cleaner_rating", { p_cleaner_id: cleanerId }),
+    supabase
+      .from("PS_CLEAN_reviews")
+      .select("*, PS_CLEAN_customers(full_name)")
+      .eq("cleaner_id", cleanerId)
+      .order("created_at", { ascending: false }),
+  ]);
 
   if (!cleaner) notFound();
 
   const qualifiedServiceIds = new Set((qualifications ?? []).map((q) => q.service_id));
+  const rating = (ratingRows?.[0] ?? null) as CleanerRating | null;
+  const cleanerReviews = (reviews ?? []) as ReviewRow[];
 
   async function addHours(formData: FormData) {
     "use server";
@@ -51,6 +69,41 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
   return (
     <div>
       <h1 className="text-xl font-semibold text-foreground">{(cleaner as Cleaner).full_name}</h1>
+
+      <section className="mt-6">
+        <div className="flex items-center gap-3">
+          <h2 className="font-semibold text-foreground">Reviews</h2>
+          {rating && rating.review_count > 0 ? (
+            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span className="text-amber-400">★</span>
+              {rating.average_rating} ({rating.review_count} review{rating.review_count === 1 ? "" : "s"})
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">No reviews yet</span>
+          )}
+        </div>
+        {cleanerReviews.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {cleanerReviews.map((r) => (
+              <div key={r.id} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-0.5" aria-label={`${r.rating} out of 5 stars`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <span key={n} className={n <= r.rating ? "text-amber-400" : "text-border"}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {r.PS_CLEAN_customers?.full_name ?? "Customer"} &middot; {formatDate(r.created_at)}
+                  </span>
+                </div>
+                {r.comment && <p className="mt-1 text-muted-foreground">{r.comment}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="mt-6">
         <h2 className="font-semibold text-foreground">Qualified services</h2>

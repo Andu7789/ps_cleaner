@@ -22,12 +22,12 @@ export default async function AdminCleanersPage() {
     <div>
       <h1 className="text-xl font-semibold text-foreground">Cleaners</h1>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cleaners.map((c) => (
-          <div key={c.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
-            <Link href={`/admin/cleaners/${c.id}`} className="hover:text-brand">
-              <p className="font-medium text-foreground">{c.full_name}</p>
-              <p className="text-sm text-muted-foreground">{c.email ?? c.phone ?? "No contact details"}</p>
+          <div key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+            <Link href={`/admin/cleaners/${c.id}`} className="min-w-0 hover:text-brand">
+              <p className="truncate font-medium text-foreground">{c.full_name}</p>
+              <p className="truncate text-sm text-muted-foreground">{c.email ?? c.phone ?? "No contact details"}</p>
             </Link>
             <ToggleActiveButton isActive={c.is_active} onToggle={setCleanerActiveAction.bind(null, c.id)} />
           </div>

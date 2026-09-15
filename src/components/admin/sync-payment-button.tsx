@@ -19,7 +19,7 @@ export function SyncPaymentButton({ bookingId }: { bookingId: string }) {
             setResult(outcome.message);
           })
         }
-        className="text-xs font-medium text-brand hover:underline disabled:opacity-60"
+        className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-brand hover:border-brand disabled:opacity-60"
       >
         {pending ? "Checking…" : "Sync with Stripe"}
       </button>

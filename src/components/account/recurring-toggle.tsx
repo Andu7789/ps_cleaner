@@ -11,7 +11,7 @@ export function RecurringToggle({ recurringId, isActive }: { recurringId: string
       type="button"
       disabled={pending}
       onClick={() => startTransition(() => pauseRecurringAction(recurringId, !isActive))}
-      className="text-xs font-medium text-muted-foreground hover:text-brand hover:underline disabled:opacity-60"
+      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-brand hover:text-brand disabled:opacity-60"
     >
       {isActive ? "Pause" : "Resume"}
     </button>

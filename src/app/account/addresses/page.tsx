@@ -46,7 +46,10 @@ export default async function AddressesPage() {
                 await deleteAddressAction(a.id);
               }}
             >
-              <button type="submit" className="text-sm text-danger hover:underline">
+              <button
+                type="submit"
+                className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/5"
+              >
                 Remove
               </button>
             </form>

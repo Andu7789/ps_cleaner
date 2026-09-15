@@ -30,6 +30,24 @@ export interface Service {
   updated_at: string;
 }
 
+export interface Addon {
+  id: string;
+  name: string;
+  description: string | null;
+  price_pence: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingAddon {
+  id: string;
+  booking_id: string;
+  addon_id: string | null;
+  name: string;
+  price_pence: number;
+}
+
 export interface WorkingHours {
   id: string;
   cleaner_id: string;

@@ -73,6 +73,7 @@ export interface CreateBookingInput {
   addressId: string;
   startsAt: string;
   notes?: string;
+  addonIds?: string[];
 }
 
 export interface CreateBookingResult {
@@ -96,6 +97,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
       p_address_id: input.addressId,
       p_starts_at: input.startsAt,
       p_notes: input.notes ?? null,
+      p_addon_ids: input.addonIds ?? [],
     })
     .single();
 

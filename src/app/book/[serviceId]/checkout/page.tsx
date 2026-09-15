@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCustomer, getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CheckoutForm } from "@/components/booking/checkout-form";
-import type { Cleaner, CustomerAddress, Service } from "@/lib/types";
+import type { Addon, Cleaner, CustomerAddress, Service } from "@/lib/types";
 
 export default async function CheckoutPage({
   params,
@@ -24,7 +24,7 @@ export default async function CheckoutPage({
   if (!customer) redirect(`/account/setup?next=${encodeURIComponent(currentUrl)}`);
 
   const supabase = await createClient();
-  const [{ data: service }, { data: cleaner }, { data: addresses }] = await Promise.all([
+  const [{ data: service }, { data: cleaner }, { data: addresses }, { data: addonLinks }] = await Promise.all([
     supabase.from("PS_CLEAN_services").select("*").eq("id", serviceId).maybeSingle(),
     supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
     supabase
@@ -32,9 +32,14 @@ export default async function CheckoutPage({
       .select("*")
       .eq("customer_id", customer.id)
       .order("created_at", { ascending: true }),
+    supabase.from("PS_CLEAN_service_addons").select("PS_CLEAN_addons(*)").eq("service_id", serviceId),
   ]);
 
   if (!service || !cleaner) redirect(`/book/${serviceId}`);
+
+  const addons = ((addonLinks ?? [])
+    .map((row) => row.PS_CLEAN_addons)
+    .filter(Boolean) as unknown as Addon[]).filter((a) => a.is_active);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -47,6 +52,7 @@ export default async function CheckoutPage({
           cleanerName={(cleaner as Cleaner).full_name}
           startsAt={startsAt}
           addresses={(addresses ?? []) as CustomerAddress[]}
+          addons={addons}
         />
       </div>
     </div>

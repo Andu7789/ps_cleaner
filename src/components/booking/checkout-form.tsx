@@ -5,7 +5,7 @@ import { createBookingAction } from "@/lib/actions/booking";
 import { addAddressAction } from "@/lib/actions/customer";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { PaymentStep } from "@/components/booking/payment-step";
-import type { CustomerAddress, Service } from "@/lib/types";
+import type { Addon, CustomerAddress, Service } from "@/lib/types";
 
 interface Props {
   customerId: string;
@@ -14,17 +14,37 @@ interface Props {
   cleanerName: string;
   startsAt: string;
   addresses: CustomerAddress[];
+  addons: Addon[];
 }
 
-export function CheckoutForm({ customerId, service, cleanerId, cleanerName, startsAt, addresses: initialAddresses }: Props) {
+export function CheckoutForm({
+  customerId,
+  service,
+  cleanerId,
+  cleanerName,
+  startsAt,
+  addresses: initialAddresses,
+  addons,
+}: Props) {
   const [addresses] = useState(initialAddresses);
   const [addressId, setAddressId] = useState(initialAddresses.find((a) => a.is_default)?.id ?? initialAddresses[0]?.id ?? "");
   const [showNewAddress, setShowNewAddress] = useState(initialAddresses.length === 0);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<{ bookingId: string; clientSecret: string; amountDuePence: number } | null>(null);
 
-  const amountDue = service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : service.price_pence;
+  const addonTotal = addons.filter((a) => selectedAddonIds.includes(a.id)).reduce((sum, a) => sum + a.price_pence, 0);
+  const grandTotal = service.price_pence + addonTotal;
+  // A deposit covers only the base clean; add-ons ride along on whatever's
+  // due now if there's no deposit, or get folded into the later balance if
+  // there is one — one payment-timing rule, not two (see the migration
+  // comment on ps_clean_create_booking for why).
+  const amountDue = service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : grandTotal;
+
+  function toggleAddon(addonId: string) {
+    setSelectedAddonIds((prev) => (prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]));
+  }
 
   async function handleNewAddress(formData: FormData) {
     setPending(true);
@@ -57,7 +77,13 @@ export function CheckoutForm({ customerId, service, cleanerId, cleanerName, star
     setPending(true);
     setError(null);
     try {
-      const result = await createBookingAction({ cleanerId, serviceId: service.id, addressId, startsAt });
+      const result = await createBookingAction({
+        cleanerId,
+        serviceId: service.id,
+        addressId,
+        startsAt,
+        addonIds: selectedAddonIds,
+      });
       if (!result.clientSecret) throw new Error("Couldn't start payment — please try again.");
       setBooking({ bookingId: result.bookingId, clientSecret: result.clientSecret, amountDuePence: result.amountDuePence });
     } catch (err) {
@@ -94,9 +120,34 @@ export function CheckoutForm({ customerId, service, cleanerId, cleanerName, star
         </p>
         <p className="mt-2 text-sm font-semibold text-brand">
           {formatPence(amountDue)} due now
-          {service.deposit_pence ? ` (deposit — ${formatPence(service.price_pence - service.deposit_pence)} due before your clean)` : ""}
+          {service.deposit_pence ? ` (deposit — ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}
         </p>
       </div>
+
+      {addons.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="font-semibold text-foreground">Add extras</h2>
+          <div className="mt-3 space-y-2">
+            {addons.map((addon) => (
+              <label key={addon.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                <span className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1 accent-brand"
+                    checked={selectedAddonIds.includes(addon.id)}
+                    onChange={() => toggleAddon(addon.id)}
+                  />
+                  <span>
+                    <span className="font-medium text-foreground">{addon.name}</span>
+                    {addon.description && <span className="block text-xs text-muted-foreground">{addon.description}</span>}
+                  </span>
+                </span>
+                <span className="shrink-0 text-muted-foreground">{formatPence(addon.price_pence)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Address</h2>

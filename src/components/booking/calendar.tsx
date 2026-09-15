@@ -2,25 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { canGoToNextMonth, canGoToPreviousMonth, getCalendarWeeks, startOfDay, toDateKey } from "@/lib/calendar";
+import { canGoToPreviousMonth, getCalendarWeeks, startOfDay, toDateKey } from "@/lib/calendar";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function Calendar({
   selectedDate,
   onSelectDate,
-  windowDays,
 }: {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
-  windowDays: number;
 }) {
   const today = useMemo(() => startOfDay(new Date()), []);
   const [monthAnchor, setMonthAnchor] = useState(() => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
-  const weeks = useMemo(() => getCalendarWeeks(monthAnchor, today, windowDays), [monthAnchor, today, windowDays]);
+  const weeks = useMemo(() => getCalendarWeeks(monthAnchor, today), [monthAnchor, today]);
   const canGoBack = canGoToPreviousMonth(monthAnchor, today);
-  const canGoForward = canGoToNextMonth(monthAnchor, today, windowDays);
   const selectedKey = toDateKey(selectedDate);
   const todayKey = toDateKey(today);
 
@@ -50,9 +47,8 @@ export function Calendar({
           <button
             type="button"
             aria-label="Next month"
-            disabled={!canGoForward}
             onClick={() => setMonthAnchor(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1))}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
             <ChevronRight className="h-4 w-4" />
           </button>

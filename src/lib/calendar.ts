@@ -1,6 +1,6 @@
 // Pure calendar-grid math for the booking date picker. Kept separate from
-// the Calendar component so the month-grid/window-boundary logic (the part
-// most likely to have an off-by-one) can be unit tested without React.
+// the Calendar component so the month-grid/boundary logic (the part most
+// likely to have an off-by-one) can be unit tested without React.
 
 export interface CalendarDay {
   date: Date;
@@ -24,17 +24,13 @@ export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function windowEndFor(today: Date, windowDays: number): Date {
-  const end = startOfDay(today);
-  end.setDate(end.getDate() + windowDays - 1);
-  return end;
-}
-
 // Monday-first week grid covering monthAnchor's whole month, padded with
-// the adjacent months' days needed to fill complete weeks.
-export function getCalendarWeeks(monthAnchor: Date, today: Date, windowDays: number): CalendarDay[][] {
+// the adjacent months' days needed to fill complete weeks. No upper bound
+// on how far ahead a customer can book — a cleaner's working hours are a
+// recurring weekly pattern with no natural end date, so there's nothing
+// that makes a date 6 months out any less valid than one next week.
+export function getCalendarWeeks(monthAnchor: Date, today: Date): CalendarDay[][] {
   const todayStart = startOfDay(today);
-  const windowEnd = windowEndFor(today, windowDays);
 
   const firstOfMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1);
   const lastOfMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0);
@@ -55,7 +51,7 @@ export function getCalendarWeeks(monthAnchor: Date, today: Date, windowDays: num
       date,
       inMonth: date.getMonth() === monthAnchor.getMonth(),
       isToday: date.getTime() === todayStart.getTime(),
-      isSelectable: date.getTime() >= todayStart.getTime() && date.getTime() <= windowEnd.getTime(),
+      isSelectable: date.getTime() >= todayStart.getTime(),
     });
   }
 
@@ -70,10 +66,4 @@ export function canGoToPreviousMonth(monthAnchor: Date, today: Date): boolean {
     monthAnchor.getFullYear() > todayStart.getFullYear() ||
     (monthAnchor.getFullYear() === todayStart.getFullYear() && monthAnchor.getMonth() > todayStart.getMonth())
   );
-}
-
-export function canGoToNextMonth(monthAnchor: Date, today: Date, windowDays: number): boolean {
-  const windowEnd = windowEndFor(today, windowDays);
-  const firstOfNextMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1);
-  return firstOfNextMonth.getTime() <= windowEnd.getTime();
 }

@@ -10,8 +10,6 @@ import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
 import type { Cleaner, FreeSlotRange, Service } from "@/lib/types";
 
-const BOOKING_WINDOW_DAYS = 28;
-
 function initials(name: string): string {
   return name
     .split(" ")
@@ -120,7 +118,7 @@ export function SlotPicker({ service, cleaners }: { service: Service; cleaners: 
   return (
     <div className="grid gap-6 md:grid-cols-[320px_1fr] md:gap-8">
       <div>
-        <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} windowDays={BOOKING_WINDOW_DAYS} />
+        <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} />
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">

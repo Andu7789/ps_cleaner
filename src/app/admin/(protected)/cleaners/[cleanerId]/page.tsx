@@ -6,7 +6,7 @@ import {
   deleteTimeOffAction,
   deleteWorkingHoursAction,
 } from "@/lib/actions/admin";
-import { QualificationCheckbox } from "@/components/admin/qualification-checkbox";
+import { QualificationCard } from "@/components/admin/qualification-card";
 import type { Cleaner, Service, TimeOff, WorkingHours } from "@/lib/types";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -54,40 +54,57 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
 
       <section className="mt-6">
         <h2 className="font-semibold text-foreground">Qualified services</h2>
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {(services ?? []).map((s: Service) => (
-            <label key={s.id} className="flex items-center gap-2 text-sm">
-              <QualificationCheckbox
-                cleanerId={cleanerId}
-                serviceId={s.id}
-                initiallyQualified={qualifiedServiceIds.has(s.id)}
-              />
-              {s.name}
-            </label>
+            <QualificationCard
+              key={s.id}
+              cleanerId={cleanerId}
+              serviceId={s.id}
+              serviceName={s.name}
+              initiallyQualified={qualifiedServiceIds.has(s.id)}
+            />
           ))}
         </div>
       </section>
 
       <section className="mt-6">
         <h2 className="font-semibold text-foreground">Working hours</h2>
-        <div className="mt-2 space-y-1">
-          {((workingHours ?? []) as WorkingHours[]).map((wh) => (
-            <div key={wh.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
-              <span>
-                {DAYS[wh.day_of_week]}: {wh.start_time.slice(0, 5)}–{wh.end_time.slice(0, 5)}
-              </span>
-              <form
-                action={async () => {
-                  "use server";
-                  await deleteWorkingHoursAction(wh.id);
-                }}
-              >
-                <button type="submit" className="text-xs text-danger hover:underline">
-                  Remove
-                </button>
-              </form>
-            </div>
-          ))}
+        <p className="mt-1 text-xs text-muted-foreground">
+          Add more than one time block to the same day for a split shift — e.g. 9:00–12:00 and 14:00–18:00.
+        </p>
+        <div className="mt-2 space-y-2">
+          {DAYS.map((day, dayIndex) => {
+            const dayHours = ((workingHours ?? []) as WorkingHours[]).filter((wh) => wh.day_of_week === dayIndex);
+            if (dayHours.length === 0) return null;
+            return (
+              <div key={day} className="rounded-lg border border-border bg-card px-3 py-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{day}</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {dayHours.map((wh) => (
+                    <span
+                      key={wh.id}
+                      className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-sm"
+                    >
+                      {wh.start_time.slice(0, 5)}–{wh.end_time.slice(0, 5)}
+                      <form
+                        action={async () => {
+                          "use server";
+                          await deleteWorkingHoursAction(wh.id);
+                        }}
+                      >
+                        <button type="submit" className="text-xs text-danger hover:underline" aria-label={`Remove ${day} ${wh.start_time.slice(0, 5)}–${wh.end_time.slice(0, 5)}`}>
+                          &times;
+                        </button>
+                      </form>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {(workingHours ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">No working hours set yet.</p>
+          )}
         </div>
         <form action={addHours} className="mt-3 flex flex-wrap items-end gap-2">
           <label className="text-xs text-muted-foreground">
@@ -109,7 +126,7 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
             <input name="endTime" type="time" required defaultValue="17:00" className="mt-1 block rounded-lg border border-border px-2 py-1.5 text-sm" />
           </label>
           <button type="submit" className="rounded-lg bg-muted px-3 py-1.5 text-sm font-medium">
-            Add
+            Add time block
           </button>
         </form>
       </section>

@@ -9,13 +9,33 @@ export default async function CheckoutPage({
   searchParams,
 }: {
   params: Promise<{ serviceId: string }>;
-  searchParams: Promise<{ cleanerId?: string; startsAt?: string }>;
+  searchParams: Promise<{ cleanerId?: string; startsAt?: string; rooms?: string }>;
 }) {
   const { serviceId } = await params;
-  const { cleanerId, startsAt } = await searchParams;
+  const { cleanerId, startsAt, rooms } = await searchParams;
   if (!cleanerId || !startsAt) redirect(`/book/${serviceId}`);
 
-  const currentUrl = `/book/${serviceId}/checkout?cleanerId=${cleanerId}&startsAt=${encodeURIComponent(startsAt)}`;
+  const currentUrl = `/book/${serviceId}/checkout?cleanerId=${cleanerId}&startsAt=${encodeURIComponent(startsAt)}${
+    rooms ? `&rooms=${encodeURIComponent(rooms)}` : ""
+  }`;
+
+  interface RoomSelection {
+    roomTypeId: string;
+    name: string;
+    quantity: number;
+    pricePerUnitPence: number;
+  }
+  let roomSelections: RoomSelection[] = [];
+  if (rooms) {
+    try {
+      const parsed = JSON.parse(rooms);
+      if (Array.isArray(parsed)) roomSelections = parsed;
+    } catch {
+      // Malformed/tampered query param — ignore rather than error; the
+      // server recomputes the real price from scratch either way, so this
+      // only affects what's displayed, never what's charged.
+    }
+  }
 
   const user = await getUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(currentUrl)}`);
@@ -56,6 +76,7 @@ export default async function CheckoutPage({
           addresses={(addresses ?? []) as CustomerAddress[]}
           addons={addons}
           creditBalancePence={creditBalance ?? 0}
+          roomSelections={roomSelections}
         />
       </div>
     </div>

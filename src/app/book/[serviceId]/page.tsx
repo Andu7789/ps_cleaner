@@ -3,7 +3,7 @@ import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration, formatPence } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
-import type { Cleaner, CleanerRating, Service } from "@/lib/types";
+import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/types";
 
 export default async function ServiceBookingPage({
   params,
@@ -44,6 +44,17 @@ export default async function ServiceBookingPage({
     bucket.average_rating = Math.round((total / bucket.review_count) * 10) / 10;
   }
 
+  let roomTypes: CalculatorRoomType[] = [];
+  if ((service as Service).use_calculator) {
+    const { data: roomTypeData } = await supabase
+      .from("PS_CLEAN_calculator_room_types")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("created_at");
+    roomTypes = (roomTypeData ?? []) as CalculatorRoomType[];
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="flex flex-col justify-between gap-4 border-b border-border pb-6 sm:flex-row sm:items-end">
@@ -72,7 +83,7 @@ export default async function ServiceBookingPage({
         {cleaners.length === 0 ? (
           <p className="text-sm text-muted-foreground">No cleaners are currently qualified for this service.</p>
         ) : (
-          <SlotPicker service={service as Service} cleaners={cleaners} ratings={ratings} />
+          <SlotPicker service={service as Service} cleaners={cleaners} ratings={ratings} roomTypes={roomTypes} />
         )}
       </div>
     </div>

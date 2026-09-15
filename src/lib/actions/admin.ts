@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireOwner } from "@/lib/auth";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
@@ -290,4 +290,72 @@ export async function reconcilePaymentAction(bookingId: string): Promise<Reconci
   }
 
   return { outcome: "still_pending", message: `Stripe still shows this as "${intent.status}" — not paid yet.` };
+}
+
+export interface BusinessSettingsInput {
+  businessName: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  timezone: string;
+  reminderHoursBefore: number;
+  balanceChargeDaysBefore: number;
+}
+
+// Owner-only, matching the RLS write policy on PS_CLEAN_business_settings
+// (see migration 0005/0008) — a regular admin can read these values same
+// as the public site does, but only the owner can change them.
+export async function updateBusinessSettingsAction(input: BusinessSettingsInput) {
+  await requireOwner();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_business_settings")
+    .update({
+      business_name: input.businessName,
+      contact_email: input.contactEmail || null,
+      contact_phone: input.contactPhone || null,
+      timezone: input.timezone,
+      reminder_hours_before: input.reminderHoursBefore,
+      balance_charge_days_before: input.balanceChargeDaysBefore,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/settings");
+  revalidatePath("/");
+}
+
+// "Build your experience" pricing calculator — off by default, admin
+// opts a service in explicitly rather than it appearing automatically.
+export async function setServiceCalculatorAction(serviceId: string, useCalculator: boolean) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_services")
+    .update({ use_calculator: useCalculator, updated_at: new Date().toISOString() })
+    .eq("id", serviceId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+}
+
+export async function createRoomTypeAction(name: string, pricePerUnitPence: number) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase.from("PS_CLEAN_calculator_room_types").insert({
+    name,
+    price_per_unit_pence: pricePerUnitPence,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+}
+
+// A real delete, not a deactivate — PS_CLEAN_booking_calculator_selections
+// snapshots the room type's name/price at booking time and its FK is ON
+// DELETE SET NULL, so removing a room type here can never corrupt a
+// historical booking's record of what was actually charged.
+export async function deleteRoomTypeAction(id: string) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase.from("PS_CLEAN_calculator_room_types").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
 }

@@ -239,6 +239,37 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 19. "Build your experience" pricing calculator: admin-managed room types, price-only
+
+**What was built, on explicit direction:** the user asked for this to be something "the admin decides if it is turned on, not something that is offered straight away," and separately asked for the room types themselves to be addable/deletable rather than fixed bedroom/bathroom columns. Ended up as:
+
+- `PS_CLEAN_calculator_room_types` — a global, admin-managed catalog (name + price per unit), same public-read-active/admin-write shape as `PS_CLEAN_addons` (migration 0012). Admin adds/deletes freely from `/admin/services`; a real delete, not a soft-disable, since selections are snapshotted (next point) so deleting a room type can never corrupt a past booking's record.
+- `PS_CLEAN_services.use_calculator` — per-service opt-in, defaults to `false`. A new or existing service shows the plain flat-price flow unless an admin explicitly ticks this on for it.
+- `PS_CLEAN_booking_calculator_selections` — what was actually selected and charged, snapshotted at booking time (`room_type_name`, `price_per_unit_pence`, `quantity`, `line_total_pence`), same principle as `PS_CLEAN_booking_addons`.
+- `ps_clean_create_booking` gained `p_room_selections jsonb default '[]'` (replacing an earlier, simpler `p_bedrooms`/`p_bathrooms smallint` design from before the "make room types addable" request — reverted before ever being applied, so no migration history to unwind). The function validates every `room_type_id` server-side and recomputes the total itself; a tampered/stale client-side quote can never change what's actually charged.
+
+**Deliberately price-only, not duration-only:** adjusting a job's actual duration by room count would mean `ps_clean_available_slots()` also needs those counts to compute correct free windows — a materially larger, riskier change to the core conflict-checking engine (decision #4) to get right in one pass, on one night, without the dedicated live-testing this schema's booking-conflict logic has otherwise always gotten (decisions #7, #11). The calculator changes what a job costs, not how long the cleaner is booked for — nothing about slot availability or double-booking prevention changes at all, so none of that testing needed re-doing.
+
+**Deployment ordering, because this genuinely could have broken live bookings:** `createBookingAction` now always sends `p_room_selections` on every call, calculator or not. Since `vercel deploy` uploads the whole working tree regardless of what's staged in git, deploying the updated action code before this migration existed in the live database would have made the RPC call's parameter list not match any function overload — breaking every booking, not just calculator ones. Held all of tonight's other finished-but-uncommitted work (the admin settings page, an unrelated header fix) rather than deploy anything, until Supabase's own control-plane came back from an unplanned maintenance window and the migration could actually be applied and verified.
+
+**Verified live:** enabled the calculator on a real service, called the RPC directly with two room types and quantities, confirmed the computed total matched exactly and both line items snapshotted correctly; then called the same RPC with no calculator fields against an unrelated service to confirm the plain flat-price path is completely unaffected.
+
+**Reversibility:** High. Two new tables and one boolean column, all additive; the RPC change is backward-compatible (new param is optional and trailing, defaults to empty).
+
+---
+
+## 20. Admin business settings page
+
+**What was there before:** `PS_CLEAN_business_settings` (business name, contact info, reminder timing, balance-charge timing) had RLS since day one restricting writes to the owner (migrations 0005/0008), but no admin UI ever called that write path — the only way to change any of it was direct SQL.
+
+**What was added:** `/admin/settings`, owner-gated (`requireOwner()`, matching the existing RLS policy exactly rather than introducing a new access rule).
+
+**Also fixed in passing:** an earlier fix moved the invoice detail pages (`/admin/invoice/[id]`, `/cleaner/invoice/[id]`) out of the tabbed admin/cleaner layouts specifically so they'd render as clean, printable documents — but the site's *global* header (rendered from the root layout, present on every route regardless of which nested layout a page uses) was still showing above them. `Header` is now a client component that checks its own path and renders nothing on `/admin/invoice/*` and `/cleaner/invoice/*`.
+
+**Reversibility:** High.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

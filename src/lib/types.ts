@@ -30,8 +30,29 @@ export interface Service {
   price_pence: number;
   deposit_pence: number | null;
   is_active: boolean;
+  use_calculator: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CalculatorRoomType {
+  id: string;
+  name: string;
+  price_per_unit_pence: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingCalculatorSelection {
+  id: string;
+  booking_id: string;
+  room_type_id: string | null;
+  room_type_name: string;
+  price_per_unit_pence: number;
+  quantity: number;
+  line_total_pence: number;
 }
 
 export interface Addon {

@@ -6,7 +6,7 @@ import { formatDate, formatDuration, formatTime } from "@/lib/format";
 import { CompleteButton } from "@/components/cleaner/complete-button";
 import { PhotoUpload } from "@/components/cleaner/photo-upload";
 import { PhotoThumb } from "@/components/cleaner/photo-thumb";
-import type { Booking, BookingPhoto, Customer, CustomerAddress, Service } from "@/lib/types";
+import type { Booking, BookingCalculatorSelection, BookingPhoto, Customer, CustomerAddress, Service } from "@/lib/types";
 
 const PHOTO_BUCKET = "ps-clean-booking-photos";
 
@@ -37,6 +37,12 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
     .eq("booking_id", bookingId)
     .order("created_at", { ascending: true });
   const photos = (photoRows ?? []) as BookingPhoto[];
+
+  const { data: roomSelectionRows } = await supabase
+    .from("PS_CLEAN_booking_calculator_selections")
+    .select("*")
+    .eq("booking_id", bookingId);
+  const roomSelections = (roomSelectionRows ?? []) as BookingCalculatorSelection[];
 
   const signedPhotos = await Promise.all(
     photos.map(async (photo) => {
@@ -98,6 +104,19 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
             Parking nearby: {job.parking_available ? "Yes" : "No"}
           </li>
         </ul>
+
+        {roomSelections.length > 0 && (
+          <>
+            <h2 className="mt-4 font-semibold text-foreground">Home size</h2>
+            <ul className="mt-1 text-sm text-foreground">
+              {roomSelections.map((r) => (
+                <li key={r.id}>
+                  {r.quantity} × {r.room_type_name}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       {(job.status === "confirmed" || job.status === "completed") && (

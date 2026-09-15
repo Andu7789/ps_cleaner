@@ -8,6 +8,13 @@ import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { PaymentStep } from "@/components/booking/payment-step";
 import type { Addon, BookingAccessMethod, CustomerAddress, Service } from "@/lib/types";
 
+interface RoomSelection {
+  roomTypeId: string;
+  name: string;
+  quantity: number;
+  pricePerUnitPence: number;
+}
+
 interface Props {
   customerId: string;
   service: Service;
@@ -17,6 +24,7 @@ interface Props {
   addresses: CustomerAddress[];
   addons: Addon[];
   creditBalancePence: number;
+  roomSelections?: RoomSelection[];
 }
 
 export function CheckoutForm({
@@ -28,6 +36,7 @@ export function CheckoutForm({
   addresses: initialAddresses,
   addons,
   creditBalancePence,
+  roomSelections = [],
 }: Props) {
   const router = useRouter();
   const [addresses] = useState(initialAddresses);
@@ -44,7 +53,8 @@ export function CheckoutForm({
   const [booking, setBooking] = useState<{ bookingId: string; clientSecret: string; amountDuePence: number } | null>(null);
 
   const addonTotal = addons.filter((a) => selectedAddonIds.includes(a.id)).reduce((sum, a) => sum + a.price_pence, 0);
-  const grandTotal = service.price_pence + addonTotal;
+  const roomTotal = roomSelections.reduce((sum, r) => sum + r.quantity * r.pricePerUnitPence, 0);
+  const grandTotal = service.price_pence + addonTotal + roomTotal;
   // A deposit covers only the base clean; add-ons ride along on whatever's
   // due now if there's no deposit, or get folded into the later balance if
   // there is one — one payment-timing rule, not two (see the migration
@@ -99,6 +109,7 @@ export function CheckoutForm({
         parkingAvailable,
         hasPets,
         accessMethod,
+        roomSelections: roomSelections.map((r) => ({ roomTypeId: r.roomTypeId, quantity: r.quantity })),
       });
       if (!result.clientSecret) {
         // Credit covered the whole amount due — nothing left to pay, and
@@ -139,6 +150,15 @@ export function CheckoutForm({
           <br />
           {formatDate(startsAt)} at {formatTime(startsAt)}
         </p>
+        {roomSelections.length > 0 && (
+          <ul className="mt-2 text-sm text-muted-foreground">
+            {roomSelections.map((r) => (
+              <li key={r.roomTypeId}>
+                {r.quantity} × {r.name} ({formatPence(r.quantity * r.pricePerUnitPence)})
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-2 text-sm font-semibold text-brand">
           {formatPence(amountDue)} due now
           {service.deposit_pence ? ` (deposit — ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}

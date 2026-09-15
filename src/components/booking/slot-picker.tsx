@@ -9,7 +9,9 @@ import { toDateKey } from "@/lib/calendar";
 import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
 import { WaitlistButton } from "@/components/booking/waitlist-button";
-import type { Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
+import { PricingCalculator } from "@/components/booking/pricing-calculator";
+import { formatPence } from "@/lib/format";
+import type { CalculatorRoomType, Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
 
 function initials(name: string): string {
   return name
@@ -56,13 +58,20 @@ export function SlotPicker({
   service,
   cleaners,
   ratings,
+  roomTypes = [],
 }: {
   service: Service;
   cleaners: Cleaner[];
   ratings: Record<string, CleanerRating>;
+  roomTypes?: CalculatorRoomType[];
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
+  const calculatorTotal = roomTypes.reduce(
+    (sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.price_per_unit_pence,
+    0
+  );
   // null = no successful fetch has landed yet for the current date. Kept
   // stale (not reset to null) across a date change so switching dates
   // doesn't flash a loading state — matches this workspace's convention
@@ -121,11 +130,32 @@ export function SlotPicker({
 
   function chooseSlot(cleanerId: string, startsAt: Date) {
     const params = new URLSearchParams({ cleanerId, startsAt: startsAt.toISOString() });
+    if (service.use_calculator && roomTypes.length > 0) {
+      const selections = roomTypes
+        .filter((rt) => (roomQuantities[rt.id] ?? 0) > 0)
+        .map((rt) => ({ roomTypeId: rt.id, name: rt.name, quantity: roomQuantities[rt.id], pricePerUnitPence: rt.price_per_unit_pence }));
+      if (selections.length > 0) params.set("rooms", JSON.stringify(selections));
+    }
     router.push(`/book/${service.id}/checkout?${params.toString()}`);
   }
 
   return (
     <div className="grid gap-6 md:grid-cols-[320px_1fr] md:gap-8">
+      <div className="md:col-span-2">
+        {service.use_calculator && roomTypes.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-foreground">Build your clean</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tell us about your home and we&apos;ll adjust the price — {formatPence(service.price_pence)} base
+              {calculatorTotal > 0 ? ` + ${formatPence(calculatorTotal)}` : ""}
+            </p>
+            <div className="mt-3">
+              <PricingCalculator roomTypes={roomTypes} quantities={roomQuantities} onChange={setRoomQuantities} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div>
         <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} />
       </div>

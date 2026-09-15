@@ -2,12 +2,18 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDuration, formatPence } from "@/lib/format";
 import { createServiceAction, setServiceActiveAction } from "@/lib/actions/admin";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
-import type { Service } from "@/lib/types";
+import { ServiceCalculatorToggle } from "@/components/admin/service-calculator-toggle";
+import { RoomTypesManager } from "@/components/admin/room-types-manager";
+import type { CalculatorRoomType, Service } from "@/lib/types";
 
 export default async function AdminServicesPage() {
   const supabase = await createClient();
-  const { data } = await supabase.from("PS_CLEAN_services").select("*").order("created_at", { ascending: true });
+  const [{ data }, { data: roomTypeData }] = await Promise.all([
+    supabase.from("PS_CLEAN_services").select("*").order("created_at", { ascending: true }),
+    supabase.from("PS_CLEAN_calculator_room_types").select("*").order("sort_order").order("created_at"),
+  ]);
   const services = (data ?? []) as Service[];
+  const roomTypes = (roomTypeData ?? []) as CalculatorRoomType[];
 
   async function addService(formData: FormData) {
     "use server";
@@ -36,11 +42,18 @@ export default async function AdminServicesPage() {
                 {s.deposit_pence ? ` (${formatPence(s.deposit_pence)} deposit)` : ""} · buffers{" "}
                 {s.buffer_before_minutes}m before / {s.buffer_after_minutes}m after
               </p>
+              <div className="mt-1">
+                <ServiceCalculatorToggle serviceId={s.id} initialEnabled={s.use_calculator} />
+              </div>
             </div>
             <ToggleActiveButton isActive={s.is_active} onToggle={setServiceActiveAction.bind(null, s.id)} />
           </div>
         ))}
         {services.length === 0 && <p className="text-sm text-muted-foreground">No services yet.</p>}
+      </div>
+
+      <div className="mt-8">
+        <RoomTypesManager roomTypes={roomTypes} />
       </div>
 
       <form action={addService} className="mt-8 space-y-3 rounded-xl border border-border bg-card p-5">

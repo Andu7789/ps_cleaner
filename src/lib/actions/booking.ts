@@ -69,6 +69,11 @@ async function createPaymentIntentForBooking(
   return paymentIntent.client_secret;
 }
 
+export interface RoomSelectionInput {
+  roomTypeId: string;
+  quantity: number;
+}
+
 export interface CreateBookingInput {
   cleanerId: string;
   serviceId: string;
@@ -81,6 +86,7 @@ export interface CreateBookingInput {
   parkingAvailable?: boolean;
   hasPets?: boolean;
   accessMethod?: BookingAccessMethod;
+  roomSelections?: RoomSelectionInput[];
 }
 
 export interface CreateBookingResult {
@@ -113,6 +119,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
       p_parking_available: input.parkingAvailable ?? false,
       p_has_pets: input.hasPets ?? false,
       p_access_method: input.accessMethod ?? "let_in",
+      p_room_selections: (input.roomSelections ?? []).map((r) => ({ room_type_id: r.roomTypeId, quantity: r.quantity })),
     })
     .single();
 

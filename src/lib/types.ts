@@ -191,6 +191,17 @@ export interface Payment {
   created_at: string;
 }
 
+export type PhotoKind = "before" | "after";
+
+export interface BookingPhoto {
+  id: string;
+  booking_id: string;
+  kind: PhotoKind;
+  storage_path: string;
+  uploaded_by_cleaner_id: string;
+  created_at: string;
+}
+
 export interface FreeSlotRange {
   cleaner_id: string;
   free_start: string;

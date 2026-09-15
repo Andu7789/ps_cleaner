@@ -7,7 +7,9 @@ import { CancelBookingButton } from "@/components/booking/cancel-booking-button"
 import { MakeRecurringForm } from "@/components/booking/make-recurring-form";
 import { ResumePayment } from "@/components/booking/resume-payment";
 import { ReviewForm } from "@/components/booking/review-form";
-import type { Booking, Cleaner, CustomerAddress, Review, Service } from "@/lib/types";
+import type { Booking, BookingPhoto, Cleaner, CustomerAddress, Review, Service } from "@/lib/types";
+
+const PHOTO_BUCKET = "ps-clean-booking-photos";
 
 type BookingRow = Booking & {
   PS_CLEAN_services: Service;
@@ -31,6 +33,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const booking = data as BookingRow;
 
   let existingReview: Review | null = null;
+  let photosByKind: { before: { id: string; url: string }[]; after: { id: string; url: string }[] } = {
+    before: [],
+    after: [],
+  };
   if (booking.status === "completed") {
     const { data: reviewData } = await supabase
       .from("PS_CLEAN_reviews")
@@ -38,6 +44,22 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       .eq("booking_id", bookingId)
       .maybeSingle();
     existingReview = reviewData as Review | null;
+
+    const { data: photoRows } = await supabase
+      .from("PS_CLEAN_booking_photos")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: true });
+    const signed = await Promise.all(
+      ((photoRows ?? []) as BookingPhoto[]).map(async (photo) => {
+        const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(photo.storage_path, 3600);
+        return { id: photo.id, kind: photo.kind, url: data?.signedUrl ?? null };
+      })
+    );
+    photosByKind = {
+      before: signed.filter((p) => p.kind === "before" && p.url).map((p) => ({ id: p.id, url: p.url as string })),
+      after: signed.filter((p) => p.kind === "after" && p.url).map((p) => ({ id: p.id, url: p.url as string })),
+    };
   }
 
   return (
@@ -87,6 +109,33 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
           <CancelBookingButton bookingId={booking.id} />
+        </div>
+      )}
+
+      {booking.status === "completed" && (photosByKind.before.length > 0 || photosByKind.after.length > 0) && (
+        <div className="mt-6 space-y-4 rounded-xl border border-border bg-card p-5">
+          {photosByKind.before.length > 0 && (
+            <div>
+              <h2 className="font-semibold text-foreground">Before</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {photosByKind.before.map((p) => (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL
+                  <img key={p.id} src={p.url} alt="Before the clean" className="h-24 w-24 rounded-lg object-cover" />
+                ))}
+              </div>
+            </div>
+          )}
+          {photosByKind.after.length > 0 && (
+            <div>
+              <h2 className="font-semibold text-foreground">After</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {photosByKind.after.map((p) => (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL
+                  <img key={p.id} src={p.url} alt="After the clean" className="h-24 w-24 rounded-lg object-cover" />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

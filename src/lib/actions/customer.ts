@@ -20,6 +20,17 @@ function generateReferralCode(): string {
 export async function requestMagicLinkAction(email: string, next?: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  // Normalize case/whitespace before this email is used anywhere. Mobile
+  // keyboards auto-capitalize the first letter of an email field by
+  // default, and Resend's sandbox sender does a literal string match
+  // against the account owner's email for its "testing emails only go to
+  // yourself" restriction — "Andrew@x.com" typed on a phone doesn't match
+  // "andrew@x.com" on file, even though they're the same address (found
+  // live via Vercel logs after DECISIONS.md #15's fix still failed on a
+  // real phone). Supabase itself already treats email case-insensitively,
+  // so this only changes what we send to Resend/display, not auth lookups.
+  const normalizedEmail = email.trim().toLowerCase();
+
   // Deliberately NOT supabase.auth.signInWithOtp() — that sends Supabase's
   // own built-in "Magic Link" email, whose template is a project-wide Auth
   // setting in this shared Supabase project that Root Café's app has
@@ -29,7 +40,7 @@ export async function requestMagicLinkAction(email: string, next?: string) {
   const service = createServiceClient();
   const { data, error } = await service.auth.admin.generateLink({
     type: "magiclink",
-    email,
+    email: normalizedEmail,
   });
   if (error) throw new Error(error.message);
 
@@ -52,7 +63,7 @@ export async function requestMagicLinkAction(email: string, next?: string) {
   const link = `${siteUrl}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=magiclink&next=${encodeURIComponent(next ?? "/account")}`;
 
   const settings = await getBusinessSettings();
-  await sendMagicLinkEmail(settings.business_name, email, link);
+  await sendMagicLinkEmail(settings.business_name, normalizedEmail, link);
 }
 
 export async function signOutAction() {

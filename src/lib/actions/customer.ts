@@ -9,11 +9,11 @@ import { sendMagicLinkEmail } from "@/lib/notify";
 
 export async function requestMagicLinkAction(email: string, next?: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  // proxy.ts reads `next` off the same URL Supabase appends `code` to and
-  // redirects there once the session is exchanged — this is how a customer
-  // picking a slot, then signing in, lands back at checkout instead of the
-  // generic /account page.
-  const redirectTo = `${siteUrl}/?next=${encodeURIComponent(next ?? "/account")}`;
+  // /auth/callback reads `next` off the same URL Supabase appends `code`
+  // to and redirects there once the session is exchanged — this is how a
+  // customer picking a slot, then signing in, lands back at checkout
+  // instead of the generic /account page.
+  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(next ?? "/account")}`;
 
   // Deliberately NOT supabase.auth.signInWithOtp() — that sends Supabase's
   // own built-in "Magic Link" email, whose template is a project-wide Auth

@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/customer";
 
+// The (protected) route group keeps /admin/login as a sibling outside this
+// layout entirely — it never runs requireAdmin() or renders this nav, no
+// pathname-sniffing needed. (Previously done via an x-pathname header set
+// in proxy.ts; removed along with proxy.ts itself — see DECISIONS.md.)
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const pathname = (await headers()).get("x-pathname") ?? "";
-  if (pathname === "/admin/login") return <>{children}</>;
-
   await requireAdmin();
 
   const links = [

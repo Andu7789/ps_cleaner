@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarX2 } from "lucide-react";
+import { CalendarX2, Star } from "lucide-react";
 import { getAvailableSlotsAction } from "@/lib/actions/booking";
 import { candidateStartTimes, groupByTimeOfDay } from "@/lib/slots";
 import { toDateKey } from "@/lib/calendar";
 import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
-import type { Cleaner, FreeSlotRange, Service } from "@/lib/types";
+import type { Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
 
 function initials(name: string): string {
   return name
@@ -51,7 +51,15 @@ function AvailabilitySkeleton() {
   );
 }
 
-export function SlotPicker({ service, cleaners }: { service: Service; cleaners: Cleaner[] }) {
+export function SlotPicker({
+  service,
+  cleaners,
+  ratings,
+}: {
+  service: Service;
+  cleaners: Cleaner[];
+  ratings: Record<string, CleanerRating>;
+}) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   // null = no successful fetch has landed yet for the current date. Kept
@@ -140,7 +148,15 @@ export function SlotPicker({ service, cleaners }: { service: Service; cleaners: 
                   <div key={cleanerId} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
                     <CleanerAvatar cleaner={cleaner} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{cleaner.full_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">{cleaner.full_name}</p>
+                        {ratings[cleanerId]?.review_count > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+                            {ratings[cleanerId].average_rating} ({ratings[cleanerId].review_count})
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2.5 space-y-3">
                         {groupByTimeOfDay(starts).map((group) => (
                           <div key={group.label}>

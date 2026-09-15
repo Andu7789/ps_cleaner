@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import { ResumePayment } from "@/components/booking/resume-payment";
-import type { Booking, Cleaner, CustomerAddress, Service } from "@/lib/types";
+import { ReviewForm } from "@/components/booking/review-form";
+import type { Booking, Cleaner, CustomerAddress, Review, Service } from "@/lib/types";
 
 type BookingRow = Booking & {
   PS_CLEAN_services: Service;
@@ -27,6 +28,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
   if (!data) notFound();
   const booking = data as BookingRow;
+
+  let existingReview: Review | null = null;
+  if (booking.status === "completed") {
+    const { data: reviewData } = await supabase
+      .from("PS_CLEAN_reviews")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .maybeSingle();
+    existingReview = reviewData as Review | null;
+  }
 
   return (
     <div className="mx-auto max-w-md px-4 py-10">
@@ -64,6 +75,30 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       {booking.status === "confirmed" && (
         <div className="mt-6">
           <CancelBookingButton bookingId={booking.id} />
+        </div>
+      )}
+
+      {booking.status === "completed" && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <h2 className="font-semibold text-foreground">Your review</h2>
+          {existingReview ? (
+            <div className="mt-2">
+              <div className="flex gap-0.5" aria-label={`${existingReview.rating} out of 5 stars`}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span key={n} className={n <= existingReview.rating ? "text-amber-400" : "text-border"}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              {existingReview.comment && (
+                <p className="mt-2 text-sm text-muted-foreground">{existingReview.comment}</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3">
+              <ReviewForm bookingId={booking.id} />
+            </div>
+          )}
         </div>
       )}
     </div>

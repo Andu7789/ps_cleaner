@@ -3,7 +3,7 @@ import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration, formatPence } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
-import type { Cleaner, Service } from "@/lib/types";
+import type { Cleaner, CleanerRating, Service } from "@/lib/types";
 
 export default async function ServiceBookingPage({
   params,
@@ -29,6 +29,20 @@ export default async function ServiceBookingPage({
   const cleaners = ((cleanerLinks ?? [])
     .map((row) => row.PS_CLEAN_cleaners)
     .filter(Boolean) as unknown as Cleaner[]).filter((c) => c.is_active);
+
+  const cleanerIds = cleaners.map((c) => c.id);
+  const { data: reviewRows } = cleanerIds.length
+    ? await supabase.from("PS_CLEAN_reviews").select("cleaner_id, rating").in("cleaner_id", cleanerIds)
+    : { data: [] };
+
+  const ratings: Record<string, CleanerRating> = {};
+  for (const id of cleanerIds) ratings[id] = { average_rating: null, review_count: 0 };
+  for (const row of reviewRows ?? []) {
+    const bucket = ratings[row.cleaner_id];
+    const total = (bucket.average_rating ?? 0) * bucket.review_count + row.rating;
+    bucket.review_count += 1;
+    bucket.average_rating = Math.round((total / bucket.review_count) * 10) / 10;
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -58,7 +72,7 @@ export default async function ServiceBookingPage({
         {cleaners.length === 0 ? (
           <p className="text-sm text-muted-foreground">No cleaners are currently qualified for this service.</p>
         ) : (
-          <SlotPicker service={service as Service} cleaners={cleaners} />
+          <SlotPicker service={service as Service} cleaners={cleaners} ratings={ratings} />
         )}
       </div>
     </div>

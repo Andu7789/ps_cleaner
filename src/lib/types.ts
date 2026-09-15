@@ -93,6 +93,21 @@ export interface Booking {
   updated_at: string;
 }
 
+export interface Review {
+  id: string;
+  booking_id: string;
+  customer_id: string;
+  cleaner_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface CleanerRating {
+  average_rating: number | null;
+  review_count: number;
+}
+
 export interface Payment {
   id: string;
   booking_id: string;

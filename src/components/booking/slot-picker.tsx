@@ -8,6 +8,7 @@ import { candidateStartTimes, groupByTimeOfDay } from "@/lib/slots";
 import { toDateKey } from "@/lib/calendar";
 import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
+import { WaitlistButton } from "@/components/booking/waitlist-button";
 import type { Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
 
 function initials(name: string): string {
@@ -190,6 +191,7 @@ export function SlotPicker({
               <p className="mt-1 text-sm text-muted-foreground">
                 Try another date on the calendar — most days have open slots.
               </p>
+              <WaitlistButton serviceId={service.id} wantedDate={toDateKey(selectedDate)} />
             </div>
           )}
         </div>

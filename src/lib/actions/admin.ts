@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
+import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -236,6 +237,10 @@ export async function adminSetBookingStatusAction(bookingId: string, status: str
 
   if (before && before.status !== status) {
     await logBookingChange(supabase, admin, bookingId, "status", before.status, status);
+  }
+
+  if (before && before.status !== "cancelled" && status === "cancelled") {
+    await notifyWaitlistOnCancellation(createServiceClient(), bookingId);
   }
 
   revalidatePath("/admin/bookings");

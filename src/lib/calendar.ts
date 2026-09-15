@@ -24,6 +24,26 @@ export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+// Same idea as toDateKey, but for server-side code that has no reason to
+// be running in Europe/London itself (Vercel's Node runtime is UTC) —
+// toDateKey's getFullYear()/getMonth()/getDate() would read the SERVER's
+// local time there, which is wrong. Used wherever a timestamptz instant
+// (e.g. a booking's starts_at) needs to become the LOCAL calendar day a
+// customer meant, such as matching it against a waitlist entry's
+// wanted_date. `Intl.DateTimeFormat` with an explicit timeZone is the
+// correct tool here — no date library needed for just this.
+const londonDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/London",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function toLondonDateKey(iso: string): string {
+  // en-CA formats as YYYY-MM-DD directly, which is exactly toDateKey's format.
+  return londonDateFormatter.format(new Date(iso));
+}
+
 // Monday-first week grid covering monthAnchor's whole month, padded with
 // the adjacent months' days needed to fill complete weeks. No upper bound
 // on how far ahead a customer can book — a cleaner's working hours are a

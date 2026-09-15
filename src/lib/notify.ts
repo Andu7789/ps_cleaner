@@ -162,6 +162,30 @@ export async function sendBookingReminder(ctx: NotifyBookingContext): Promise<vo
   }
 }
 
+// A slot opening up isn't tied to one of THIS customer's own bookings (it's
+// someone else's cancellation), so this doesn't use NotifyBookingContext or
+// log against PS_CLEAN_notifications_log the way the booking-lifecycle
+// emails above do — best-effort, fire-and-forget, no per-send audit trail
+// needed for what's ultimately just a "you might want to look at this" ping.
+export async function sendWaitlistOpeningEmail(
+  businessName: string,
+  email: string,
+  serviceName: string,
+  dateLabel: string,
+  bookingUrl: string
+): Promise<void> {
+  try {
+    const html = emailShell(
+      businessName,
+      `<p>A slot just opened up for <strong>${serviceName}</strong> on <strong>${dateLabel}</strong> — you asked to be notified.</p>
+       <p><a href="${bookingUrl}" style="color: #0f766e;">Book it before it's gone</a></p>`
+    );
+    await sendEmail(email, `A slot opened up for ${serviceName} on ${dateLabel}`, html);
+  } catch {
+    // Best-effort — see the file-level pattern used throughout this module.
+  }
+}
+
 export async function sendCancellationNotice(ctx: NotifyBookingContext): Promise<void> {
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
 

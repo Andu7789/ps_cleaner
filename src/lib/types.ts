@@ -152,6 +152,16 @@ export interface CleanerPayout {
   created_at: string;
 }
 
+export interface WaitlistEntry {
+  id: string;
+  customer_id: string;
+  service_id: string;
+  cleaner_id: string | null;
+  wanted_date: string;
+  notified_at: string | null;
+  created_at: string;
+}
+
 export interface Payment {
   id: string;
   booking_id: string;

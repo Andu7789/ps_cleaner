@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
+import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { confirmBookingAndNotify } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -212,5 +213,6 @@ export async function cancelBookingAction(bookingId: string, reason?: string) {
     p_reason: reason ?? null,
   });
   if (error) throw new Error(error.message);
+  await notifyWaitlistOnCancellation(createServiceClient(), bookingId);
   revalidatePath("/account");
 }

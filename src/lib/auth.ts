@@ -74,7 +74,12 @@ export async function requireCleaner(): Promise<{ user: Awaited<ReturnType<typeo
     .maybeSingle();
   if (byUserId) return { user, cleaner: byUserId as Cleaner };
 
-  if (!user.email) redirect("/cleaner/login");
+  // Every redirect below used to be a bare `/cleaner/login` with no error
+  // param — a genuinely signed-in user with no matching (or a deactivated)
+  // cleaner record just silently bounced back to the sign-in form with
+  // zero explanation, indistinguishable from a bad link. Found live when
+  // reactivating a test cleaner: the loop was this, not an auth failure.
+  if (!user.email) redirect("/cleaner/login?error=not_a_cleaner");
   const service = createServiceClient();
   const { data: byEmail } = await service
     .from("PS_CLEAN_cleaners")
@@ -83,7 +88,7 @@ export async function requireCleaner(): Promise<{ user: Awaited<ReturnType<typeo
     .eq("is_active", true)
     .is("user_id", null)
     .maybeSingle();
-  if (!byEmail) redirect("/cleaner/login");
+  if (!byEmail) redirect("/cleaner/login?error=not_a_cleaner");
 
   const { data: linked, error } = await service
     .from("PS_CLEAN_cleaners")
@@ -91,7 +96,7 @@ export async function requireCleaner(): Promise<{ user: Awaited<ReturnType<typeo
     .eq("id", byEmail.id)
     .select("*")
     .single();
-  if (error || !linked) redirect("/cleaner/login");
+  if (error || !linked) redirect("/cleaner/login?error=not_a_cleaner");
 
   return { user, cleaner: linked as Cleaner };
 }

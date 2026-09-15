@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 // Applied to every response. Deliberately the set that can't break a working
 // page (a full Content-Security-Policy needs testing against Stripe.js and
@@ -17,6 +18,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Next's built-in image optimizer bundles `sharp`, which needs native
+  // Node bindings Cloudflare Workers can't run (esbuild fails trying to
+  // bundle the .node binary). Not a real loss — nothing in this app uses
+  // next/image yet, so there's no optimization to disable in practice.
+  images: {
+    unoptimized: true,
+  },
 };
+
+// Enables Cloudflare bindings (env vars, KV, etc.) when running `next dev` locally.
+initOpenNextCloudflareForDev();
 
 export default nextConfig;

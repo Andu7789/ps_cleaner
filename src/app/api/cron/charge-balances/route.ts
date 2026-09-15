@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 // surfaced as a 'failed' PS_CLEAN_payments row for the admin to see and
 // chase; automatic customer-facing retry/escalation is a good next step
 // (see ROADMAP.md) rather than something this pass builds out.
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new Response("Unauthorized", { status: 401 });
@@ -87,3 +87,9 @@ export async function POST(request: Request) {
 
   return Response.json({ checked: bookings?.length ?? 0, charged });
 }
+
+// GET for Vercel Cron (only ever triggers via GET, auto-attaching this
+// Authorization header for an env var literally named CRON_SECRET); POST
+// for everything else (Cloudflare's scheduled() handler, manual triggering).
+export const GET = handler;
+export const POST = handler;

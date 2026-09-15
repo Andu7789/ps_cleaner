@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ps-clean-booking",
+  "main": "./custom-worker.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Three schedules, one per cron route — see custom-worker.ts's scheduled()
+  // handler, which dispatches on controller.cron. Frequencies match how
+  // urgently each job's own staleness window matters:
+  // - stale booking cleanup every 15 min: an abandoned checkout holds a
+  //   real cleaner slot hostage, so this shouldn't sit for long.
+  // - reminders hourly: reminder_hours_before is a 24h window, so hourly
+  //   polling can't miss a booking entering it; the route's own
+  //   notifications_log check makes re-polling safe (never double-sends).
+  // - balance charges once daily: balance_charge_days_before is measured
+  //   in days, so daily resolution is more than enough.
+  "triggers": {
+    "crons": ["*/15 * * * *", "0 * * * *", "0 6 * * *"]
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

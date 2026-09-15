@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 // someone who can actually complete the booking.
 const STALE_AFTER_MINUTES = 30;
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new Response("Unauthorized", { status: 401 });
@@ -36,3 +36,10 @@ export async function POST(request: Request) {
 
   return Response.json({ cancelled: staleBookings?.length ?? 0 });
 }
+
+// GET for Vercel Cron (which only ever triggers via GET, and auto-attaches
+// this same Authorization header when an env var is literally named
+// CRON_SECRET); POST for everything else that calls this (Cloudflare's
+// scheduled() handler, manual triggering).
+export const GET = handler;
+export const POST = handler;

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // only sends for bookings that don't already have a 'reminder' row in
 // PS_CLEAN_notifications_log, so calling this more often than needed (or
 // retrying after a partial failure) never double-sends.
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new Response("Unauthorized", { status: 401 });
@@ -72,3 +72,9 @@ export async function POST(request: Request) {
 
   return Response.json({ checked: bookings?.length ?? 0, sent });
 }
+
+// GET for Vercel Cron (only ever triggers via GET, auto-attaching this
+// Authorization header for an env var literally named CRON_SECRET); POST
+// for everything else (Cloudflare's scheduled() handler, manual triggering).
+export const GET = handler;
+export const POST = handler;

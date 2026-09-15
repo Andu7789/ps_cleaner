@@ -19,31 +19,40 @@ function generateReferralCode(): string {
 
 export async function requestMagicLinkAction(email: string, next?: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  // /auth/callback reads `next` off the same URL Supabase appends `code`
-  // to and redirects there once the session is exchanged — this is how a
-  // customer picking a slot, then signing in, lands back at checkout
-  // instead of the generic /account page.
-  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(next ?? "/account")}`;
 
   // Deliberately NOT supabase.auth.signInWithOtp() — that sends Supabase's
   // own built-in "Magic Link" email, whose template is a project-wide Auth
   // setting in this shared Supabase project that Root Café's app has
   // already branded for itself. generateLink() (service-role only) creates
-  // the same PKCE link without sending anything, so PS Cleaning can email
-  // it with its own branding instead. See DECISIONS.md.
+  // the token without sending anything, so PS Cleaning can email it with
+  // its own branding instead. See DECISIONS.md #9.
   const service = createServiceClient();
   const { data, error } = await service.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo },
   });
   if (error) throw new Error(error.message);
 
-  const actionLink = data.properties?.action_link;
-  if (!actionLink) throw new Error("Couldn't generate a sign-in link");
+  const hashedToken = data.properties?.hashed_token;
+  if (!hashedToken) throw new Error("Couldn't generate a sign-in link");
+
+  // Deliberately NOT data.properties.action_link either — that points at
+  // Supabase's own /auth/v1/verify endpoint, which (with no PKCE code
+  // challenge behind it, since this is an admin-generated link with no
+  // browser involved yet) redirects back with the session in a URL
+  // *fragment* (#access_token=...), not a `?code=` query param. A
+  // fragment never reaches the server at all, so /auth/callback's old
+  // exchangeCodeForSession(code) could never see it — this silently
+  // broke every magic-link sign-in end to end (found while wiring up the
+  // new cleaner login, then confirmed via curl that it broke customer/
+  // admin login the exact same way). Building our own link with the raw
+  // token_hash and verifying it ourselves via verifyOtp() in
+  // /auth/callback sidesteps the whole implicit-vs-PKCE question — this
+  // is Supabase's own documented pattern for a self-sent auth email.
+  const link = `${siteUrl}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=magiclink&next=${encodeURIComponent(next ?? "/account")}`;
 
   const settings = await getBusinessSettings();
-  await sendMagicLinkEmail(settings.business_name, email, actionLink);
+  await sendMagicLinkEmail(settings.business_name, email, link);
 }
 
 export async function signOutAction() {

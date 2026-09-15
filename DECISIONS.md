@@ -180,6 +180,20 @@ Per this project's own engineering rules (test in a real browser before calling 
 
 ---
 
+## 15. `RESEND_API_KEY` had never actually been set to a real value — login was still broken in production after decision #14's fix
+
+**What happened:** immediately after deploying decision #14's magic-link fix, the user tried it for real on their phone and hit a production error screen: `Minified React error #441`, which decodes (per React's own error-codes list) to "An error occurred in the Server Components render. The specific message is omitted in production builds..." — Next's generic redaction of a real thrown error, not a React bug itself. Pulling Vercel's function logs (`vercel logs`) showed the actual underlying error: `Error: Email isn't configured (RESEND_API_KEY missing)`.
+
+Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **empty-string placeholders in `.env.local`**, not a revoked or expired credential — and were never set in Vercel at all. This had nothing to do with today's changes: every email this app sends (magic-link sign-in, booking confirmations, reminders, waitlist notifications) has been silently broken since the original deployment. It went unnoticed through all of this session's own testing because every login test (decision #14 included) generated its magic-link token directly via a script calling `admin.generateLink()`, which bypasses `sendMagicLinkEmail`/`sendEmail` entirely — the actual Resend call path was never exercised until a real user clicked the real button.
+
+**Fix:** the user provided a real Resend API key. Checking `GET /domains` on that Resend account showed its only two verified sending domains belong to the user's *other* apps — `orderaheadapp.co.uk` (Root Café) and `maiseydaysdoggrooming.co.uk` — neither of which PS Cleaning should send from without misrepresenting which business an email is actually from (the same identity-bleed problem decision #9 already flagged for the shared Supabase Auth email template). Rather than silently borrowing one of those domains, `NOTIFY_FROM_EMAIL` now uses Resend's own sandbox sender (`onboarding@resend.dev`), which works without any domain verification. Wired into `.env.local` and Vercel production (`RESEND_API_KEY`, `NOTIFY_FROM_EMAIL`), then verified for real: a live email was sent and received via the real Resend API, and the resulting magic link was clicked through end-to-end against production, landing on a real authenticated `/account` page.
+
+**Still open:** `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM_NUMBER` remain empty placeholders — SMS notifications (reminders, confirmations) are still non-functional in production. Lower priority than email since login doesn't depend on it, but the same class of gap. **PS Cleaning also has no dedicated verified sending domain** — `onboarding@resend.dev` is fine for testing/demo but should not be the permanent sender once this goes in front of real customers (Resend sandbox senders are rate-limited and look unprofessional in an inbox); a proper domain + DNS verification is a pre-launch task, not a code change.
+
+**Reversibility:** High. Swapping `NOTIFY_FROM_EMAIL` to a dedicated verified domain later is a one-line env var change, no code change needed.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

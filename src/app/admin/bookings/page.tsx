@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { BookingStatusSelect } from "@/components/admin/booking-status-select";
+import { SyncPaymentButton } from "@/components/admin/sync-payment-button";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
 
 type Row = Booking & { PS_CLEAN_services: Service; PS_CLEAN_cleaners: Cleaner; PS_CLEAN_customers: Customer };
@@ -60,7 +61,7 @@ export default async function AdminBookingsPage() {
           </thead>
           <tbody>
             {bookings.map((b) => (
-              <tr key={b.id} className="border-t border-border">
+              <tr key={b.id} className={`border-t border-border ${b.status === "pending_payment" ? "bg-danger/5" : ""}`}>
                 <td className="py-2">
                   {formatDate(b.starts_at)}
                   <br />
@@ -72,6 +73,7 @@ export default async function AdminBookingsPage() {
                 <td className="py-2">{formatPence(b.amount_paid_pence)}</td>
                 <td className="py-2">
                   <BookingStatusSelect bookingId={b.id} status={b.status} />
+                  {b.status === "pending_payment" && <SyncPaymentButton bookingId={b.id} />}
                 </td>
               </tr>
             ))}

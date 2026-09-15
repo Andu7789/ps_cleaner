@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { applySucceededPaymentIntent } from "@/lib/payments";
+import { getStripe } from "@/lib/stripe";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 // Records who changed what on a booking and from/to what value — so a
@@ -237,4 +239,50 @@ export async function adminSetBookingStatusAction(bookingId: string, status: str
   }
 
   revalidatePath("/admin/bookings");
+}
+
+export interface ReconcileResult {
+  outcome: "confirmed" | "still_pending" | "payment_failed" | "no_payment_found";
+  message: string;
+}
+
+// Manually re-checks a booking's payment against Stripe and applies the
+// same reconciliation the webhook would have — the recovery path for when
+// the webhook never reached us (most commonly in local dev with no `stripe
+// listen` running; see DECISIONS.md #10/#11, this happened for real during
+// this app's own testing). Safe to run on any booking at any time: it only
+// ever reads Stripe's current truth and applies it, never guesses.
+export async function reconcilePaymentAction(bookingId: string): Promise<ReconcileResult> {
+  await requireAdmin();
+  const service = createServiceClient();
+
+  const { data: payment } = await service
+    .from("PS_CLEAN_payments")
+    .select("stripe_payment_intent_id")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!payment?.stripe_payment_intent_id) {
+    return { outcome: "no_payment_found", message: "No payment has been started for this booking yet." };
+  }
+
+  const stripe = getStripe();
+  const intent = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent_id);
+
+  if (intent.status === "succeeded") {
+    await applySucceededPaymentIntent(service, intent);
+    revalidatePath("/admin/bookings");
+    return { outcome: "confirmed", message: "Payment had succeeded on Stripe — booking is now confirmed." };
+  }
+
+  if (intent.status === "canceled" || intent.last_payment_error) {
+    return {
+      outcome: "payment_failed",
+      message: intent.last_payment_error?.message ?? "Payment was not completed.",
+    };
+  }
+
+  return { outcome: "still_pending", message: `Stripe still shows this as "${intent.status}" — not paid yet.` };
 }

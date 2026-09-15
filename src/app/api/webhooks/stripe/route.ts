@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { cancelBookingAsSystem } from "@/lib/bookings";
-import { sendBookingConfirmation } from "@/lib/notify";
+import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -31,70 +31,7 @@ export async function POST(request: Request) {
 
   switch (event.type) {
     case "payment_intent.succeeded": {
-      const intent = event.data.object as Stripe.PaymentIntent;
-      const bookingId = intent.metadata.ps_clean_booking_id;
-      if (!bookingId) break;
-
-      const { data: payment } = await service
-        .from("PS_CLEAN_payments")
-        .update({ status: "succeeded", updated_at: new Date().toISOString() })
-        .eq("stripe_payment_intent_id", intent.id)
-        .select("amount_pence")
-        .maybeSingle();
-
-      const { data: booking } = await service
-        .from("PS_CLEAN_bookings")
-        .select(
-          "id, status, amount_paid_pence, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
-        )
-        .eq("id", bookingId)
-        .maybeSingle();
-      if (!booking) break;
-
-      const newAmountPaid = booking.amount_paid_pence + (payment?.amount_pence ?? 0);
-      await service
-        .from("PS_CLEAN_bookings")
-        .update({
-          amount_paid_pence: newAmountPaid,
-          status: booking.status === "pending_payment" ? "confirmed" : booking.status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", bookingId);
-
-      // Save the card for the off-session balance/cancellation-fee charge
-      // later (see DECISIONS.md #6) — only meaningful the first time.
-      if (typeof intent.payment_method === "string" && intent.customer) {
-        const customerId = typeof intent.customer === "string" ? intent.customer : intent.customer.id;
-        await service
-          .from("PS_CLEAN_customers")
-          .update({ stripe_default_payment_method_id: intent.payment_method })
-          .eq("stripe_customer_id", customerId);
-      }
-
-      if (booking.status === "pending_payment") {
-        const [{ data: customer }, { data: cleaner }, { data: svc }, { data: address }, { data: settings }] =
-          await Promise.all([
-            service.from("PS_CLEAN_customers").select("full_name, email, phone").eq("id", booking.customer_id).maybeSingle(),
-            service.from("PS_CLEAN_cleaners").select("full_name").eq("id", booking.cleaner_id).maybeSingle(),
-            service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
-            service.from("PS_CLEAN_customer_addresses").select("line1, city, postcode").eq("id", booking.address_id).maybeSingle(),
-            service.from("PS_CLEAN_business_settings").select("business_name").eq("id", true).maybeSingle(),
-          ]);
-
-        await sendBookingConfirmation({
-          bookingId: booking.id,
-          businessName: settings?.business_name ?? "Cleaning Company",
-          serviceName: svc?.name ?? "Clean",
-          cleanerName: cleaner?.full_name ?? "your cleaner",
-          startsAt: booking.starts_at,
-          addressLine: address ? `${address.line1}, ${address.city} ${address.postcode}` : "your address",
-          pricePence: booking.price_pence,
-          depositPence: booking.deposit_pence,
-          customerName: customer?.full_name ?? null,
-          customerEmail: customer?.email ?? null,
-          customerPhone: customer?.phone ?? null,
-        });
-      }
+      await applySucceededPaymentIntent(service, event.data.object as Stripe.PaymentIntent);
       break;
     }
 

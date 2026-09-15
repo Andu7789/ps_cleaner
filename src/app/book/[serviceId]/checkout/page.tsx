@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCustomer, getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CheckoutForm } from "@/components/booking/checkout-form";
@@ -65,7 +66,10 @@ export default async function CheckoutPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="text-xl font-semibold text-foreground">Confirm your booking</h1>
+      <Link href={`/book/${serviceId}`} className="text-sm text-muted-foreground hover:underline">
+        &larr; Change time or cleaner
+      </Link>
+      <h1 className="mt-4 text-xl font-semibold text-foreground">Confirm your booking</h1>
       <div className="mt-6">
         <CheckoutForm
           customerId={customer.id}

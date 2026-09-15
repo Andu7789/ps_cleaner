@@ -4,6 +4,7 @@ import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
+import { MakeRecurringForm } from "@/components/booking/make-recurring-form";
 import { ResumePayment } from "@/components/booking/resume-payment";
 import { ReviewForm } from "@/components/booking/review-form";
 import type { Booking, Cleaner, CustomerAddress, Review, Service } from "@/lib/types";
@@ -73,7 +74,18 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       )}
 
       {booking.status === "confirmed" && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
+          {!booking.recurring_booking_id && (
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h2 className="font-semibold text-foreground">Make it regular</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                We&apos;ll automatically book the same cleaner, service, and address at this time.
+              </p>
+              <div className="mt-3">
+                <MakeRecurringForm bookingId={booking.id} />
+              </div>
+            </div>
+          )}
           <CancelBookingButton bookingId={booking.id} />
         </div>
       )}

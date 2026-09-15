@@ -120,6 +120,24 @@ export interface Booking {
   notes: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+  recurring_booking_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RecurringFrequency = "weekly" | "fortnightly" | "monthly";
+
+export interface RecurringBooking {
+  id: string;
+  customer_id: string;
+  cleaner_id: string;
+  service_id: string;
+  address_id: string;
+  frequency: RecurringFrequency;
+  time_of_day: string;
+  next_occurrence_date: string;
+  is_active: boolean;
+  last_generation_error: string | null;
   created_at: string;
   updated_at: string;
 }

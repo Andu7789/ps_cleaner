@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canGoToPreviousMonth, getCalendarWeeks, toDateKey } from "./calendar";
+import { canGoToPreviousMonth, getCalendarWeeks, toDateKey, toLondonDateKey, zonedTimeToUtc } from "./calendar";
 
 describe("toDateKey", () => {
   it("uses local date parts, not UTC", () => {
@@ -50,6 +50,29 @@ describe("getCalendarWeeks", () => {
     const todays = weeks.flat().filter((d) => d.isToday);
     expect(todays).toHaveLength(1);
     expect(todays[0].date.getDate()).toBe(10);
+  });
+});
+
+describe("toLondonDateKey", () => {
+  it("converts a UTC instant to the correct Europe/London calendar day across DST", () => {
+    // 23:30 UTC on 14 July (BST, UTC+1) is already 00:30 on the 15th in London.
+    expect(toLondonDateKey("2026-07-14T23:30:00Z")).toBe("2026-07-15");
+    // In GMT (winter, UTC+0), the same UTC instant is still the 14th locally.
+    expect(toLondonDateKey("2026-01-14T23:30:00Z")).toBe("2026-01-14");
+  });
+});
+
+describe("zonedTimeToUtc", () => {
+  it("converts a local wall-clock time to the correct UTC instant across DST", () => {
+    // 09:00 local in Europe/London during BST (UTC+1) is 08:00 UTC.
+    expect(zonedTimeToUtc("2026-07-15", "09:00:00", "Europe/London").toISOString()).toBe("2026-07-15T08:00:00.000Z");
+    // The same wall-clock time in GMT (winter, UTC+0) is just 09:00 UTC.
+    expect(zonedTimeToUtc("2026-01-15", "09:00:00", "Europe/London").toISOString()).toBe("2026-01-15T09:00:00.000Z");
+  });
+
+  it("round-trips with toLondonDateKey", () => {
+    const utc = zonedTimeToUtc("2026-09-22", "14:30:00", "Europe/London");
+    expect(toLondonDateKey(utc.toISOString())).toBe("2026-09-22");
   });
 });
 

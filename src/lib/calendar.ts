@@ -44,6 +44,35 @@ export function toLondonDateKey(iso: string): string {
   return londonDateFormatter.format(new Date(iso));
 }
 
+// The inverse of toLondonDateKey: given a wall-clock date+time meant in a
+// specific IANA zone, returns the actual UTC instant — e.g. "09:00 on 15
+// July in Europe/London" (BST, UTC+1) becomes 08:00 UTC. Standard
+// no-library technique: treat the wall-clock value as if it were already
+// UTC, see how that instant displays back in the target zone, and the
+// difference between the two IS that zone's offset at that moment (DST
+// included) — then subtract it. Used for recurring-booking generation,
+// where "every Tuesday at 9am" must stay 9am local across the BST/GMT
+// boundary rather than drifting by an hour twice a year.
+export function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date {
+  const naiveUtc = new Date(`${dateStr}T${timeStr}Z`);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(naiveUtc).map((p) => [p.type, p.value]));
+  // Some locales/environments render midnight as "24" rather than "00".
+  const hour = parts.hour === "24" ? 0 : Number(parts.hour);
+  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), hour, Number(parts.minute), Number(parts.second));
+  const offsetMs = asUtc - naiveUtc.getTime();
+  return new Date(naiveUtc.getTime() - offsetMs);
+}
+
 // Monday-first week grid covering monthAnchor's whole month, padded with
 // the adjacent months' days needed to fill complete weeks. No upper bound
 // on how far ahead a customer can book — a cleaner's working hours are a

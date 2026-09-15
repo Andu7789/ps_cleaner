@@ -4,21 +4,30 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { signOutAction } from "@/lib/actions/customer";
 import { CopyLinkButton } from "@/components/account/copy-link-button";
-import type { Booking, Cleaner, Service } from "@/lib/types";
+import { RecurringToggle } from "@/components/account/recurring-toggle";
+import type { Booking, Cleaner, RecurringBooking, Service } from "@/lib/types";
 
 type BookingRow = Booking & { PS_CLEAN_services: Service | null; PS_CLEAN_cleaners: Cleaner | null };
+type RecurringRow = RecurringBooking & { PS_CLEAN_services: Service | null; PS_CLEAN_cleaners: Cleaner | null };
 
 export default async function AccountPage() {
   const { user, customer } = await requireCustomer();
   const supabase = await createClient();
-  const [{ data }, { data: creditBalance }] = await Promise.all([
+  const [{ data }, { data: creditBalance }, { data: recurringData }] = await Promise.all([
     supabase
       .from("PS_CLEAN_bookings")
       .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*)")
       .eq("customer_id", customer.id)
       .order("starts_at", { ascending: false }),
     supabase.rpc("ps_clean_customer_credit_balance", { p_customer_id: customer.id }),
+    supabase
+      .from("PS_CLEAN_recurring_bookings")
+      .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*)")
+      .eq("customer_id", customer.id)
+      .order("created_at", { ascending: false }),
   ]);
+
+  const recurring = (recurringData ?? []) as RecurringRow[];
 
   const bookings = (data ?? []) as BookingRow[];
   const upcoming = bookings.filter((b) => b.status === "confirmed" || b.status === "pending_payment");
@@ -60,6 +69,29 @@ export default async function AccountPage() {
               <code className="rounded-lg bg-muted px-2 py-1 text-xs text-foreground">{referralLink}</code>
               <CopyLinkButton link={referralLink} />
             </div>
+          </div>
+        </section>
+      )}
+
+      {recurring.length > 0 && (
+        <section className="mt-8">
+          <h2 className="font-semibold text-foreground">Regular bookings</h2>
+          <div className="mt-3 space-y-2">
+            {recurring.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4 text-sm">
+                <div>
+                  <p className="font-medium text-foreground">
+                    {r.PS_CLEAN_services?.name} with {r.PS_CLEAN_cleaners?.full_name}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {r.frequency === "weekly" ? "Every week" : r.frequency === "fortnightly" ? "Every 2 weeks" : "Every month"} ·
+                    {" "}
+                    {r.is_active ? `Next: ${formatDate(r.next_occurrence_date)}` : "Paused"}
+                  </p>
+                </div>
+                <RecurringToggle recurringId={r.id} isActive={r.is_active} />
+              </div>
+            ))}
           </div>
         </section>
       )}

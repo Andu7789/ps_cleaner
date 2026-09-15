@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { requestMagicLinkAction } from "@/lib/actions/customer";
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, initialError }: { next?: string; initialError?: string }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {

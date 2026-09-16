@@ -299,6 +299,24 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 23. Cleaner job map + directions: matched an existing pattern from another app in this workspace, rather than inventing a new one
+
+**What was asked:** a map on the cleaner's job detail page showing where the booking is, with full directions functionality — the user pointed at "the coffee app" (Root Cafe App, another project in this workspace) and asked to replicate whatever it does there, rather than design something new.
+
+**What Root Cafe App actually does** (found via a research pass over that codebase, `src/components/ui/site-picker.tsx`): no map SDK, no API key, no platform detection, no geolocation call. Just two plain pieces:
+- A preview: `<iframe src="https://www.google.com/maps?q=<address>&output=embed">` — Google's query-embed form, which needs no API key at all, good enough for "here's roughly where this is."
+- A directions link: a plain `<a>` to `https://www.google.com/maps/dir/?api=1&destination=<address>`, opened in a new tab — Google's documented "Directions" deep-link API. No `origin=` param, no browser geolocation — it relies on the maps app/site the link opens into to work out "from wherever the user's device actually is," which is exactly what actually happens when a phone opens that link into its own Maps app.
+
+**Applied identically to PS Cleaning:** `JobMap` (`src/components/cleaner/job-map.tsx`) on the cleaner's job detail page, built from the same booking address fields already displayed above it (`line1, line2, city, postcode` joined and `encodeURIComponent`-escaped). Checked this app's own CSP header (`next.config.ts`) before embedding anything — it only sets `frame-ancestors 'self'` (who can embed *this* app), nothing that would block an iframe *this* app embeds, so no config change was needed.
+
+**Verified live:** loaded a cleaner's real job detail page and confirmed both generated URLs contain the correctly-encoded real address (`28 Gertrude Road, Norwich, NR3 4SQ`) — not a placeholder or malformed encoding.
+
+**Why replicate rather than design fresh:** consistency across the user's own projects has real value on its own (same behavior, same lack of moving parts to maintain, same "no API key to provision or bill" property) — and a working, already-shipped pattern from a sibling codebase is lower-risk than a first attempt at the same problem.
+
+**Reversibility:** High. One new small component, no schema change, no new dependency.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

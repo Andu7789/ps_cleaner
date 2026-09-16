@@ -6,6 +6,7 @@ import { formatDate, formatDuration, formatTime } from "@/lib/format";
 import { CompleteButton } from "@/components/cleaner/complete-button";
 import { PhotoUpload } from "@/components/cleaner/photo-upload";
 import { PhotoThumb } from "@/components/cleaner/photo-thumb";
+import { JobMap } from "@/components/cleaner/job-map";
 import type { Booking, BookingCalculatorSelection, BookingPhoto, Customer, CustomerAddress, Service } from "@/lib/types";
 
 const PHOTO_BUCKET = "ps-clean-booking-photos";
@@ -30,6 +31,8 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
 
   if (!data) notFound();
   const job = data as JobRow;
+  const address = job.PS_CLEAN_customer_addresses;
+  const fullAddress = [address.line1, address.line2, address.city, address.postcode].filter(Boolean).join(", ");
 
   const { data: photoRows } = await supabase
     .from("PS_CLEAN_booking_photos")
@@ -94,6 +97,8 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
           </p>
         )}
         {job.notes && <p className="mt-2 text-sm text-muted-foreground">Booking notes: {job.notes}</p>}
+
+        <JobMap address={fullAddress} />
 
         <h2 className="mt-4 font-semibold text-foreground">Before you arrive</h2>
         <ul className="mt-1 space-y-1 text-sm text-foreground">

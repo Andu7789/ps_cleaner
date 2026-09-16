@@ -317,6 +317,22 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 24. "SQL tab" request became a scoped demo-data seeder instead
+
+**What was asked:** a "SQL tab" in admin so the user could add data with one press to show off the invoice feature.
+
+**Why not literally a SQL console:** this Supabase project is shared with several unrelated apps (decision #1) — a raw SQL execution surface in the admin UI would mean any admin session (or anything that compromised one) could read or write *any* table in the whole shared database, not just PS Cleaning's own `PS_CLEAN_*` tables. That's a real, serious blast-radius risk for a feature whose actual stated goal was much narrower: "let me demo the invoice feature with one press." Built that instead.
+
+**What was built (`/admin/demo-data`):** two buttons.
+- **Add demo data** creates (or reuses, if already present) one dedicated "Demo Customer" + address, then inserts one `completed` booking per active, qualified cleaner, dated somewhere in the last ~10 days at a pseudo-random hour — real rows shaped exactly like the invoice-generation query expects (`ps_clean_create_booking`'s own INSERT shape wasn't reused since these are pre-completed historical jobs, not new live bookings going through conflict-checking — same shape used successfully for this session's own earlier manual demo-seeding). Each row is tagged `notes = 'Demo data — safe to delete'` so it's unambiguous and easy to find/remove later, and randomized enough that repeated presses don't collide with each other or real bookings and trip the booking `EXCLUDE` constraint (decision #4) — a collision on any one row is just skipped, never a partial/corrupt write.
+- **Clear demo data** deletes only bookings carrying that marker. Any invoice already generated from one keeps its snapshot line items intact (`booking_id` is `ON DELETE SET NULL`, same as every other snapshot relationship in this schema — decision #16).
+
+**Verified live:** ran the actual seeding logic (a service-role Supabase client, not tied to Next's request context — the only part that couldn't be exercised outside the framework was the `requireAdmin()` guard itself, already proven correct everywhere else tonight) twice in a row against the real database: first run created the demo customer/address and 3 completed jobs across 3 cleaners with their real pay rates; second run reused the same customer/address (no duplicates) and added 3 more. Confirmed via the real `/admin/invoices` page that a demo job is visible and ready to generate an invoice from. Ran the clear logic and confirmed all 6 demo bookings were removed cleanly. All test data (including the demo customer created during this verification) was then removed so the button's first real press behaves exactly like a first press.
+
+**Reversibility:** High. Two new server actions and one new admin page; no schema change.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

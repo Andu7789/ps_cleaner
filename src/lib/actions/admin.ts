@@ -356,12 +356,13 @@ export async function setServiceCalculatorAction(serviceId: string, useCalculato
   revalidatePath("/admin/services");
 }
 
-export async function createRoomTypeAction(name: string, pricePerUnitPence: number) {
+export async function createRoomTypeAction(name: string, pricePerUnitPence: number, minutesPerUnit = 0) {
   await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_calculator_room_types").insert({
     name,
     price_per_unit_pence: pricePerUnitPence,
+    minutes_per_unit: minutesPerUnit,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");

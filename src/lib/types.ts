@@ -39,6 +39,7 @@ export interface CalculatorRoomType {
   id: string;
   name: string;
   price_per_unit_pence: number;
+  minutes_per_unit: number;
   sort_order: number;
   is_active: boolean;
   created_at: string;

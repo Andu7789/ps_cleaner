@@ -333,6 +333,34 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 25. Pricing calculator: duration/slot-availability turned out to need far less than decision #19 feared
+
+**What was asked:** "Do #1" — the ROADMAP item deferring the pricing calculator's duration impact, previously described (decision #19) as "a materially bigger and riskier change to the core double-booking-prevention engine" that would need "its own dedicated live-testing pass."
+
+**Why the original risk assessment was too cautious:** before touching anything, re-read the actual mechanics rather than trusting the earlier note. Three facts changed the picture:
+1. `ps_clean_available_slots()` (migration 0004) already returns raw, duration-agnostic free ranges per cleaner — it has never known about any specific booking's length.
+2. The client-side slot-fitting (`candidateStartTimes()` in `lib/slots.ts`) already takes `durationMinutes` as a parameter — it was already generalized, just never fed anything other than the service's fixed `duration_minutes`.
+3. The `EXCLUDE` constraint (decision #4) checks `padded_range`, a column computed by a trigger (`ps_clean_set_booking_padded_range`) from the **booking row's own** `starts_at`/`ends_at`/buffer columns — never re-derived from the service catalog. So the conflict-checking engine itself already generalizes correctly to a variable-length booking with zero changes.
+
+That meant the real gap was much narrower than feared: the server-side RPC just needed to compute the *right* `ends_at` when calculator selections extend a job, and the client needed to feed that same extended figure into the slot-fitting function it already supported.
+
+**What was built (migration `0028_calculator_duration.sql`):**
+- Added `minutes_per_unit integer not null default 0` to `PS_CLEAN_calculator_room_types` (existing room types default to `0` — no behavior change for anyone not using it).
+- `ps_clean_create_booking` now sums `quantity * minutes_per_unit` across the same room-selection loop that already computes the price total, and uses `duration_minutes + extra_minutes` for `ends_at` — a plain `CREATE OR REPLACE` since the 12-parameter signature from migration 0026 is unchanged (only the body changed; see decision #(migration-overload trap) elsewhere in this doc for why that distinction matters).
+- `SlotPicker` computes the same extra-minutes total client-side from `roomQuantities` and passes `service.duration_minutes + extraMinutes` into `candidateStartTimes()` instead of the raw base duration, so the picker only ever offers slots the extended job actually fits into.
+- Admin UI (`RoomTypesManager`) gained a "minutes per unit" field per room type; the calculator card on the booking page now also shows the adjusted total duration when it differs from the base.
+
+**Verified live** against the real database (temporarily set an existing room type's `minutes_per_unit` to 60 on the live "Standard Clean" service, base duration 120 min):
+- Booked bedroom×1 at 10:00 → `ends_at` correctly `13:00` (120+60), `padded_range` `[10:00, 13:30)` (30 min buffer-after).
+- A second booking attempt at 12:30 with no calculator selections (which would only conflict under the *extended* duration, not the base 120-minute one) was correctly rejected with the same `23P01`/"slot was just taken" exclusion-violation path as any other double-booking.
+- A third booking at 13:30 — exactly at the padded range's exclusive upper bound — succeeded, confirming the boundary behavior is unaffected.
+- Confirmed `PS_CLEAN_booking_calculator_selections` still snapshots the selection correctly (unchanged from migration 0026).
+- All test bookings deleted and the room type's `minutes_per_unit` reverted to `0` afterward — live data left exactly as found.
+
+**Reversibility:** High. One additive column (safe default), one function body change (no signature/overload risk), and client code that only takes a new optional path when a service actually has the calculator on and a room type actually carries `minutes_per_unit > 0`.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

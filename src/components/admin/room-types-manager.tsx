@@ -8,6 +8,7 @@ import type { CalculatorRoomType } from "@/lib/types";
 export function RoomTypesManager({ roomTypes }: { roomTypes: CalculatorRoomType[] }) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [minutes, setMinutes] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -16,9 +17,10 @@ export function RoomTypesManager({ roomTypes }: { roomTypes: CalculatorRoomType[
     setError(null);
     startTransition(async () => {
       try {
-        await createRoomTypeAction(name.trim(), Math.round(Number(price) * 100));
+        await createRoomTypeAction(name.trim(), Math.round(Number(price) * 100), minutes ? Number(minutes) : 0);
         setName("");
         setPrice("");
+        setMinutes("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Couldn't add that room type");
       }
@@ -36,7 +38,11 @@ export function RoomTypesManager({ roomTypes }: { roomTypes: CalculatorRoomType[
         {roomTypes.map((rt) => (
           <div key={rt.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
             <span>
-              {rt.name} <span className="text-muted-foreground">— {formatPence(rt.price_per_unit_pence)} each</span>
+              {rt.name}{" "}
+              <span className="text-muted-foreground">
+                — {formatPence(rt.price_per_unit_pence)} each
+                {rt.minutes_per_unit > 0 ? `, +${rt.minutes_per_unit} min each` : ""}
+              </span>
             </span>
             <button
               type="button"
@@ -69,6 +75,18 @@ export function RoomTypesManager({ roomTypes }: { roomTypes: CalculatorRoomType[
             step={0.01}
             value={price}
             onChange={(e) => setPrice(e.target.value)}
+            className="mt-1 block w-28 rounded-lg border border-border px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="text-xs text-muted-foreground">
+          Extra minutes per unit
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            placeholder="0"
             className="mt-1 block w-28 rounded-lg border border-border px-2 py-1.5 text-sm"
           />
         </label>

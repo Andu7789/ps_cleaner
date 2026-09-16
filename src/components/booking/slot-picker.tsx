@@ -72,6 +72,13 @@ export function SlotPicker({
     (sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.price_per_unit_pence,
     0
   );
+  const calculatorExtraMinutes = roomTypes.reduce(
+    (sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.minutes_per_unit,
+    0
+  );
+  const effectiveDurationMinutes = service.use_calculator
+    ? service.duration_minutes + calculatorExtraMinutes
+    : service.duration_minutes;
   // null = no successful fetch has landed yet for the current date. Kept
   // stale (not reset to null) across a date change so switching dates
   // doesn't flash a loading state — matches this workspace's convention
@@ -111,7 +118,7 @@ export function SlotPicker({
       result.set(
         cleanerId,
         candidateStartTimes(cleanerRanges, {
-          durationMinutes: service.duration_minutes,
+          durationMinutes: effectiveDurationMinutes,
           bufferBeforeMinutes: service.buffer_before_minutes,
           bufferAfterMinutes: service.buffer_after_minutes,
           // Coarser than the RPC's own precision on purpose: 15-minute
@@ -124,7 +131,7 @@ export function SlotPicker({
       );
     }
     return result;
-  }, [ranges, service]);
+  }, [ranges, service, effectiveDurationMinutes]);
 
   const availableCleaners = Array.from(slotsByCleanerId.entries()).filter(([, starts]) => starts.length > 0);
 
@@ -146,8 +153,9 @@ export function SlotPicker({
           <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-foreground">Build your clean</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tell us about your home and we&apos;ll adjust the price — {formatPence(service.price_pence)} base
+              Tell us about your home and we&apos;ll adjust the price and job length — {formatPence(service.price_pence)} base
               {calculatorTotal > 0 ? ` + ${formatPence(calculatorTotal)}` : ""}
+              {calculatorExtraMinutes > 0 ? ` · ${effectiveDurationMinutes} min total` : ""}
             </p>
             <div className="mt-3">
               <PricingCalculator roomTypes={roomTypes} quantities={roomQuantities} onChange={setRoomQuantities} />

@@ -2,7 +2,7 @@
 
 Next.js (App Router) + Supabase + Stripe booking platform for a cleaning company. See `/DECISIONS.md` for architecture decisions and `/ROADMAP.md` for what's built vs. planned.
 
-**Live (testing/demo):** https://ps-clean-booking.vercel.app — deployed via `vercel deploy --prod` from this repo, not connected to git auto-deploy. Run `vercel deploy --prod` again after pulling changes to update it. See DECISIONS.md #13 for why this is on Vercel rather than the originally-attempted Cloudflare Workers deployment (`wrangler.jsonc`/`custom-worker.ts` are still in the repo for when that becomes viable).
+**Live:** https://psclean.site (also reachable at the underlying https://ps-clean-booking.vercel.app) — deployed via `vercel deploy --prod` from this repo, not connected to git auto-deploy. Run `vercel deploy --prod` again after pulling changes to update it. See DECISIONS.md #13 for why this is on Vercel rather than the originally-attempted Cloudflare Workers deployment (`wrangler.jsonc`/`custom-worker.ts` are still in the repo for when that becomes viable), and DECISIONS.md #21 for the custom domain + email sending domain setup.
 
 ## Local development
 

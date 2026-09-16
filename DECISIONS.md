@@ -270,6 +270,21 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 21. Custom domain (`psclean.site`) + a real verified email-sending domain
+
+**What happened:** the user bought `psclean.site` (via Namecheap) and asked for it to be wired up. This also closed out the long-running email-deliverability gap flagged repeatedly this session (decisions #15, #20's roadmap note): every prior email used Resend's shared sandbox sender, which can only deliver to the Resend account owner's own inbox — real customers, cleaners, or anyone else would never have received a magic-link or booking email in production.
+
+- **Site:** added `psclean.site` and `www.psclean.site` to the Vercel project (`vercel domains add`). Both needed a plain `A` record at `76.76.21.21` pointed at from the registrar — Vercel auto-provisions SSL certificates once DNS resolves, which took a few minutes per subdomain (verified by polling rather than guessing a fixed wait). `NEXT_PUBLIC_SITE_URL` now points at `https://psclean.site`, so every generated magic-link/notification link uses the real domain.
+- **Email:** the same Resend API key had domain-management permission, so the domain was registered directly via `POST /domains` rather than needing the user to do it manually in Resend's dashboard. Verification needed four DNS records: a DKIM `TXT`, an SPF `TXT` and `MX` on a dedicated `send.psclean.site` subdomain (Resend's own convention, isolates sending reputation from the apex domain), and a `CNAME`. `NOTIFY_FROM_EMAIL` now sends as `bookings@psclean.site`.
+- **The MX record was the one snag:** Namecheap's basic "Host Records" add-record dropdown genuinely has no MX option — Namecheap manages MX through a separate "Mail Settings" control (defaults to no custom mail; has to be switched to "Custom MX" before an MX record field even appears), specifically to avoid clashing with their own email hosting products. Not obvious from the Host Records screen alone; worth remembering for any future Namecheap domain, not just this one.
+- **Cloudflare was not needed anywhere in this** — the user asked directly. DNS is managed at Namecheap; adding Cloudflare in front would only add risk (its proxy can interfere with Vercel's own SSL, and would need to stay in "DNS only" mode for the email records regardless) for zero benefit, since Vercel already provides CDN/edge distribution and certificate management.
+
+**Verified live, using the real unmodified production code path (not a bypassed test script):** ran `requestMagicLinkAction`'s exact logic — `generateLink()`, build the callback URL against `https://psclean.site`, send via Resend from `bookings@psclean.site` — got a real Resend message ID back, then clicked the generated link through to a genuine authenticated session on `https://psclean.site/account`.
+
+**Reversibility:** High. Both the Vercel domain attachment and the Resend domain verification are additive; the old `ps-clean-booking.vercel.app` URL still resolves to the same deployment.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

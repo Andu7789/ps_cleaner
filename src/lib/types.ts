@@ -266,6 +266,17 @@ export interface FreeSlotRange {
   free_end: string;
 }
 
+export type AdminRole = "admin" | "owner";
+
+export interface AdminUser {
+  id: string;
+  user_id: string | null;
+  email: string;
+  role: AdminRole;
+  display_name: string | null;
+  created_at: string;
+}
+
 export interface BusinessSettings {
   business_name: string;
   contact_email: string | null;

@@ -29,31 +29,52 @@ export async function requireCustomer() {
   return { user, customer };
 }
 
-export async function isAdmin(userId: string): Promise<boolean> {
+// Same email-invite-then-link-on-first-login shape as requireCleaner()
+// below — added once a "manage admins" UI actually existed to invite
+// someone by email rather than the only prior path (a one-off direct SQL
+// insert, see DECISIONS.md). Only the owner can create these rows
+// (RLS + updateAdminAction/inviteAdminAction), but linking on first sign-in
+// happens for any invited email, admin or owner.
+async function getAdminRecord(userId: string, email: string | undefined) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data: byUserId } = await supabase
     .from("PS_CLEAN_admin_users")
-    .select("user_id")
+    .select("*")
     .eq("user_id", userId)
     .maybeSingle();
-  return Boolean(data);
+  if (byUserId) return byUserId;
+
+  if (!email) return null;
+  const service = createServiceClient();
+  const { data: byEmail } = await service
+    .from("PS_CLEAN_admin_users")
+    .select("*")
+    .ilike("email", email)
+    .is("user_id", null)
+    .maybeSingle();
+  if (!byEmail) return null;
+
+  const { data: linked, error } = await service
+    .from("PS_CLEAN_admin_users")
+    .update({ user_id: userId })
+    .eq("id", byEmail.id)
+    .select("*")
+    .single();
+  return error ? null : linked;
 }
 
 export async function requireAdmin() {
   const user = await getUser();
-  if (!user || !(await isAdmin(user.id))) redirect("/admin/login");
+  if (!user) redirect("/admin/login");
+  const record = await getAdminRecord(user.id, user.email);
+  if (!record) redirect("/admin/login?error=not_an_admin");
   return user;
 }
 
 export async function requireOwner() {
   const user = await requireAdmin();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("PS_CLEAN_admin_users")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (data?.role !== "owner") redirect("/admin");
+  const record = await getAdminRecord(user.id, user.email ?? undefined);
+  if (record?.role !== "owner") redirect("/admin");
   return user;
 }
 

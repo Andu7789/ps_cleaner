@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireOwner } from "@/lib/auth";
+import type { AdminRole } from "@/lib/types";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
@@ -60,6 +61,24 @@ export async function createCleanerAction(input: CleanerInput) {
     calendar_color: input.calendarColor ?? "#2563eb",
   });
   if (error) throw new Error(error.message);
+  revalidatePath("/admin/cleaners");
+}
+
+export async function updateCleanerDetailsAction(cleanerId: string, input: CleanerInput) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_cleaners")
+    .update({
+      full_name: input.fullName,
+      email: input.email || null,
+      phone: input.phone || null,
+      bio: input.bio || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", cleanerId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/cleaners/${cleanerId}`);
   revalidatePath("/admin/cleaners");
 }
 
@@ -358,4 +377,64 @@ export async function deleteRoomTypeAction(id: string) {
   const { error } = await supabase.from("PS_CLEAN_calculator_room_types").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");
+}
+
+// Admin team management — owner-only (matches PS_CLEAN_admin_users' RLS
+// write policy). Invites by email rather than requiring a user_id, since
+// the invited person hasn't necessarily signed in (or even has an account)
+// yet — linked to their real auth user on first sign-in, same pattern as
+// a cleaner (DECISIONS.md #3), see requireAdmin()/getAdminRecord().
+export interface InviteAdminInput {
+  email: string;
+  displayName?: string;
+  role: AdminRole;
+}
+
+export async function inviteAdminAction(input: InviteAdminInput) {
+  await requireOwner();
+  const supabase = await createClient();
+  const { error } = await supabase.from("PS_CLEAN_admin_users").insert({
+    email: input.email.trim().toLowerCase(),
+    display_name: input.displayName?.trim() || null,
+    role: input.role,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/team");
+}
+
+export async function updateAdminRoleAction(id: string, role: AdminRole) {
+  await requireOwner();
+  const supabase = await createClient();
+  const { error } = await supabase.from("PS_CLEAN_admin_users").update({ role }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/team");
+}
+
+// Two safety checks a raw delete wouldn't have: an owner can't accidentally
+// remove their own access (would need a second owner to undo it), and the
+// last remaining owner can never be removed (would leave no one able to
+// manage admins at all — RLS makes admin_users writes owner-only).
+export async function removeAdminAction(id: string) {
+  const owner = await requireOwner();
+  const supabase = await createClient();
+
+  const { data: target } = await supabase
+    .from("PS_CLEAN_admin_users")
+    .select("user_id, role")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) throw new Error("Admin not found");
+  if (target.user_id === owner.id) throw new Error("You can't remove your own admin access.");
+
+  if (target.role === "owner") {
+    const { count } = await supabase
+      .from("PS_CLEAN_admin_users")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "owner");
+    if ((count ?? 0) <= 1) throw new Error("Can't remove the last owner.");
+  }
+
+  const { error } = await supabase.from("PS_CLEAN_admin_users").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/team");
 }

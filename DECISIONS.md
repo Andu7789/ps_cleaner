@@ -285,6 +285,20 @@ Checking turned up that `RESEND_API_KEY` (and all three `TWILIO_*` vars) were **
 
 ---
 
+## 22. Admin team management, and editing a cleaner's own details
+
+**What was there before:** exactly one admin ever existed, created by a one-off direct SQL insert with no UI to invite another — `PS_CLEAN_admin_users` had `user_id` as its literal primary key with no `email` column at all, so there was no way to invite someone who didn't already have a matching row. Cleaner profiles (name/email/phone/bio) also had no edit path after creation — only qualifications, working hours, time off, and pay rate could be changed post-creation.
+
+**Admin team (`/admin/team`, owner-only):** gave `PS_CLEAN_admin_users` the same "invite by email, link on first sign-in" shape `PS_CLEAN_cleaners` already had (decision #3) — added a real `id` primary key, made `user_id` nullable, added a required unique `email` column. `requireAdmin()`/`requireOwner()` now do the same lookup-by-user_id-then-by-email-and-link dance as `requireCleaner()`, including the same "tell them clearly why, don't just silently bounce back to the login form" fix from decision #18 (`?error=not_an_admin`). Two safety checks in `removeAdminAction` a bare RLS-gated delete wouldn't give: an owner can't remove their own access, and the last remaining owner can never be removed (would leave nobody able to manage admins at all, since that's owner-gated by RLS same as everything else here).
+
+**Cleaner details editing:** a straightforward `updateCleanerDetailsAction` (name/email/phone/bio) on the existing cleaner detail page — no new access-control shape needed, admin-gated same as every other cleaner-management action.
+
+**Verified live:** invited a real test admin by email (direct row insert, matching what `inviteAdminAction` does), generated a magic link for that exact email, clicked it through, and confirmed the account was granted admin access and its `user_id` was linked — then confirmed that same non-owner admin gets redirected away from `/admin/team` when trying to reach the owner-only page directly.
+
+**Reversibility:** Medium — the primary-key change on `PS_CLEAN_admin_users` is a real schema change (old code that assumed `user_id` was the PK would break), but it's additive in effect: every existing admin row was backfilled with its email and still resolves the same way.
+
+---
+
 ## Flagged for review (not fixed — outside this app's ownership)
 
 Running Supabase's security advisor against the shared project surfaced two pre-existing, project-wide items unrelated to any `PS_CLEAN_*` object, left alone because fixing them could affect other apps sharing this project without their owners' knowledge:

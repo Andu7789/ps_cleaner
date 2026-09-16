@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { QualificationCard } from "@/components/admin/qualification-card";
 import { PayRateForm } from "@/components/admin/pay-rate-form";
+import { CleanerDetailsForm } from "@/components/admin/cleaner-details-form";
 import { formatDate } from "@/lib/format";
 import type { Cleaner, CleanerRating, Review, Service, TimeOff, WorkingHours } from "@/lib/types";
 
@@ -76,6 +77,20 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
           View invoices →
         </Link>
       </div>
+
+      <section className="mt-6">
+        <h2 className="font-semibold text-foreground">Details</h2>
+        <div className="mt-2">
+          <CleanerDetailsForm
+            cleanerId={cleanerId}
+            initialFullName={(cleaner as Cleaner).full_name}
+            initialEmail={(cleaner as Cleaner).email}
+            initialPhone={(cleaner as Cleaner).phone}
+            initialBio={(cleaner as Cleaner).bio}
+            isLinked={Boolean((cleaner as Cleaner).user_id)}
+          />
+        </div>
+      </section>
 
       <section className="mt-6">
         <h2 className="font-semibold text-foreground">Pay rate</h2>

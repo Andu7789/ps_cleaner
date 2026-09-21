@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 // Deliberately narrow and marked, not a general-purpose seeding tool: this
 // exists to answer one specific request — "let me show off the invoice
@@ -14,11 +15,12 @@ import { createServiceClient } from "@/lib/supabase/server";
 const DEMO_CUSTOMER_EMAIL = "demo-customer@example.com";
 const DEMO_MARKER = "Demo data — safe to delete";
 
-async function ensureDemoCustomer(service: ReturnType<typeof createServiceClient>) {
+async function ensureDemoCustomer(service: ReturnType<typeof createServiceClient>, businessId: string) {
   const { data: existing } = await service
     .from("PS_CLEAN_customers")
     .select("id")
     .ilike("email", DEMO_CUSTOMER_EMAIL)
+    .eq("business_id", businessId)
     .maybeSingle();
 
   let customerId = existing?.id as string | undefined;
@@ -32,15 +34,19 @@ async function ensureDemoCustomer(service: ReturnType<typeof createServiceClient
       .maybeSingle();
     if (address) return { customerId, addressId: address.id as string };
   } else {
+    // Customer identity is global per login (see DECISIONS.md), and a
+    // second business pressing this button would collide on the same
+    // fixed demo email — a fresh auth user per business keeps each
+    // business's demo customer independent.
     const { data: userData, error: userError } = await service.auth.admin.createUser({
-      email: DEMO_CUSTOMER_EMAIL,
+      email: `demo-customer+${businessId}@example.com`,
       email_confirm: true,
     });
     if (userError) throw new Error(userError.message);
 
     const { data: customerRow, error: customerError } = await service
       .from("PS_CLEAN_customers")
-      .insert({ user_id: userData.user.id, full_name: "Demo Customer", email: DEMO_CUSTOMER_EMAIL })
+      .insert({ business_id: businessId, user_id: userData.user.id, full_name: "Demo Customer", email: DEMO_CUSTOMER_EMAIL })
       .select("id")
       .single();
     if (customerError) throw new Error(customerError.message);
@@ -50,6 +56,7 @@ async function ensureDemoCustomer(service: ReturnType<typeof createServiceClient
   const { data: addressRow, error: addressError } = await service
     .from("PS_CLEAN_customer_addresses")
     .insert({
+      business_id: businessId,
       customer_id: customerId,
       label: "Demo address",
       line1: "1 Example Street",
@@ -76,10 +83,15 @@ export interface SeedResult {
 // any single row is just skipped, never a partial/corrupt write.
 export async function seedInvoiceDemoDataAction(): Promise<SeedResult> {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const service = createServiceClient();
-  const { customerId, addressId } = await ensureDemoCustomer(service);
+  const { customerId, addressId } = await ensureDemoCustomer(service, business.id);
 
-  const { data: cleaners } = await service.from("PS_CLEAN_cleaners").select("id").eq("is_active", true);
+  const { data: cleaners } = await service
+    .from("PS_CLEAN_cleaners")
+    .select("id")
+    .eq("is_active", true)
+    .eq("business_id", business.id);
   if (!cleaners || cleaners.length === 0) throw new Error("No active cleaners to create demo bookings for.");
 
   let created = 0;
@@ -115,6 +127,7 @@ export async function seedInvoiceDemoDataAction(): Promise<SeedResult> {
     const endsAt = new Date(startsAt.getTime() + svc.duration_minutes * 60_000);
 
     const { error } = await service.from("PS_CLEAN_bookings").insert({
+      business_id: business.id,
       customer_id: customerId,
       cleaner_id: cleaner.id,
       service_id: svc.id,
@@ -147,8 +160,14 @@ export async function seedInvoiceDemoDataAction(): Promise<SeedResult> {
 // exactly like any other historical invoice.
 export async function clearInvoiceDemoDataAction(): Promise<number> {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const service = createServiceClient();
-  const { data, error } = await service.from("PS_CLEAN_bookings").delete().eq("notes", DEMO_MARKER).select("id");
+  const { data, error } = await service
+    .from("PS_CLEAN_bookings")
+    .delete()
+    .eq("notes", DEMO_MARKER)
+    .eq("business_id", business.id)
+    .select("id");
   if (error) throw new Error(error.message);
   revalidatePath("/admin/invoices");
   revalidatePath("/admin/bookings");

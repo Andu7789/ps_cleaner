@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { createCleanerAction, setCleanerActiveAction } from "@/lib/actions/admin";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
 import type { Cleaner } from "@/lib/types";
 
 export default async function AdminCleanersPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
-  const { data } = await supabase.from("PS_CLEAN_cleaners").select("*").order("created_at", { ascending: true });
+  const { data } = await supabase
+    .from("PS_CLEAN_cleaners")
+    .select("*")
+    .eq("business_id", business.id)
+    .order("created_at", { ascending: true });
   const cleaners = (data ?? []) as Cleaner[];
 
   async function addCleaner(formData: FormData) {

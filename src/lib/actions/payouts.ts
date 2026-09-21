@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 export interface PayoutSummary {
   bookingCount: number;
@@ -42,10 +43,12 @@ export async function previewPayoutAction(cleanerId: string, periodStart: string
 
 export async function recordPayoutAction(cleanerId: string, periodStart: string, periodEnd: string, notes?: string) {
   const admin = await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const summary = await summarizeCompletedBookings(supabase, cleanerId, periodStart, periodEnd);
 
   const { error } = await supabase.from("PS_CLEAN_cleaner_payouts").insert({
+    business_id: business.id,
     cleaner_id: cleanerId,
     period_start: periodStart,
     period_end: periodEnd,

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDate, formatPence } from "@/lib/format";
 import { PayoutForm } from "@/components/admin/payout-form";
 import type { Cleaner, CleanerPayout } from "@/lib/types";
@@ -6,12 +7,14 @@ import type { Cleaner, CleanerPayout } from "@/lib/types";
 type PayoutRow = CleanerPayout & { PS_CLEAN_cleaners: Cleaner | null };
 
 export default async function AdminPayoutsPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data: cleaners }, { data: payouts }] = await Promise.all([
-    supabase.from("PS_CLEAN_cleaners").select("*").eq("is_active", true).order("full_name"),
+    supabase.from("PS_CLEAN_cleaners").select("*").eq("business_id", business.id).eq("is_active", true).order("full_name"),
     supabase
       .from("PS_CLEAN_cleaner_payouts")
       .select("*, PS_CLEAN_cleaners(*)")
+      .eq("business_id", business.id)
       .order("created_at", { ascending: false })
       .limit(50),
   ]);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness, getBusinessOrigin } from "@/lib/business";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { signOutAction } from "@/lib/actions/customer";
 import { CopyLinkButton } from "@/components/account/copy-link-button";
@@ -32,7 +33,8 @@ export default async function AccountPage() {
   const bookings = (data ?? []) as BookingRow[];
   const upcoming = bookings.filter((b) => b.status === "confirmed" || b.status === "pending_payment");
   const past = bookings.filter((b) => !upcoming.includes(b));
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const business = await getCurrentBusiness();
+  const siteUrl = getBusinessOrigin(business);
   const referralLink = customer.referral_code ? `${siteUrl}/r/${customer.referral_code}` : null;
 
   return (

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { BookingsTable } from "@/components/admin/bookings-table";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
 
@@ -25,16 +26,19 @@ function formatRelative(iso: string): string {
 }
 
 export default async function AdminBookingsPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data }, { data: changeLog }] = await Promise.all([
     supabase
       .from("PS_CLEAN_bookings")
       .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*), PS_CLEAN_customers(*)")
+      .eq("business_id", business.id)
       .order("starts_at", { ascending: false })
       .limit(500),
     supabase
       .from("PS_CLEAN_admin_change_log")
       .select("id, field, old_value, new_value, actor_name, changed_at, PS_CLEAN_bookings(PS_CLEAN_services(name))")
+      .eq("business_id", business.id)
       .order("changed_at", { ascending: false })
       .limit(20),
   ]);

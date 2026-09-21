@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatPence } from "@/lib/format";
 import type { PaymentStatus, PaymentType } from "@/lib/types";
 
@@ -35,13 +36,19 @@ function monthLabel(key: string): string {
 
 export default async function AdminReportsPage() {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
 
   const [{ data: paymentData }, { data: bookingData }] = await Promise.all([
-    supabase.from("PS_CLEAN_payments").select("amount_pence, type, status, created_at").eq("status", "succeeded"),
+    supabase
+      .from("PS_CLEAN_payments")
+      .select("amount_pence, type, status, created_at")
+      .eq("business_id", business.id)
+      .eq("status", "succeeded"),
     supabase
       .from("PS_CLEAN_bookings")
       .select("id, customer_id, status, price_pence, service_id, PS_CLEAN_services(name)")
+      .eq("business_id", business.id)
       .neq("status", "cancelled"),
   ]);
 

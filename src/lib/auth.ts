@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import type { Cleaner, Customer } from "./types";
 
 export async function getUser() {
@@ -16,9 +17,22 @@ export async function requireUser() {
   return user;
 }
 
+// Customer identity is global per auth user (not per-business — see
+// DECISIONS.md), but a customer only ever belongs to the ONE business they
+// signed up under. Scoped by business_id so a login that already has a
+// profile on a different white-labeled instance is correctly treated as
+// "no profile here yet" rather than silently reusing the wrong business's
+// row (which would then fail business-consistency checks the moment they
+// tried to book).
 export async function getCustomer(userId: string): Promise<Customer | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("PS_CLEAN_customers").select("*").eq("user_id", userId).maybeSingle();
+  const business = await getCurrentBusiness();
+  const { data } = await supabase
+    .from("PS_CLEAN_customers")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("business_id", business.id)
+    .maybeSingle();
   return (data as Customer | null) ?? null;
 }
 
@@ -35,12 +49,17 @@ export async function requireCustomer() {
 // insert, see DECISIONS.md). Only the owner can create these rows
 // (RLS + updateAdminAction/inviteAdminAction), but linking on first sign-in
 // happens for any invited email, admin or owner.
-async function getAdminRecord(userId: string, email: string | undefined) {
+// Scoped to a specific business_id: the same email can now be invited as
+// admin at more than one white-labeled instance (most obviously you,
+// running several test businesses yourself), each a separate row — see
+// migration 0030.
+async function getAdminRecord(userId: string, email: string | undefined, businessId: string) {
   const supabase = await createClient();
   const { data: byUserId } = await supabase
     .from("PS_CLEAN_admin_users")
     .select("*")
     .eq("user_id", userId)
+    .eq("business_id", businessId)
     .maybeSingle();
   if (byUserId) return byUserId;
 
@@ -50,6 +69,7 @@ async function getAdminRecord(userId: string, email: string | undefined) {
     .from("PS_CLEAN_admin_users")
     .select("*")
     .ilike("email", email)
+    .eq("business_id", businessId)
     .is("user_id", null)
     .maybeSingle();
   if (!byEmail) return null;
@@ -66,14 +86,16 @@ async function getAdminRecord(userId: string, email: string | undefined) {
 export async function requireAdmin() {
   const user = await getUser();
   if (!user) redirect("/admin/login");
-  const record = await getAdminRecord(user.id, user.email);
+  const business = await getCurrentBusiness();
+  const record = await getAdminRecord(user.id, user.email, business.id);
   if (!record) redirect("/admin/login?error=not_an_admin");
   return user;
 }
 
 export async function requireOwner() {
   const user = await requireAdmin();
-  const record = await getAdminRecord(user.id, user.email ?? undefined);
+  const business = await getCurrentBusiness();
+  const record = await getAdminRecord(user.id, user.email ?? undefined, business.id);
   if (record?.role !== "owner") redirect("/admin");
   return user;
 }
@@ -86,12 +108,14 @@ export async function requireOwner() {
 export async function requireCleaner(): Promise<{ user: Awaited<ReturnType<typeof requireUser>>; cleaner: Cleaner }> {
   const user = await getUser();
   if (!user) redirect("/cleaner/login");
+  const business = await getCurrentBusiness();
 
   const supabase = await createClient();
   const { data: byUserId } = await supabase
     .from("PS_CLEAN_cleaners")
     .select("*")
     .eq("user_id", user.id)
+    .eq("business_id", business.id)
     .maybeSingle();
   if (byUserId) return { user, cleaner: byUserId as Cleaner };
 
@@ -107,6 +131,7 @@ export async function requireCleaner(): Promise<{ user: Awaited<ReturnType<typeo
     .select("*")
     .ilike("email", user.email)
     .eq("is_active", true)
+    .eq("business_id", business.id)
     .is("user_id", null)
     .maybeSingle();
   if (!byEmail) redirect("/cleaner/login?error=not_a_cleaner");

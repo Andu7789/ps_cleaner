@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireOwner } from "@/lib/auth";
 import type { AdminRole } from "@/lib/types";
+import { getCurrentBusiness } from "@/lib/business";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
@@ -52,8 +53,10 @@ export interface CleanerInput {
 
 export async function createCleanerAction(input: CleanerInput) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_cleaners").insert({
+    business_id: business.id,
     full_name: input.fullName,
     email: input.email ?? null,
     phone: input.phone ?? null,
@@ -105,8 +108,10 @@ export interface ServiceInput {
 
 export async function createServiceAction(input: ServiceInput) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_services").insert({
+    business_id: business.id,
     name: input.name,
     description: input.description ?? null,
     duration_minutes: input.durationMinutes,
@@ -129,11 +134,12 @@ export async function setServiceActiveAction(serviceId: string, isActive: boolea
 
 export async function setCleanerQualificationAction(cleanerId: string, serviceId: string, qualified: boolean) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   if (qualified) {
     const { error } = await supabase
       .from("PS_CLEAN_cleaner_services")
-      .upsert({ cleaner_id: cleanerId, service_id: serviceId });
+      .upsert({ business_id: business.id, cleaner_id: cleanerId, service_id: serviceId });
     if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase
@@ -155,8 +161,10 @@ export interface WorkingHoursInput {
 
 export async function addWorkingHoursAction(input: WorkingHoursInput) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_cleaner_working_hours").insert({
+    business_id: business.id,
     cleaner_id: input.cleanerId,
     day_of_week: input.dayOfWeek,
     start_time: input.startTime,
@@ -183,8 +191,10 @@ export interface TimeOffInput {
 
 export async function addTimeOffAction(input: TimeOffInput) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_cleaner_time_off").insert({
+    business_id: business.id,
     cleaner_id: input.cleanerId,
     starts_at: input.startsAt,
     ends_at: input.endsAt,
@@ -320,14 +330,18 @@ export interface BusinessSettingsInput {
   balanceChargeDaysBefore: number;
 }
 
-// Owner-only, matching the RLS write policy on PS_CLEAN_business_settings
-// (see migration 0005/0008) — a regular admin can read these values same
-// as the public site does, but only the owner can change them.
+// Owner-only, matching the RLS write policy on PS_CLEAN_businesses' write
+// path (service-role/owner only — see migration 0029/0031) — a regular
+// admin can read these values same as the public site does, but only the
+// owner can change them. Updates THIS request's own business row (the one
+// requireOwner() just verified they own), never a business_id from the
+// client.
 export async function updateBusinessSettingsAction(input: BusinessSettingsInput) {
   await requireOwner();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase
-    .from("PS_CLEAN_business_settings")
+    .from("PS_CLEAN_businesses")
     .update({
       business_name: input.businessName,
       contact_email: input.contactEmail || null,
@@ -335,9 +349,8 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
       timezone: input.timezone,
       reminder_hours_before: input.reminderHoursBefore,
       balance_charge_days_before: input.balanceChargeDaysBefore,
-      updated_at: new Date().toISOString(),
     })
-    .eq("id", true);
+    .eq("id", business.id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/settings");
   revalidatePath("/");
@@ -358,8 +371,10 @@ export async function setServiceCalculatorAction(serviceId: string, useCalculato
 
 export async function createRoomTypeAction(name: string, pricePerUnitPence: number, minutesPerUnit = 0) {
   await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_calculator_room_types").insert({
+    business_id: business.id,
     name,
     price_per_unit_pence: pricePerUnitPence,
     minutes_per_unit: minutesPerUnit,
@@ -393,8 +408,10 @@ export interface InviteAdminInput {
 
 export async function inviteAdminAction(input: InviteAdminInput) {
   await requireOwner();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_admin_users").insert({
+    business_id: business.id,
     email: input.email.trim().toLowerCase(),
     display_name: input.displayName?.trim() || null,
     role: input.role,
@@ -417,6 +434,7 @@ export async function updateAdminRoleAction(id: string, role: AdminRole) {
 // manage admins at all — RLS makes admin_users writes owner-only).
 export async function removeAdminAction(id: string) {
   const owner = await requireOwner();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
 
   const { data: target } = await supabase
@@ -428,10 +446,13 @@ export async function removeAdminAction(id: string) {
   if (target.user_id === owner.id) throw new Error("You can't remove your own admin access.");
 
   if (target.role === "owner") {
+    // Scoped to THIS business — an owner elsewhere (you, running another
+    // test instance) must never count toward "is there still an owner here".
     const { count } = await supabase
       .from("PS_CLEAN_admin_users")
       .select("id", { count: "exact", head: true })
-      .eq("role", "owner");
+      .eq("role", "owner")
+      .eq("business_id", business.id);
     if ((count ?? 0) <= 1) throw new Error("Can't remove the last owner.");
   }
 

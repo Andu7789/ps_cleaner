@@ -19,73 +19,83 @@ async function handler(request: Request) {
   }
 
   const service = createServiceClient();
-  const { data: settings } = await service
-    .from("PS_CLEAN_business_settings")
-    .select("balance_charge_days_before")
-    .eq("id", true)
-    .maybeSingle();
-
-  const daysBefore = settings?.balance_charge_days_before ?? 2;
-  const windowEnd = new Date(Date.now() + daysBefore * 24 * 60 * 60 * 1000);
-
-  const { data: bookings, error } = await service
-    .from("PS_CLEAN_bookings")
-    .select("id, starts_at, price_pence, amount_paid_pence, customer_id, PS_CLEAN_customers(stripe_customer_id, stripe_default_payment_method_id)")
-    .eq("status", "confirmed")
-    .lt("starts_at", windowEnd.toISOString())
-    .gt("starts_at", new Date().toISOString());
-
-  if (error) return new Response(error.message, { status: 500 });
-
   const stripe = getStripe();
+
+  // Runs across every business (no request/host to resolve "current
+  // business" from — see lib/business.ts), and balance_charge_days_before
+  // is a per-business setting now, not one global value, so this loops
+  // per business rather than running a single cross-tenant query.
+  const { data: businesses, error: businessesError } = await service
+    .from("PS_CLEAN_businesses")
+    .select("id, balance_charge_days_before");
+  if (businessesError) return new Response(businessesError.message, { status: 500 });
+
+  let checked = 0;
   let charged = 0;
 
-  for (const booking of bookings ?? []) {
-    const remaining = booking.price_pence - booking.amount_paid_pence;
-    if (remaining <= 0) continue;
+  for (const business of businesses ?? []) {
+    const windowEnd = new Date(Date.now() + business.balance_charge_days_before * 24 * 60 * 60 * 1000);
 
-    const customer = Array.isArray(booking.PS_CLEAN_customers) ? booking.PS_CLEAN_customers[0] : booking.PS_CLEAN_customers;
-    if (!customer?.stripe_customer_id || !customer?.stripe_default_payment_method_id) continue;
+    const { data: bookings, error } = await service
+      .from("PS_CLEAN_bookings")
+      .select("id, starts_at, price_pence, amount_paid_pence, customer_id, PS_CLEAN_customers(stripe_customer_id, stripe_default_payment_method_id)")
+      .eq("business_id", business.id)
+      .eq("status", "confirmed")
+      .lt("starts_at", windowEnd.toISOString())
+      .gt("starts_at", new Date().toISOString());
+    if (error) return new Response(error.message, { status: 500 });
 
-    const { data: alreadyAttempted } = await service
-      .from("PS_CLEAN_payments")
-      .select("id")
-      .eq("booking_id", booking.id)
-      .eq("type", "balance")
-      .maybeSingle();
-    if (alreadyAttempted) continue;
+    checked += bookings?.length ?? 0;
 
-    try {
-      const intent = await stripe.paymentIntents.create({
-        amount: remaining,
-        currency: "gbp",
-        customer: customer.stripe_customer_id,
-        payment_method: customer.stripe_default_payment_method_id,
-        off_session: true,
-        confirm: true,
-        metadata: { ps_clean_booking_id: booking.id, ps_clean_payment_type: "balance" },
-      });
+    for (const booking of bookings ?? []) {
+      const remaining = booking.price_pence - booking.amount_paid_pence;
+      if (remaining <= 0) continue;
 
-      await service.from("PS_CLEAN_payments").insert({
-        booking_id: booking.id,
-        stripe_payment_intent_id: intent.id,
-        type: "balance",
-        amount_pence: remaining,
-        status: intent.status === "succeeded" ? "succeeded" : "pending",
-      });
-      charged++;
-    } catch (err) {
-      await service.from("PS_CLEAN_payments").insert({
-        booking_id: booking.id,
-        type: "balance",
-        amount_pence: remaining,
-        status: "failed",
-        failure_message: err instanceof Error ? err.message : String(err),
-      });
+      const customer = Array.isArray(booking.PS_CLEAN_customers) ? booking.PS_CLEAN_customers[0] : booking.PS_CLEAN_customers;
+      if (!customer?.stripe_customer_id || !customer?.stripe_default_payment_method_id) continue;
+
+      const { data: alreadyAttempted } = await service
+        .from("PS_CLEAN_payments")
+        .select("id")
+        .eq("booking_id", booking.id)
+        .eq("type", "balance")
+        .maybeSingle();
+      if (alreadyAttempted) continue;
+
+      try {
+        const intent = await stripe.paymentIntents.create({
+          amount: remaining,
+          currency: "gbp",
+          customer: customer.stripe_customer_id,
+          payment_method: customer.stripe_default_payment_method_id,
+          off_session: true,
+          confirm: true,
+          metadata: { ps_clean_booking_id: booking.id, ps_clean_payment_type: "balance" },
+        });
+
+        await service.from("PS_CLEAN_payments").insert({
+          business_id: business.id,
+          booking_id: booking.id,
+          stripe_payment_intent_id: intent.id,
+          type: "balance",
+          amount_pence: remaining,
+          status: intent.status === "succeeded" ? "succeeded" : "pending",
+        });
+        charged++;
+      } catch (err) {
+        await service.from("PS_CLEAN_payments").insert({
+          business_id: business.id,
+          booking_id: booking.id,
+          type: "balance",
+          amount_pence: remaining,
+          status: "failed",
+          failure_message: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 
-  return Response.json({ checked: bookings?.length ?? 0, charged });
+  return Response.json({ checked, charged });
 }
 
 // GET for Vercel Cron (only ever triggers via GET, auto-attaching this

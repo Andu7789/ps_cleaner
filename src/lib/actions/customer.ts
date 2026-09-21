@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getBusinessSettings } from "@/lib/business";
+import { getCurrentBusiness, getBusinessOrigin } from "@/lib/business";
 import { sendMagicLinkEmail } from "@/lib/notify";
 
 function generateReferralCode(): string {
@@ -18,7 +18,8 @@ function generateReferralCode(): string {
 }
 
 export async function requestMagicLinkAction(email: string, next?: string) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const business = await getCurrentBusiness();
+  const siteUrl = getBusinessOrigin(business);
 
   // Normalize case/whitespace before this email is used anywhere. Mobile
   // keyboards auto-capitalize the first letter of an email field by
@@ -62,8 +63,7 @@ export async function requestMagicLinkAction(email: string, next?: string) {
   // is Supabase's own documented pattern for a self-sent auth email.
   const link = `${siteUrl}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=magiclink&next=${encodeURIComponent(next ?? "/account")}`;
 
-  const settings = await getBusinessSettings();
-  await sendMagicLinkEmail(settings.business_name, normalizedEmail, link);
+  await sendMagicLinkEmail(business.business_name, normalizedEmail, link);
 }
 
 export async function signOutAction() {
@@ -74,11 +74,14 @@ export async function signOutAction() {
 
 export async function createCustomerProfileAction(fullName: string, phone: string, next?: string) {
   const user = await requireUser();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const service = createServiceClient();
 
   // Resolve who referred this signup, if anyone — set by /r/[code], read
   // once and cleared here so it can't be reapplied to a later account.
+  // Scoped to this business: a referral code from a different white-labeled
+  // instance shouldn't silently link across businesses.
   const cookieStore = await cookies();
   const refCode = cookieStore.get("ps_clean_ref")?.value;
   let referredByCustomerId: string | null = null;
@@ -87,6 +90,7 @@ export async function createCustomerProfileAction(fullName: string, phone: strin
       .from("PS_CLEAN_customers")
       .select("id")
       .eq("referral_code", refCode.toUpperCase())
+      .eq("business_id", business.id)
       .maybeSingle();
     referredByCustomerId = referrer?.id ?? null;
     cookieStore.delete("ps_clean_ref");
@@ -99,6 +103,7 @@ export async function createCustomerProfileAction(fullName: string, phone: strin
   let lastError: string | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const { error } = await supabase.from("PS_CLEAN_customers").insert({
+      business_id: business.id,
       user_id: user.id,
       full_name: fullName,
       email: user.email,
@@ -108,6 +113,13 @@ export async function createCustomerProfileAction(fullName: string, phone: strin
     });
     if (!error) {
       redirect(next || "/account");
+    }
+    if (error.code === "23505" && error.message.includes("user_id")) {
+      // Customer identity is global per login (see DECISIONS.md) — this
+      // email already has a profile at a DIFFERENT white-labeled business.
+      throw new Error(
+        "This email already has an account with another PS Cleaning business. Please use a different email for this one."
+      );
     }
     if (error.code !== "23505") throw new Error(error.message);
     lastError = error.message;
@@ -126,8 +138,10 @@ export interface AddressInput {
 }
 
 export async function addAddressAction(customerId: string, input: AddressInput) {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_customer_addresses").insert({
+    business_id: business.id,
     customer_id: customerId,
     label: input.label,
     line1: input.line1,

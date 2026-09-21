@@ -1,12 +1,18 @@
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { AdminTeamManager } from "@/components/admin/admin-team-manager";
 import type { AdminUser } from "@/lib/types";
 
 export default async function AdminTeamPage() {
   const user = await requireOwner();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
-  const { data } = await supabase.from("PS_CLEAN_admin_users").select("*").order("created_at", { ascending: true });
+  const { data } = await supabase
+    .from("PS_CLEAN_admin_users")
+    .select("*")
+    .eq("business_id", business.id)
+    .order("created_at", { ascending: true });
   const admins = (data ?? []) as AdminUser[];
 
   return (

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatPence, formatTime } from "@/lib/format";
 import type { Booking, Cleaner, Service } from "@/lib/types";
 
 export default async function AdminOverviewPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -13,6 +15,7 @@ export default async function AdminOverviewPage() {
   const { data } = await supabase
     .from("PS_CLEAN_bookings")
     .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*)")
+    .eq("business_id", business.id)
     .gte("starts_at", todayStart.toISOString())
     .lt("starts_at", todayEnd.toISOString())
     .neq("status", "cancelled")

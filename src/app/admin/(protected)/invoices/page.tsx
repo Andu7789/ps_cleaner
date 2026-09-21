@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDate, formatPence } from "@/lib/format";
 import { InvoiceGenerateForm } from "@/components/admin/invoice-generate-form";
 import type { Cleaner, CleanerInvoice } from "@/lib/types";
@@ -18,12 +19,14 @@ export default async function AdminInvoicesPage({
   searchParams: Promise<{ cleanerId?: string }>;
 }) {
   const { cleanerId } = await searchParams;
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data: cleaners }, { data: invoices }] = await Promise.all([
-    supabase.from("PS_CLEAN_cleaners").select("*").eq("is_active", true).order("full_name"),
+    supabase.from("PS_CLEAN_cleaners").select("*").eq("business_id", business.id).eq("is_active", true).order("full_name"),
     supabase
       .from("PS_CLEAN_cleaner_invoices")
       .select("*, PS_CLEAN_cleaners(*)")
+      .eq("business_id", business.id)
       .order("created_at", { ascending: false })
       .limit(50),
   ]);

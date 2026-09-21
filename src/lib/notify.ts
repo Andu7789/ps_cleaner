@@ -86,7 +86,13 @@ async function logNotification(
   outcome: { ok: true; providerId?: string } | { ok: false; error: string }
 ) {
   const service = createServiceClient();
+  const { data: booking } = await service
+    .from("PS_CLEAN_bookings")
+    .select("business_id")
+    .eq("id", bookingId)
+    .maybeSingle();
   await service.from("PS_CLEAN_notifications_log").insert({
+    business_id: booking?.business_id,
     booking_id: bookingId,
     channel,
     type,

@@ -1,8 +1,8 @@
-import { getBusinessSettings } from "@/lib/business";
+import { getCurrentBusiness } from "@/lib/business";
 import { SettingsForm } from "@/components/admin/settings-form";
 
 export default async function AdminSettingsPage() {
-  const settings = await getBusinessSettings();
+  const settings = await getCurrentBusiness();
 
   return (
     <div>

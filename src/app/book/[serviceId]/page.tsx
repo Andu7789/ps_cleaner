@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDuration, formatPence } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/types";
@@ -11,12 +12,14 @@ export default async function ServiceBookingPage({
   params: Promise<{ serviceId: string }>;
 }) {
   const { serviceId } = await params;
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
 
   const { data: service } = await supabase
     .from("PS_CLEAN_services")
     .select("*")
     .eq("id", serviceId)
+    .eq("business_id", business.id)
     .eq("is_active", true)
     .maybeSingle();
   if (!service) notFound();
@@ -49,6 +52,7 @@ export default async function ServiceBookingPage({
     const { data: roomTypeData } = await supabase
       .from("PS_CLEAN_calculator_room_types")
       .select("*")
+      .eq("business_id", business.id)
       .eq("is_active", true)
       .order("sort_order")
       .order("created_at");

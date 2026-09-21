@@ -21,6 +21,7 @@ export async function joinWaitlistAction(serviceId: string, wantedDate: string, 
   if (existing) return; // already waiting for this day — nothing more to do
 
   const { error } = await supabase.from("PS_CLEAN_waitlist_entries").insert({
+    business_id: customer.business_id,
     customer_id: customer.id,
     service_id: serviceId,
     cleaner_id: cleanerId ?? null,

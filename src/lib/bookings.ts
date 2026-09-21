@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { toLondonDateKey } from "@/lib/calendar";
 import { formatDate } from "@/lib/format";
 import { sendWaitlistOpeningEmail } from "@/lib/notify";
+import { getBusinessOrigin } from "@/lib/business";
 
 // System-initiated cancellation (Stripe webhook, scheduled cleanup jobs) —
 // NOT the customer-facing path. Deliberately a direct table update via the
@@ -43,7 +44,7 @@ export async function cancelBookingAsSystem(
 export async function notifyWaitlistOnCancellation(service: SupabaseClient, bookingId: string): Promise<void> {
   const { data: booking } = await service
     .from("PS_CLEAN_bookings")
-    .select("service_id, cleaner_id, starts_at")
+    .select("business_id, service_id, cleaner_id, starts_at")
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking) return;
@@ -59,12 +60,12 @@ export async function notifyWaitlistOnCancellation(service: SupabaseClient, book
     .or(`cleaner_id.is.null,cleaner_id.eq.${booking.cleaner_id}`);
   if (!entries || entries.length === 0) return;
 
-  const [{ data: svc }, { data: settings }] = await Promise.all([
+  const [{ data: svc }, { data: business }] = await Promise.all([
     service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
-    service.from("PS_CLEAN_business_settings").select("business_name").eq("id", true).maybeSingle(),
+    service.from("PS_CLEAN_businesses").select("slug, custom_domain, business_name").eq("id", booking.business_id).maybeSingle(),
   ]);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const siteUrl = business ? getBusinessOrigin(business) : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
   const bookingUrl = `${siteUrl}/book/${booking.service_id}`;
 
   for (const entry of entries) {
@@ -76,7 +77,7 @@ export async function notifyWaitlistOnCancellation(service: SupabaseClient, book
 
     if (customer?.email) {
       await sendWaitlistOpeningEmail(
-        settings?.business_name ?? "Cleaning Company",
+        business?.business_name ?? "Cleaning Company",
         customer.email,
         svc?.name ?? "your service",
         formatDate(booking.starts_at),

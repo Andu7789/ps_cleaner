@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDate } from "@/lib/format";
 import { computePayable } from "@/lib/pay-rate";
 import type { PayRateType } from "@/lib/types";
@@ -83,6 +84,7 @@ export async function generateInvoiceAction(
   notes?: string
 ): Promise<string> {
   const admin = await requireAdmin();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { lines, totalPence } = await buildPreview(supabase, cleanerId, periodStart, periodEnd);
   if (lines.length === 0) throw new Error("No uninvoiced completed jobs in this period");
@@ -90,6 +92,7 @@ export async function generateInvoiceAction(
   const { data: invoice, error } = await supabase
     .from("PS_CLEAN_cleaner_invoices")
     .insert({
+      business_id: business.id,
       cleaner_id: cleanerId,
       period_start: periodStart,
       period_end: periodEnd,
@@ -103,6 +106,7 @@ export async function generateInvoiceAction(
 
   const { error: itemsError } = await supabase.from("PS_CLEAN_cleaner_invoice_items").insert(
     lines.map((l) => ({
+      business_id: business.id,
       invoice_id: invoice.id,
       booking_id: l.bookingId,
       description: `${l.serviceName} — ${formatDate(l.date)}`,

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import {
   addTimeOffAction,
   addWorkingHoursAction,
@@ -19,6 +20,7 @@ type ReviewRow = Review & { PS_CLEAN_customers: { full_name: string | null } | n
 
 export default async function CleanerDetailPage({ params }: { params: Promise<{ cleanerId: string }> }) {
   const { cleanerId } = await params;
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
 
   const [
@@ -31,7 +33,7 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
     { data: reviews },
   ] = await Promise.all([
     supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
-    supabase.from("PS_CLEAN_services").select("*").eq("is_active", true).order("name"),
+    supabase.from("PS_CLEAN_services").select("*").eq("business_id", business.id).eq("is_active", true).order("name"),
     supabase.from("PS_CLEAN_cleaner_services").select("service_id").eq("cleaner_id", cleanerId),
     supabase.from("PS_CLEAN_cleaner_working_hours").select("*").eq("cleaner_id", cleanerId).order("day_of_week"),
     supabase.from("PS_CLEAN_cleaner_time_off").select("*").eq("cleaner_id", cleanerId).order("starts_at"),

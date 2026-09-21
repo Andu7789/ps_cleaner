@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDuration, formatPence } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
@@ -12,10 +13,12 @@ export default async function BookPage({
   const { service } = await searchParams;
   if (service) redirect(`/book/${service}`);
 
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { data } = await supabase
     .from("PS_CLEAN_services")
     .select("*")
+    .eq("business_id", business.id)
     .eq("is_active", true)
     .order("price_pence", { ascending: true });
   const services = (data ?? []) as Service[];

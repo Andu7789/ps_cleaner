@@ -1,29 +1,26 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getBusinessSettings } from "@/lib/business";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDuration, formatPence } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 export default async function HomePage() {
-  const [settings, services] = await Promise.all([
-    getBusinessSettings(),
-    (async () => {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("PS_CLEAN_services")
-        .select("*")
-        .eq("is_active", true)
-        .order("price_pence", { ascending: true });
-      return (data ?? []) as Service[];
-    })(),
-  ]);
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("PS_CLEAN_services")
+    .select("*")
+    .eq("business_id", business.id)
+    .eq("is_active", true)
+    .order("price_pence", { ascending: true });
+  const services = (data ?? []) as Service[];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <section className="rounded-2xl bg-brand px-6 py-14 text-center text-brand-foreground sm:px-12">
         <h1 className="text-3xl font-semibold sm:text-4xl">Book a trusted clean in minutes</h1>
         <p className="mx-auto mt-3 max-w-xl text-brand-foreground/90">
-          {settings.business_name} — pick a service, choose a time that suits you, and pay securely online.
+          {business.business_name} — pick a service, choose a time that suits you, and pay securely online.
         </p>
         <Link
           href="/book"

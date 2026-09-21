@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatDuration, formatPence } from "@/lib/format";
 import { createServiceAction, setServiceActiveAction } from "@/lib/actions/admin";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
@@ -7,10 +8,16 @@ import { RoomTypesManager } from "@/components/admin/room-types-manager";
 import type { CalculatorRoomType, Service } from "@/lib/types";
 
 export default async function AdminServicesPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data }, { data: roomTypeData }] = await Promise.all([
-    supabase.from("PS_CLEAN_services").select("*").order("created_at", { ascending: true }),
-    supabase.from("PS_CLEAN_calculator_room_types").select("*").order("sort_order").order("created_at"),
+    supabase.from("PS_CLEAN_services").select("*").eq("business_id", business.id).order("created_at", { ascending: true }),
+    supabase
+      .from("PS_CLEAN_calculator_room_types")
+      .select("*")
+      .eq("business_id", business.id)
+      .order("sort_order")
+      .order("created_at"),
   ]);
   const services = (data ?? []) as Service[];
   const roomTypes = (roomTypeData ?? []) as CalculatorRoomType[];

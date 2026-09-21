@@ -13,7 +13,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
   const { data: booking } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
+      "id, business_id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -21,18 +21,18 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
 
   await service.from("PS_CLEAN_bookings").update({ status: "confirmed", updated_at: new Date().toISOString() }).eq("id", bookingId);
 
-  const [{ data: customer }, { data: cleaner }, { data: svc }, { data: address }, { data: settings }] =
+  const [{ data: customer }, { data: cleaner }, { data: svc }, { data: address }, { data: business }] =
     await Promise.all([
       service.from("PS_CLEAN_customers").select("full_name, email, phone").eq("id", booking.customer_id).maybeSingle(),
       service.from("PS_CLEAN_cleaners").select("full_name").eq("id", booking.cleaner_id).maybeSingle(),
       service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
       service.from("PS_CLEAN_customer_addresses").select("line1, city, postcode").eq("id", booking.address_id).maybeSingle(),
-      service.from("PS_CLEAN_business_settings").select("business_name").eq("id", true).maybeSingle(),
+      service.from("PS_CLEAN_businesses").select("business_name").eq("id", booking.business_id).maybeSingle(),
     ]);
 
   await sendBookingConfirmation({
     bookingId: booking.id,
-    businessName: settings?.business_name ?? "Cleaning Company",
+    businessName: business?.business_name ?? "Cleaning Company",
     serviceName: svc?.name ?? "Clean",
     cleanerName: cleaner?.full_name ?? "your cleaner",
     startsAt: booking.starts_at,

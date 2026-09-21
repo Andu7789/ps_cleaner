@@ -6,6 +6,7 @@ export type PayRateType = "percentage" | "hourly" | "fixed_per_job";
 
 export interface Cleaner {
   id: string;
+  business_id: string;
   user_id: string | null;
   full_name: string;
   email: string | null;
@@ -93,6 +94,7 @@ export interface TimeOff {
 
 export interface Customer {
   id: string;
+  business_id: string;
   user_id: string;
   full_name: string | null;
   email: string | null;
@@ -271,6 +273,7 @@ export type AdminRole = "admin" | "owner";
 
 export interface AdminUser {
   id: string;
+  business_id: string;
   user_id: string | null;
   email: string;
   role: AdminRole;
@@ -278,8 +281,18 @@ export interface AdminUser {
   created_at: string;
 }
 
-export interface BusinessSettings {
+// One row = one white-labeled instance of this app, resolved per-request by
+// hostname (custom_domain, falling back to <slug>.psclean.site) — see
+// getCurrentBusiness() in lib/business.ts. Superset of the old single-row
+// BusinessSettings; kept as one type since every caller that used to read
+// settings now reads its own business row instead.
+export interface Business {
+  id: string;
+  slug: string;
   business_name: string;
+  custom_domain: string | null;
+  brand_color: string;
+  logo_url: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   timezone: string;

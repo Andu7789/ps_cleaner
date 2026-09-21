@@ -34,6 +34,7 @@ export async function uploadBookingPhotoAction(bookingId: string, kind: PhotoKin
   if (uploadError) throw new Error(uploadError.message);
 
   const { error } = await supabase.from("PS_CLEAN_booking_photos").insert({
+    business_id: cleaner.business_id,
     booking_id: bookingId,
     kind,
     storage_path: path,

@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { updateBusinessSettingsAction } from "@/lib/actions/admin";
-import type { BusinessSettings } from "@/lib/types";
+import type { Business } from "@/lib/types";
 
-export function SettingsForm({ settings }: { settings: BusinessSettings }) {
+export function SettingsForm({ settings }: { settings: Business }) {
   const [businessName, setBusinessName] = useState(settings.business_name);
   const [contactEmail, setContactEmail] = useState(settings.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(settings.contact_phone ?? "");

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { formatPence } from "@/lib/format";
 import { createAddonAction, setAddonActiveAction } from "@/lib/actions/addons";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
@@ -6,11 +7,12 @@ import { AddonServiceCheckbox } from "@/components/admin/addon-service-checkbox"
 import type { Addon, Service } from "@/lib/types";
 
 export default async function AdminAddonsPage() {
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data: addons }, { data: services }, { data: links }] = await Promise.all([
-    supabase.from("PS_CLEAN_addons").select("*").order("created_at", { ascending: true }),
-    supabase.from("PS_CLEAN_services").select("*").eq("is_active", true).order("name"),
-    supabase.from("PS_CLEAN_service_addons").select("service_id, addon_id"),
+    supabase.from("PS_CLEAN_addons").select("*").eq("business_id", business.id).order("created_at", { ascending: true }),
+    supabase.from("PS_CLEAN_services").select("*").eq("business_id", business.id).eq("is_active", true).order("name"),
+    supabase.from("PS_CLEAN_service_addons").select("service_id, addon_id").eq("business_id", business.id),
   ]);
 
   const linkSet = new Set((links ?? []).map((l) => `${l.service_id}:${l.addon_id}`));

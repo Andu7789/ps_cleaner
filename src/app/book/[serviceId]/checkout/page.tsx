@@ -47,8 +47,8 @@ export default async function CheckoutPage({
   const supabase = await createClient();
   const [{ data: service }, { data: cleaner }, { data: addresses }, { data: addonLinks }, { data: creditBalance }] =
     await Promise.all([
-      supabase.from("PS_CLEAN_services").select("*").eq("id", serviceId).maybeSingle(),
-      supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).maybeSingle(),
+      supabase.from("PS_CLEAN_services").select("*").eq("id", serviceId).eq("business_id", customer.business_id).maybeSingle(),
+      supabase.from("PS_CLEAN_cleaners").select("*").eq("id", cleanerId).eq("business_id", customer.business_id).maybeSingle(),
       supabase
         .from("PS_CLEAN_customer_addresses")
         .select("*")

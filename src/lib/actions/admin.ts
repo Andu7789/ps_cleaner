@@ -328,6 +328,8 @@ export interface BusinessSettingsInput {
   timezone: string;
   reminderHoursBefore: number;
   balanceChargeDaysBefore: number;
+  brandColor: string;
+  logoUrl?: string;
 }
 
 // Owner-only, matching the RLS write policy on PS_CLEAN_businesses' write
@@ -338,6 +340,9 @@ export interface BusinessSettingsInput {
 // client.
 export async function updateBusinessSettingsAction(input: BusinessSettingsInput) {
   await requireOwner();
+  if (!/^#[0-9a-fA-F]{6}$/.test(input.brandColor)) {
+    throw new Error("Brand color must be a hex code like #0f766e");
+  }
   const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase
@@ -349,11 +354,16 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
       timezone: input.timezone,
       reminder_hours_before: input.reminderHoursBefore,
       balance_charge_days_before: input.balanceChargeDaysBefore,
+      brand_color: input.brandColor,
+      logo_url: input.logoUrl || null,
     })
     .eq("id", business.id);
   if (error) throw new Error(error.message);
-  revalidatePath("/admin/settings");
-  revalidatePath("/");
+  // Layout-level metadata (theme color, manifest, header logo) is read
+  // fresh per request already (getCurrentBusiness() forces dynamic
+  // rendering via headers()), but every route under this layout still
+  // needs its own cache entry invalidated.
+  revalidatePath("/", "layout");
 }
 
 // "Build your experience" pricing calculator — off by default, admin

@@ -11,6 +11,8 @@ export function SettingsForm({ settings }: { settings: Business }) {
   const [timezone, setTimezone] = useState(settings.timezone);
   const [reminderHoursBefore, setReminderHoursBefore] = useState(settings.reminder_hours_before);
   const [balanceChargeDaysBefore, setBalanceChargeDaysBefore] = useState(settings.balance_charge_days_before);
+  const [brandColor, setBrandColor] = useState(settings.brand_color);
+  const [logoUrl, setLogoUrl] = useState(settings.logo_url ?? "");
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,8 @@ export function SettingsForm({ settings }: { settings: Business }) {
           timezone,
           reminderHoursBefore,
           balanceChargeDaysBefore,
+          brandColor,
+          logoUrl,
         });
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -45,6 +49,40 @@ export function SettingsForm({ settings }: { settings: Business }) {
           onChange={(e) => setBusinessName(e.target.value)}
           className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-sm"
         />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-xs text-muted-foreground">Brand color</label>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="color"
+              value={brandColor}
+              onChange={(e) => setBrandColor(e.target.value)}
+              className="h-9 w-12 shrink-0 rounded-lg border border-border p-1"
+              aria-label="Brand color"
+            />
+            <input
+              value={brandColor}
+              onChange={(e) => setBrandColor(e.target.value)}
+              placeholder="#0f766e"
+              className="block w-full rounded-lg border border-border px-3 py-2 text-sm"
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Used for buttons, links, and the browser theme color across the site.</p>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Logo URL (optional)</label>
+          <input
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://example.com/logo.png"
+            className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Link to an already-hosted image — shown in the header and used as the site/app icon. Leave blank to use the default icon.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

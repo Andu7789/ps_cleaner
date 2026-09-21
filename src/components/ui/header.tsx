@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function Header({ businessName, signedIn }: { businessName: string; signedIn: boolean }) {
+export function Header({
+  businessName,
+  logoUrl,
+  signedIn,
+}: {
+  businessName: string;
+  logoUrl?: string | null;
+  signedIn: boolean;
+}) {
   const pathname = usePathname();
   // Invoice pages are deliberately standalone documents (see DECISIONS.md
   // — they live outside the admin/cleaner tabbed layouts specifically so
@@ -16,7 +24,11 @@ export function Header({ businessName, signedIn }: { businessName: string; signe
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-base font-semibold text-foreground">
+        <Link href="/" className="flex items-center gap-2 text-base font-semibold text-foreground">
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
+            <img src={logoUrl} alt="" className="h-7 w-7 rounded-md object-contain" />
+          )}
           {businessName}
         </Link>
         <nav className="flex items-center gap-4 text-sm">

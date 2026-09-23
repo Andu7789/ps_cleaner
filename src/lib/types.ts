@@ -293,6 +293,7 @@ export interface Business {
   custom_domain: string | null;
   brand_color: string;
   logo_url: string | null;
+  icon_url: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   timezone: string;

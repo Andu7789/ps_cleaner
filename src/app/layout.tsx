@@ -27,8 +27,11 @@ export async function generateMetadata(): Promise<Metadata> {
     // touch icon still falls back to the static default, since iOS
     // requires a raster PNG and this app can't generate one dynamically
     // (see favicon.svg/route.ts — the same sharp stub blocks that here too).
-    icons: business.logo_url
-      ? { icon: [{ url: business.logo_url }], apple: [{ url: business.logo_url }] }
+    icons: business.icon_url ?? business.logo_url
+      ? {
+          icon: [{ url: (business.icon_url ?? business.logo_url)! }],
+          apple: [{ url: (business.icon_url ?? business.logo_url)! }],
+        }
       : {
           icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
           apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],

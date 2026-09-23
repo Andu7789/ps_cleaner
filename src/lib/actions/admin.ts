@@ -330,6 +330,7 @@ export interface BusinessSettingsInput {
   balanceChargeDaysBefore: number;
   brandColor: string;
   logoUrl?: string;
+  iconUrl?: string;
 }
 
 // Owner-only, matching the RLS write policy on PS_CLEAN_businesses' write
@@ -356,6 +357,7 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
       balance_charge_days_before: input.balanceChargeDaysBefore,
       brand_color: input.brandColor,
       logo_url: input.logoUrl || null,
+      icon_url: input.logoUrl ? input.iconUrl || null : null,
     })
     .eq("id", business.id);
   if (error) throw new Error(error.message);
@@ -364,6 +366,50 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
   // rendering via headers()), but every route under this layout still
   // needs its own cache entry invalidated.
   revalidatePath("/", "layout");
+}
+
+const LOGO_BUCKET = "ps_clean_business_logos";
+const LOGO_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+};
+const LOGO_MAX_BYTES = 800 * 1024; // stays under the 1MB server action body limit
+
+// Uploads the logo plus a square 512px PNG icon (made in the browser, since
+// sharp is stubbed out here) to a public bucket under "{business_id}/" and
+// returns both public URLs. Doesn't save them on the business; the settings
+// form's Save does that.
+export async function uploadBusinessLogoAction(
+  formData: FormData,
+): Promise<{ logoUrl: string; iconUrl: string | null }> {
+  await requireOwner();
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw new Error("No file provided");
+  const ext = LOGO_TYPES[file.type];
+  if (!ext) throw new Error("Logo must be a PNG, JPG, WebP, or SVG image");
+  if (file.size > LOGO_MAX_BYTES) throw new Error("Logo must be under 800KB");
+
+  const business = await getCurrentBusiness();
+  const stamp = Date.now();
+  const service = createServiceClient();
+  const bucket = service.storage.from(LOGO_BUCKET);
+  const path = `${business.id}/logo-${stamp}.${ext}`;
+  const { error } = await bucket.upload(path, file, { contentType: file.type, cacheControl: "31536000" });
+  if (error) throw new Error(error.message);
+
+  let iconUrl: string | null = null;
+  const icon = formData.get("icon");
+  if (icon instanceof File && icon.type === "image/png" && icon.size <= LOGO_MAX_BYTES) {
+    const iconPath = `${business.id}/icon-${stamp}.png`;
+    const { error: iconError } = await bucket.upload(iconPath, icon, {
+      contentType: "image/png",
+      cacheControl: "31536000",
+    });
+    if (!iconError) iconUrl = bucket.getPublicUrl(iconPath).data.publicUrl;
+  }
+  return { logoUrl: bucket.getPublicUrl(path).data.publicUrl, iconUrl };
 }
 
 // "Build your experience" pricing calculator — off by default, admin

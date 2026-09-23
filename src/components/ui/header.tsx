@@ -27,7 +27,7 @@ export function Header({
         <Link href="/" className="flex items-center gap-2 text-base font-semibold text-foreground">
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
-            <img src={logoUrl} alt="" className="h-7 w-7 rounded-md object-contain" />
+            <img src={logoUrl} alt="" className="h-8 w-auto max-w-40 object-contain" />
           )}
           {businessName}
         </Link>

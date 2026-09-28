@@ -13,6 +13,8 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
   const [rowError, setRowError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rowNotice, setRowNotice] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [sentId, setSentId] = useState<string | null>(null);
 
   function handleInvite() {
     if (!email.trim()) return;
@@ -32,12 +34,17 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
   function handleResend(id: string, email: string) {
     setRowError(null);
     setRowNotice(null);
+    setSentId(null);
+    setResendingId(id);
     startTransition(async () => {
       try {
         await resendAdminInviteAction(id);
+        setSentId(id);
         setRowNotice(`Invite sent to ${email}`);
       } catch (err) {
         setRowError(err instanceof Error ? err.message : "Couldn't send the invite");
+      } finally {
+        setResendingId(null);
       }
     });
   }
@@ -73,11 +80,11 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
                 {!a.user_id && (
                   <button
                     type="button"
-                    disabled={pending}
+                    disabled={resendingId === a.id}
                     onClick={() => handleResend(a.id, a.email)}
                     className="text-xs text-brand hover:underline disabled:opacity-40"
                   >
-                    Resend invite
+                    {resendingId === a.id ? "Sending…" : sentId === a.id ? "Sent ✓" : "Resend invite"}
                   </button>
                 )}
                 <select

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { inviteAdminAction, removeAdminAction, updateAdminRoleAction } from "@/lib/actions/admin";
+import { inviteAdminAction, removeAdminAction, resendAdminInviteAction, updateAdminRoleAction } from "@/lib/actions/admin";
 import { formatDate } from "@/lib/format";
 import type { AdminRole, AdminUser } from "@/lib/types";
 
@@ -12,6 +12,7 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
   const [pending, startTransition] = useTransition();
   const [rowError, setRowError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rowNotice, setRowNotice] = useState<string | null>(null);
 
   function handleInvite() {
     if (!email.trim()) return;
@@ -24,6 +25,19 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
         setRole("admin");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Couldn't invite that admin");
+      }
+    });
+  }
+
+  function handleResend(id: string, email: string) {
+    setRowError(null);
+    setRowNotice(null);
+    startTransition(async () => {
+      try {
+        await resendAdminInviteAction(id);
+        setRowNotice(`Invite sent to ${email}`);
+      } catch (err) {
+        setRowError(err instanceof Error ? err.message : "Couldn't send the invite");
       }
     });
   }
@@ -56,6 +70,16 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {!a.user_id && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => handleResend(a.id, a.email)}
+                    className="text-xs text-brand hover:underline disabled:opacity-40"
+                  >
+                    Resend invite
+                  </button>
+                )}
                 <select
                   value={a.role}
                   disabled={pending || a.user_id === currentUserId}
@@ -78,12 +102,17 @@ export function AdminTeamManager({ admins, currentUserId }: { admins: AdminUser[
           ))}
         </div>
         {rowError && <p className="mt-2 text-xs text-danger">{rowError}</p>}
+        {rowNotice && (
+          <p role="status" className="mt-2 text-xs text-muted-foreground">
+            {rowNotice}
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Invite someone</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          They&apos;ll be linked automatically the first time they sign in with this email at /admin/login.
+          We&apos;ll email them an invite. They&apos;ll be linked automatically the first time they sign in with this email at /admin/login.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="text-xs text-muted-foreground">

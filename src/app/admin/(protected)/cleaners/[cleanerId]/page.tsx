@@ -11,6 +11,7 @@ import Link from "next/link";
 import { QualificationCard } from "@/components/admin/qualification-card";
 import { PayRateForm } from "@/components/admin/pay-rate-form";
 import { CleanerDetailsForm } from "@/components/admin/cleaner-details-form";
+import { ResendCleanerInviteButton } from "@/components/admin/resend-cleaner-invite-button";
 import { formatDate } from "@/lib/format";
 import type { Cleaner, CleanerRating, Review, Service, TimeOff, WorkingHours } from "@/lib/types";
 
@@ -81,7 +82,12 @@ export default async function CleanerDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <section className="mt-6">
-        <h2 className="font-semibold text-foreground">Details</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-foreground">Details</h2>
+          {(cleaner as Cleaner).email && !(cleaner as Cleaner).user_id && (
+            <ResendCleanerInviteButton cleanerId={cleanerId} email={(cleaner as Cleaner).email!} />
+          )}
+        </div>
         <div className="mt-2">
           <CleanerDetailsForm
             cleanerId={cleanerId}

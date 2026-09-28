@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireOwner } from "@/lib/auth";
 import type { AdminRole } from "@/lib/types";
-import { getCurrentBusiness } from "@/lib/business";
+import { getBusinessOrigin, getCurrentBusiness } from "@/lib/business";
+import { sendStaffInviteEmail } from "@/lib/notify";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
@@ -55,16 +56,54 @@ export async function createCleanerAction(input: CleanerInput) {
   await requireAdmin();
   const business = await getCurrentBusiness();
   const supabase = await createClient();
+  const email = input.email?.trim().toLowerCase() || null;
   const { error } = await supabase.from("PS_CLEAN_cleaners").insert({
     business_id: business.id,
     full_name: input.fullName,
-    email: input.email ?? null,
+    email,
     phone: input.phone ?? null,
     bio: input.bio ?? null,
     calendar_color: input.calendarColor ?? "#2563eb",
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/cleaners");
+
+  // Best effort, the cleaner is already saved and this form has no error
+  // display, so a failed send is logged and can be retried from the
+  // cleaner's page with "Send invite email".
+  if (email) {
+    try {
+      await sendStaffInviteEmail(
+        business.business_name,
+        email,
+        input.fullName,
+        "cleaner",
+        `${getBusinessOrigin(business)}/cleaner/login`
+      );
+    } catch (err) {
+      console.error("Cleaner invite email failed", err);
+    }
+  }
+}
+
+export async function resendCleanerInviteAction(cleanerId: string) {
+  await requireAdmin();
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { data: cleaner } = await supabase
+    .from("PS_CLEAN_cleaners")
+    .select("full_name, email")
+    .eq("id", cleanerId)
+    .eq("business_id", business.id)
+    .maybeSingle();
+  if (!cleaner?.email) throw new Error("This cleaner has no email address");
+  await sendStaffInviteEmail(
+    business.business_name,
+    cleaner.email.trim().toLowerCase(),
+    cleaner.full_name,
+    "cleaner",
+    `${getBusinessOrigin(business)}/cleaner/login`
+  );
 }
 
 export async function updateCleanerDetailsAction(cleanerId: string, input: CleanerInput) {
@@ -474,6 +513,39 @@ export async function inviteAdminAction(input: InviteAdminInput) {
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/team");
+
+  try {
+    await sendStaffInviteEmail(
+      business.business_name,
+      input.email.trim().toLowerCase(),
+      input.displayName?.trim() || null,
+      "admin",
+      `${getBusinessOrigin(business)}/admin/login`
+    );
+  } catch (err) {
+    console.error("Admin invite email failed", err);
+    throw new Error("They've been added, but the invite email couldn't be sent. Try \"Resend invite\" on their row.");
+  }
+}
+
+export async function resendAdminInviteAction(id: string) {
+  await requireOwner();
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { data: admin } = await supabase
+    .from("PS_CLEAN_admin_users")
+    .select("email, display_name")
+    .eq("id", id)
+    .eq("business_id", business.id)
+    .maybeSingle();
+  if (!admin?.email) throw new Error("Admin not found");
+  await sendStaffInviteEmail(
+    business.business_name,
+    admin.email,
+    admin.display_name,
+    "admin",
+    `${getBusinessOrigin(business)}/admin/login`
+  );
 }
 
 export async function updateAdminRoleAction(id: string, role: AdminRole) {

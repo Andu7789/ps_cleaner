@@ -70,6 +70,31 @@ export async function sendMagicLinkEmail(businessName: string, email: string, ac
   await sendEmail(email, `Sign in to ${businessName}`, html);
 }
 
+// Links to the login page rather than embedding a magic link directly,
+// since a generated magic link expires within the hour and a new staff
+// member may not open their invite until days later. Throws on failure so
+// the caller can tell the admin the invite didn't go out.
+export async function sendStaffInviteEmail(
+  businessName: string,
+  email: string,
+  name: string | null,
+  role: "cleaner" | "admin",
+  loginUrl: string
+): Promise<void> {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const roleLine =
+    role === "cleaner"
+      ? `You've been added as a cleaner at ${businessName}. You can see your schedule, bookings and invoices once you sign in.`
+      : `You've been invited to help manage ${businessName}.`;
+  const html = emailShell(
+    businessName,
+    `<p>${greeting}</p>
+     <p>${roleLine}</p>
+     <p><a href="${loginUrl}" style="color: #0f766e;">Sign in</a> using this email address (${email}). We'll email you a one time sign in link, no password needed.</p>`
+  );
+  await sendEmail(email, `You've been added to ${businessName}`, html);
+}
+
 function emailShell(businessName: string, bodyHtml: string): string {
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #111827;">

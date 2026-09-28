@@ -70,15 +70,18 @@ export async function sendMagicLinkEmail(businessName: string, email: string, ac
   await sendEmail(email, `Sign in to ${businessName}`, html);
 }
 
-// Links to the login page rather than embedding a magic link directly,
-// since a generated magic link expires within the hour and a new staff
-// member may not open their invite until days later. Throws on failure so
-// the caller can tell the admin the invite didn't go out.
+// Carries a real one click sign in link, so the invite itself signs them
+// in instead of sending them to a login page to request a second email.
+// That link is single use and expires (Supabase's OTP expiry), and a new
+// staff member may not open the invite for days, so the login page is
+// included as a fallback. Throws on failure so the caller can tell the
+// admin the invite didn't go out.
 export async function sendStaffInviteEmail(
   businessName: string,
   email: string,
   name: string | null,
   role: "cleaner" | "admin",
+  signInLink: string,
   loginUrl: string
 ): Promise<void> {
   const greeting = name ? `Hi ${name},` : "Hi,";
@@ -90,7 +93,8 @@ export async function sendStaffInviteEmail(
     businessName,
     `<p>${greeting}</p>
      <p>${roleLine}</p>
-     <p><a href="${loginUrl}" style="color: #0f766e;">Sign in</a> using this email address (${email}). We'll email you a one time sign in link, no password needed.</p>`
+     <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">Sign in to ${businessName}</a></p>
+     <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. If it's stopped working, go to <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a> and enter ${email} to get a fresh link, no password needed.</p>`
   );
   await sendEmail(email, `You've been added to ${businessName}`, html);
 }

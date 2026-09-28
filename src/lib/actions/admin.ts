@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireOwner } from "@/lib/auth";
 import type { AdminRole } from "@/lib/types";
 import { getBusinessOrigin, getCurrentBusiness } from "@/lib/business";
+import { generateMagicLink } from "@/lib/magic-link";
 import { sendStaffInviteEmail } from "@/lib/notify";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
@@ -78,6 +79,7 @@ export async function createCleanerAction(input: CleanerInput) {
         email,
         input.fullName,
         "cleaner",
+        await generateMagicLink(business, email, "/cleaner"),
         `${getBusinessOrigin(business)}/cleaner/login`
       );
     } catch (err) {
@@ -102,7 +104,8 @@ export async function resendCleanerInviteAction(cleanerId: string) {
     cleaner.email.trim().toLowerCase(),
     cleaner.full_name,
     "cleaner",
-    `${getBusinessOrigin(business)}/cleaner/login`
+    await generateMagicLink(business, cleaner.email.trim().toLowerCase(), "/cleaner"),
+        `${getBusinessOrigin(business)}/cleaner/login`
   );
 }
 
@@ -520,7 +523,8 @@ export async function inviteAdminAction(input: InviteAdminInput) {
       input.email.trim().toLowerCase(),
       input.displayName?.trim() || null,
       "admin",
-      `${getBusinessOrigin(business)}/admin/login`
+      await generateMagicLink(business, input.email.trim().toLowerCase(), "/admin"),
+        `${getBusinessOrigin(business)}/admin/login`
     );
   } catch (err) {
     console.error("Admin invite email failed", err);
@@ -544,7 +548,8 @@ export async function resendAdminInviteAction(id: string) {
     admin.email,
     admin.display_name,
     "admin",
-    `${getBusinessOrigin(business)}/admin/login`
+    await generateMagicLink(business, admin.email, "/admin"),
+        `${getBusinessOrigin(business)}/admin/login`
   );
 }
 

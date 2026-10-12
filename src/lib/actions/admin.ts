@@ -523,7 +523,7 @@ export async function inviteAdminAction(input: InviteAdminInput) {
       input.email.trim().toLowerCase(),
       input.displayName?.trim() || null,
       "admin",
-      await generateMagicLink(business, input.email.trim().toLowerCase(), "/admin"),
+      await generateMagicLink(business, input.email.trim().toLowerCase(), "/admin/set-password"),
         `${getBusinessOrigin(business)}/admin/login`
     );
   } catch (err) {
@@ -548,7 +548,7 @@ export async function resendAdminInviteAction(id: string) {
     admin.email,
     admin.display_name,
     "admin",
-    await generateMagicLink(business, admin.email, "/admin"),
+    await generateMagicLink(business, admin.email, "/admin/set-password"),
         `${getBusinessOrigin(business)}/admin/login`
   );
 }

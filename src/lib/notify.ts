@@ -93,8 +93,12 @@ export async function sendStaffInviteEmail(
     businessName,
     `<p>${greeting}</p>
      <p>${roleLine}</p>
-     <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">Sign in to ${businessName}</a></p>
-     <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. If it's stopped working, go to <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a> and enter ${email} to get a fresh link, no password needed.</p>`
+     <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">${role === "admin" ? "Set your password" : `Sign in to ${businessName}`}</a></p>
+     <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. ${
+       role === "admin"
+         ? `Once your password is set, sign in at <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a>. If the button has stopped working, use "Forgot password" on that page with ${email}.`
+         : `If it's stopped working, go to <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a> and enter ${email} to get a fresh link, no password needed.`
+     }</p>`
   );
   await sendEmail(email, `You've been added to ${businessName}`, html);
 }

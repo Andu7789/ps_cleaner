@@ -68,14 +68,13 @@ export function SlotPicker({
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
-  const calculatorTotal = roomTypes.reduce(
-    (sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.price_per_unit_pence,
-    0
-  );
-  const calculatorExtraMinutes = roomTypes.reduce(
-    (sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.minutes_per_unit,
-    0
-  );
+  const noCharge = service.rooms_no_charge;
+  const calculatorTotal = noCharge
+    ? 0
+    : roomTypes.reduce((sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.price_per_unit_pence, 0);
+  const calculatorExtraMinutes = noCharge
+    ? 0
+    : roomTypes.reduce((sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.minutes_per_unit, 0);
   const effectiveDurationMinutes = service.use_calculator
     ? service.duration_minutes + calculatorExtraMinutes
     : service.duration_minutes;
@@ -140,7 +139,12 @@ export function SlotPicker({
     if (service.use_calculator && roomTypes.length > 0) {
       const selections = roomTypes
         .filter((rt) => (roomQuantities[rt.id] ?? 0) > 0)
-        .map((rt) => ({ roomTypeId: rt.id, name: rt.name, quantity: roomQuantities[rt.id], pricePerUnitPence: rt.price_per_unit_pence }));
+        .map((rt) => ({
+          roomTypeId: rt.id,
+          name: rt.name,
+          quantity: roomQuantities[rt.id],
+          pricePerUnitPence: noCharge ? 0 : rt.price_per_unit_pence,
+        }));
       if (selections.length > 0) params.set("rooms", JSON.stringify(selections));
     }
     router.push(`/book/${service.id}/checkout?${params.toString()}`);
@@ -151,14 +155,27 @@ export function SlotPicker({
       <div className="md:col-span-2">
         {service.use_calculator && roomTypes.length > 0 && (
           <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-foreground">Build your clean</h2>
+            <h2 className="text-sm font-semibold text-foreground">
+              {noCharge ? "Tell us about your property" : "Build your clean"}
+            </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tell us about your home and we&apos;ll adjust the price and job length — {formatPence(service.price_pence)} base
-              {calculatorTotal > 0 ? ` + ${formatPence(calculatorTotal)}` : ""}
-              {calculatorExtraMinutes > 0 ? ` · ${effectiveDurationMinutes} min total` : ""}
+              {noCharge ? (
+                "How many of each room do you have? Your cleaner will see this before they visit. There's no charge."
+              ) : (
+                <>
+                  Tell us about your home and we&apos;ll adjust the price and job length — {formatPence(service.price_pence)} base
+                  {calculatorTotal > 0 ? ` + ${formatPence(calculatorTotal)}` : ""}
+                  {calculatorExtraMinutes > 0 ? ` · ${effectiveDurationMinutes} min total` : ""}
+                </>
+              )}
             </p>
             <div className="mt-3">
-              <PricingCalculator roomTypes={roomTypes} quantities={roomQuantities} onChange={setRoomQuantities} />
+              <PricingCalculator
+                roomTypes={roomTypes}
+                quantities={roomQuantities}
+                onChange={setRoomQuantities}
+                showPrices={!noCharge}
+              />
             </div>
           </div>
         )}

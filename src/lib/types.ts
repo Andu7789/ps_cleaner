@@ -32,6 +32,8 @@ export interface Service {
   deposit_pence: number | null;
   is_active: boolean;
   use_calculator: boolean;
+  // Room counts are collected for the cleaner but add nothing to price or length.
+  rooms_no_charge: boolean;
   created_at: string;
   updated_at: string;
 }

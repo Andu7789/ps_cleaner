@@ -467,6 +467,17 @@ export async function setServiceCalculatorAction(serviceId: string, useCalculato
   revalidatePath("/admin/services");
 }
 
+export async function setServiceRoomsNoChargeAction(serviceId: string, roomsNoCharge: boolean) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_services")
+    .update({ rooms_no_charge: roomsNoCharge, updated_at: new Date().toISOString() })
+    .eq("id", serviceId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+}
+
 export async function createRoomTypeAction(name: string, pricePerUnitPence: number, minutesPerUnit = 0) {
   await requireAdmin();
   const business = await getCurrentBusiness();

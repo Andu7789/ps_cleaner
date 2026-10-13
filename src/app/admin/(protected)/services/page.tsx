@@ -50,7 +50,11 @@ export default async function AdminServicesPage() {
                 {s.buffer_before_minutes}m before / {s.buffer_after_minutes}m after
               </p>
               <div className="mt-1">
-                <ServiceCalculatorToggle serviceId={s.id} initialEnabled={s.use_calculator} />
+                <ServiceCalculatorToggle
+                  serviceId={s.id}
+                  initialEnabled={s.use_calculator}
+                  initialNoCharge={s.rooms_no_charge}
+                />
               </div>
             </div>
             <ToggleActiveButton isActive={s.is_active} onToggle={setServiceActiveAction.bind(null, s.id)} />

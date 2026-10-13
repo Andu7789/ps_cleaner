@@ -7,10 +7,12 @@ export function PricingCalculator({
   roomTypes,
   quantities,
   onChange,
+  showPrices = true,
 }: {
   roomTypes: CalculatorRoomType[];
   quantities: Record<string, number>;
   onChange: (next: Record<string, number>) => void;
+  showPrices?: boolean;
 }) {
   function setQuantity(id: string, value: number) {
     onChange({ ...quantities, [id]: Math.max(0, Math.min(20, value)) });
@@ -24,7 +26,7 @@ export function PricingCalculator({
           <div key={rt.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
             <div>
               <p className="text-sm font-medium text-foreground">{rt.name}</p>
-              <p className="text-xs text-muted-foreground">{formatPence(rt.price_per_unit_pence)} each</p>
+              {showPrices && <p className="text-xs text-muted-foreground">{formatPence(rt.price_per_unit_pence)} each</p>}
             </div>
             <div className="flex items-center gap-2">
               <button

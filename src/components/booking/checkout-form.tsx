@@ -154,7 +154,8 @@ export function CheckoutForm({
           <ul className="mt-2 text-sm text-muted-foreground">
             {roomSelections.map((r) => (
               <li key={r.roomTypeId}>
-                {r.quantity} × {r.name} ({formatPence(r.quantity * r.pricePerUnitPence)})
+                {r.quantity} × {r.name}
+                {r.pricePerUnitPence > 0 ? ` (${formatPence(r.quantity * r.pricePerUnitPence)})` : ""}
               </li>
             ))}
           </ul>

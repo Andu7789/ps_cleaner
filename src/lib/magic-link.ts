@@ -34,5 +34,11 @@ export async function generateMagicLink(
   const hashedToken = data.properties?.hashed_token;
   if (!hashedToken) throw new Error("Couldn't generate a sign-in link");
 
-  return `${getBusinessOrigin(business)}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=magiclink&next=${encodeURIComponent(next)}`;
+  // For an email with no login yet, generateLink quietly issues a "signup"
+  // token instead of a "magiclink" one, and verifyOtp only finds the token
+  // under the type it was issued as. Hardcoding magiclink made every first
+  // time sign in (new admin or cleaner invites) fail with "link didn't work".
+  const type = data.properties?.verification_type ?? "magiclink";
+
+  return `${getBusinessOrigin(business)}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=${encodeURIComponent(type)}&next=${encodeURIComponent(next)}`;
 }

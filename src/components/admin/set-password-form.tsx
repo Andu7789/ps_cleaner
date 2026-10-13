@@ -13,7 +13,11 @@ export function SetPasswordForm() {
     setPending(true);
     setError(null);
     try {
-      await setAdminPasswordAction(password);
+      const result = await setAdminPasswordAction(password);
+      if (result?.error) {
+        setError(result.error);
+        setPending(false);
+      }
     } catch (err) {
       if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
       setError(err instanceof Error ? err.message : "Something went wrong");

@@ -9,7 +9,12 @@ import { sendMagicLinkEmail } from "@/lib/notify";
 
 const MIN_PASSWORD_LENGTH = 10;
 
-export async function adminSignInAction(email: string, password: string) {
+// Errors are returned, not thrown: in production Next masks thrown server
+// action errors, so the form would show "Minified React error #441".
+export async function adminSignInAction(
+  email: string,
+  password: string,
+): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
@@ -17,7 +22,7 @@ export async function adminSignInAction(email: string, password: string) {
   });
   // One message for wrong email and wrong password alike, so this can't be
   // used to find out which emails have accounts.
-  if (error) throw new Error("Incorrect email or password.");
+  if (error) return { error: "Incorrect email or password." };
   // requireAdmin() on /admin bounces non-admins back with a clear error.
   redirect("/admin");
 }
@@ -42,13 +47,15 @@ export async function requestAdminPasswordSetupAction(email: string) {
   await sendMagicLinkEmail(business.business_name, normalizedEmail, link);
 }
 
-export async function setAdminPasswordAction(password: string) {
+export async function setAdminPasswordAction(
+  password: string,
+): Promise<{ error: string } | undefined> {
   await requireAdmin();
   if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+    return { error: `Use at least ${MIN_PASSWORD_LENGTH} characters.` };
   }
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   redirect("/admin");
 }

@@ -18,7 +18,11 @@ export function AdminLoginForm({ initialError }: { initialError?: string }) {
     setPending(true);
     setError(null);
     try {
-      await adminSignInAction(email, password);
+      const result = await adminSignInAction(email, password);
+      if (result?.error) {
+        setError(result.error);
+        setPending(false);
+      }
     } catch (err) {
       // A successful sign-in redirects, which surfaces as a thrown redirect
       // signal that must not be shown as an error.

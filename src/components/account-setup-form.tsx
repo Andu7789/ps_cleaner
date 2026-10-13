@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { createCustomerProfileAction } from "@/lib/actions/customer";
 
 const inputClass =
@@ -25,7 +26,10 @@ export function AccountSetupForm({ next }: { next?: string }) {
         setError(result.error);
         setPending(false);
       }
-    } catch {
+    } catch (err) {
+      // A successful save redirects, which surfaces as a thrown redirect
+      // signal that must not be shown as an error.
+      if (isRedirectError(err)) throw err;
       setError("Something went wrong, please try again.");
       setPending(false);
     }

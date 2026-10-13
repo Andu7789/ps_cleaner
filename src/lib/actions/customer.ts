@@ -43,7 +43,13 @@ export async function signOutAction() {
   redirect("/");
 }
 
-export async function createCustomerProfileAction(fullName: string, phone: string, next?: string) {
+// Errors are returned, not thrown: production masks thrown server action
+// errors as a generic "server error" page, hiding why the save failed.
+export async function createCustomerProfileAction(
+  fullName: string,
+  phone: string,
+  next?: string
+): Promise<{ error: string } | undefined> {
   const user = await requireUser();
   const business = await getCurrentBusiness();
   const supabase = await createClient();
@@ -88,14 +94,14 @@ export async function createCustomerProfileAction(fullName: string, phone: strin
     if (error.code === "23505" && error.message.includes("user_id")) {
       // Customer identity is global per login (see DECISIONS.md) — this
       // email already has a profile at a DIFFERENT white-labeled business.
-      throw new Error(
-        "This email already has an account with another PS Cleaning business. Please use a different email for this one."
-      );
+      return {
+        error: "This email already has an account with another PS Cleaning business. Please use a different email for this one.",
+      };
     }
-    if (error.code !== "23505") throw new Error(error.message);
+    if (error.code !== "23505") return { error: error.message };
     lastError = error.message;
   }
-  throw new Error(lastError ?? "Couldn't create your account — please try again.");
+  return { error: lastError ?? "Couldn't create your account, please try again." };
 }
 
 export interface AddressInput {

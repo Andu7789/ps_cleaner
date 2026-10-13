@@ -58,3 +58,24 @@ body {
     animation: ps-clean-fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
+
+/* One hover and pointer treatment for every button, so none feel dead. Uses
+   opacity so it reads on dark brand buttons and light ones alike, and is
+   skipped for disabled buttons and for devices that can't hover. */
+button,
+[role="button"] {
+  cursor: pointer;
+  transition: opacity 150ms ease-out;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover {
+    opacity: 0.85;
+  }
+}

@@ -45,6 +45,9 @@ export default async function AccountPage() {
           <p className="text-sm text-muted-foreground">{customer.email}</p>
         </div>
         <div className="flex gap-3 text-sm">
+          <Link href="/account/details" className="text-brand hover:underline">
+            My details
+          </Link>
           <Link href="/account/addresses" className="text-brand hover:underline">
             Addresses
           </Link>

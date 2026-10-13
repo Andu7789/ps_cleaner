@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireCustomer, requireUser } from "@/lib/auth";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
 import { generateMagicLink } from "@/lib/magic-link";
@@ -102,6 +102,28 @@ export async function createCustomerProfileAction(
     lastError = error.message;
   }
   return { error: lastError ?? "Couldn't create your account, please try again." };
+}
+
+// Only name and phone can be changed here. The email is the login, so it
+// stays as it is. Scoped to the signed in customer's own row.
+export async function updateCustomerDetailsAction(
+  fullName: string,
+  phone: string
+): Promise<{ error: string } | { ok: true }> {
+  const { customer } = await requireCustomer();
+  const name = fullName.trim();
+  const number = phone.trim();
+  if (!name) return { error: "Enter your name." };
+  if (!number) return { error: "Enter a phone number." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_customers")
+    .update({ full_name: name, phone: number })
+    .eq("id", customer.id);
+  if (error) return { error: "Couldn't save your details, please try again." };
+  revalidatePath("/account");
+  return { ok: true };
 }
 
 export interface AddressInput {

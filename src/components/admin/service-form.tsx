@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { createServiceAction, updateServiceAction } from "@/lib/actions/admin";
 import type { Service } from "@/lib/types";
 
-const inputClass = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm";
+// Explicit text and background colours: inputs inherit colour from the muted label around them, which made typed values look disabled.
+const inputClass =
+  "mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 // One form for adding a service and editing an existing one.
 export function ServiceForm({ service, onDone }: { service?: Service; onDone?: () => void }) {

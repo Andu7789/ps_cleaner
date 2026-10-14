@@ -184,7 +184,7 @@ export function AppearanceForm({ business }: { business: Business }) {
               onChange={(e) => setBrandColor(e.target.value)}
               placeholder="#0f766e"
               aria-label="Brand colour hex code"
-              className="block w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              className="block w-32 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
             />
             {!validColor && <span className="text-xs text-danger">Use a hex code like #0f766e</span>}
           </div>

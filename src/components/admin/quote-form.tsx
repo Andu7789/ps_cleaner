@@ -45,7 +45,7 @@ export function QuoteForm({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           aria-label="Final price in pounds"
-          className="w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+          className="w-24 rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground"
         />
         <button
           type="submit"

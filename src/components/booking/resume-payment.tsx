@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resumeBookingPaymentAction } from "@/lib/actions/booking";
+import { payQuotedBookingAction, resumeBookingPaymentAction } from "@/lib/actions/booking";
 import { PaymentStep } from "@/components/booking/payment-step";
 
-export function ResumePayment({ bookingId }: { bookingId: string }) {
+// `quoted` is for a confirmed quote booking paying its deposit for the first
+// time; otherwise this resumes an unfinished checkout payment.
+export function ResumePayment({ bookingId, quoted = false }: { bookingId: string; quoted?: boolean }) {
   const [state, setState] = useState<
     | { status: "loading" }
     | { status: "ready"; clientSecret: string; amountDuePence: number }
@@ -13,7 +15,7 @@ export function ResumePayment({ bookingId }: { bookingId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    resumeBookingPaymentAction(bookingId)
+    (quoted ? payQuotedBookingAction(bookingId) : resumeBookingPaymentAction(bookingId))
       .then((result) => {
         if (!cancelled) setState({ status: "ready", ...result });
       })
@@ -25,7 +27,7 @@ export function ResumePayment({ bookingId }: { bookingId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [bookingId, quoted]);
 
   if (state.status === "loading") {
     return <p className="text-sm text-muted-foreground">Preparing payment…</p>;

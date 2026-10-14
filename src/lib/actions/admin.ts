@@ -546,6 +546,18 @@ export async function setServiceRoomsNoChargeAction(serviceId: string, roomsNoCh
   revalidatePath("/admin/services");
 }
 
+export async function setServiceRequiresQuoteAction(serviceId: string, requiresQuote: boolean) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_services")
+    .update({ requires_quote: requiresQuote, updated_at: new Date().toISOString() })
+    .eq("id", serviceId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+  revalidatePath("/book", "layout");
+}
+
 export async function createRoomTypeAction(name: string, pricePerUnitPence: number, minutesPerUnit = 0) {
   await requireAdmin();
   const business = await getCurrentBusiness();

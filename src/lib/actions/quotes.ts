@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
-import { formatDate, formatTime } from "@/lib/format";
+import { getBusinessOrigin } from "@/lib/business";
+import { formatDate, formatTime, quoteAmountDue } from "@/lib/format";
 import { sendQuoteApprovedEmails } from "@/lib/notify";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
@@ -28,7 +29,7 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
   const { data } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "starts_at, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name)"
+      "id, starts_at, deposit_pence, amount_paid_pence, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name, slug, custom_domain)"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -36,8 +37,15 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
     const customer = one(data.PS_CLEAN_customers as { email: string | null } | { email: string | null }[] | null);
     const cleaner = one(data.PS_CLEAN_cleaners as { email: string | null } | { email: string | null }[] | null);
     const svc = one(data.PS_CLEAN_services as { name: string } | { name: string }[] | null);
-    const business = one(data.PS_CLEAN_businesses as { business_name: string } | { business_name: string }[] | null);
+    type BusinessInfo = { business_name: string; slug: string; custom_domain: string | null };
+    const business = one(data.PS_CLEAN_businesses as BusinessInfo | BusinessInfo[] | null);
     if (business) {
+      const due = quoteAmountDue({
+        quote_status: "quoted",
+        price_pence: pricePence,
+        deposit_pence: data.deposit_pence,
+        amount_paid_pence: data.amount_paid_pence,
+      });
       await sendQuoteApprovedEmails({
         businessName: business.business_name,
         serviceName: svc?.name ?? "Clean",
@@ -45,6 +53,14 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
         pricePence,
         cleanerEmail: cleaner?.email ?? null,
         customerEmail: customer?.email ?? null,
+        payNow:
+          due > 0
+            ? {
+                amountPence: due,
+                isDeposit: data.deposit_pence > 0,
+                url: `${getBusinessOrigin(business)}/account/bookings/${data.id}`,
+              }
+            : undefined,
       });
     }
   }

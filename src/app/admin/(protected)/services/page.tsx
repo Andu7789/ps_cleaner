@@ -39,7 +39,9 @@ export default async function AdminServicesPage() {
                   : formatDuration(s.duration_minutes)}{" "}
                 · {s.price_pence <= 0 ? "Free" : formatPence(s.price_pence)}
                 {s.requires_quote ? " (exact quote needed)" : ""}
-                {s.deposit_pence ? ` (${formatPence(s.deposit_pence)} deposit)` : ""} · buffers {s.buffer_before_minutes}m
+                {s.deposit_pence
+                  ? ` (${formatPence(s.deposit_pence)} deposit${s.requires_quote ? ", taken once the price is confirmed" : ""})`
+                  : ""} · buffers {s.buffer_before_minutes}m
                 before / {s.buffer_after_minutes}m after
               </p>
               <ServiceEditor service={s} />
@@ -48,6 +50,7 @@ export default async function AdminServicesPage() {
                   serviceId={s.id}
                   initialEnabled={s.use_calculator}
                   initialNoCharge={s.rooms_no_charge}
+                  initialRequiresQuote={s.requires_quote}
                 />
               </div>
             </div>

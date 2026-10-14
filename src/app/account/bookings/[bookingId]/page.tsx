@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatPence, formatServicePrice, formatTime, quoteUnconfirmed } from "@/lib/format";
+import { formatDate, formatPence, formatServicePrice, formatTime, quoteAmountDue, quoteUnconfirmed } from "@/lib/format";
 import { getCurrentBusiness } from "@/lib/business";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import { MakeRecurringForm } from "@/components/booking/make-recurring-form";
@@ -103,6 +103,22 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </p>
           <div className="mt-4">
             <ResumePayment bookingId={booking.id} />
+          </div>
+        </div>
+      )}
+
+      {booking.status === "confirmed" && quoteAmountDue(booking) > 0 && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <h2 className="font-semibold text-foreground">
+            {booking.deposit_pence > 0 ? "Pay your deposit" : "Pay for your clean"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your price is confirmed at {formatPence(booking.price_pence)}. {formatPence(quoteAmountDue(booking))} is due
+            now
+            {booking.deposit_pence > 0 ? ", and the rest is taken before your clean" : ""}.
+          </p>
+          <div className="mt-4">
+            <ResumePayment bookingId={booking.id} quoted />
           </div>
         </div>
       )}

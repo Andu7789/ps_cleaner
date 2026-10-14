@@ -61,10 +61,13 @@ export function CheckoutForm({
   // due now if there's no deposit, or get folded into the later balance if
   // there is one — one payment-timing rule, not two (see the migration
   // comment on ps_clean_create_booking for why).
-  // A quote service with no deposit takes nothing now: the listed price is
-  // only an estimate until the final price is set.
-  const amountDueBeforeCredit =
-    service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : service.requires_quote ? 0 : grandTotal;
+  // A quote service takes nothing now, deposit or not: the listed price is
+  // only an estimate, so any deposit is taken once the final price is set.
+  const amountDueBeforeCredit = service.requires_quote
+    ? 0
+    : service.deposit_pence && service.deposit_pence > 0
+      ? service.deposit_pence
+      : grandTotal;
   const creditApplied = useCredit ? Math.min(creditBalancePence, amountDueBeforeCredit) : 0;
   const amountDue = amountDueBeforeCredit - creditApplied;
 
@@ -168,7 +171,8 @@ export function CheckoutForm({
         {service.requires_quote ? (
           <p className="mt-2 text-sm font-semibold text-brand">
             Estimated {formatServicePrice(grandTotal)}, {businessName} will be in contact with your exact quote
-            {amountDue > 0 ? `. ${formatPence(amountDue)} due now.` : ". Nothing to pay now."}
+            . Nothing to pay now
+            {service.deposit_pence ? `, the ${formatPence(service.deposit_pence)} deposit is taken once your price is confirmed.` : "."}
           </p>
         ) : amountDue <= 0 ? (
           <p className="mt-2 text-sm font-semibold text-brand">{grandTotal <= 0 ? "Free, nothing to pay" : "Nothing to pay now"}</p>
@@ -296,6 +300,11 @@ export function CheckoutForm({
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
+      {!addressId && (
+        <p className="text-sm text-muted-foreground">
+          {showNewAddress ? "Save your address above to continue." : "Choose an address above to continue."}
+        </p>
+      )}
 
       <button
         type="button"

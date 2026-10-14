@@ -112,10 +112,10 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       <label className="flex items-start gap-2 text-sm text-foreground">
         <input type="checkbox" className="mt-1 accent-brand" checked={requiresQuote} onChange={(e) => setRequiresQuote(e.target.checked)} />
         <span>
-          Needs an exact quote
+          We will check the quote and provide a price
           <span className="block text-xs text-muted-foreground">
-            Customers are told you will be in contact with an exact price, the cleaner is alerted, and they set the final
-            price. Add a deposit so a card is saved for the balance.
+            Customers are told you will be in contact with an exact price and pay nothing when they book. You confirm the
+            price, then the cleaner and customer are told. Any deposit is taken once the price is confirmed.
           </span>
         </span>
       </label>

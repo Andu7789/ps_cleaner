@@ -79,7 +79,9 @@ export default async function ServiceBookingPage({
       </div>
       {service.deposit_pence ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          {formatPence(service.deposit_pence)} deposit at booking · remainder due before your clean
+          {(service as Service).requires_quote
+            ? `Nothing to pay when you book · ${formatPence(service.deposit_pence)} deposit is taken once your exact price is confirmed`
+            : `${formatPence(service.deposit_pence)} deposit at booking · remainder due before your clean`}
         </p>
       ) : null}
 

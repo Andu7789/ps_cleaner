@@ -13,6 +13,8 @@ export interface NotifyBookingContext {
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  // True while the owner still has to confirm the price; nothing has been taken.
+  quotePending?: boolean;
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<{ id?: string }> {
@@ -142,8 +144,11 @@ async function logNotification(
 // a missed notification is visible to the admin panel rather than silent.
 export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promise<void> {
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
-  const depositLine =
-    ctx.depositPence > 0
+  const depositLine = ctx.quotePending
+    ? `We will check the details and be in touch with your exact price. Nothing has been taken yet${
+        ctx.depositPence > 0 ? `; the ${formatPence(ctx.depositPence)} deposit is taken once the price is confirmed` : ""
+      }.`
+    : ctx.depositPence > 0
       ? `A deposit of ${formatPence(ctx.depositPence)} has been taken; the remaining ${formatPence(
           ctx.pricePence - ctx.depositPence
         )} is due before your clean.`
@@ -153,10 +158,17 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
     try {
       const html = emailShell(
         ctx.businessName,
-        `<p>Your ${ctx.serviceName} is confirmed for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}.</p>
+        ctx.quotePending
+          ? `<p>Thank you for booking your ${ctx.serviceName} for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}. Your slot is held.</p>
+         <p>${depositLine}</p>`
+          : `<p>Your ${ctx.serviceName} is confirmed for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}.</p>
          <p>${depositLine}</p>`
       );
-      const result = await sendEmail(ctx.customerEmail, `Booking confirmed — ${dateLine}`, html);
+      const result = await sendEmail(
+        ctx.customerEmail,
+        ctx.quotePending ? `Booking received, price to follow — ${dateLine}` : `Booking confirmed — ${dateLine}`,
+        html
+      );
       await logNotification(ctx.bookingId, "email", "confirmation", { ok: true, providerId: result.id });
     } catch (err) {
       await logNotification(ctx.bookingId, "email", "confirmation", { ok: false, error: String(err) });
@@ -165,7 +177,9 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
 
   if (ctx.customerPhone) {
     try {
-      const body = `${ctx.businessName}: your ${ctx.serviceName} is confirmed for ${dateLine} at ${ctx.addressLine}. Reply STOP to opt out of texts.`;
+      const body = ctx.quotePending
+        ? `${ctx.businessName}: we have received your ${ctx.serviceName} booking for ${dateLine} and will be in touch with your exact price. Reply STOP to opt out of texts.`
+        : `${ctx.businessName}: your ${ctx.serviceName} is confirmed for ${dateLine} at ${ctx.addressLine}. Reply STOP to opt out of texts.`;
       const result = await sendSms(ctx.customerPhone, body);
       await logNotification(ctx.bookingId, "sms", "confirmation", { ok: true, providerId: result.sid });
     } catch (err) {
@@ -274,6 +288,8 @@ export async function sendQuoteApprovedEmails(ctx: {
   pricePence: number;
   cleanerEmail: string | null;
   customerEmail: string | null;
+  // Set when the customer still has something to pay up front.
+  payNow?: { amountPence: number; isDeposit: boolean; url: string };
 }): Promise<void> {
   if (ctx.cleanerEmail) {
     try {
@@ -291,7 +307,12 @@ export async function sendQuoteApprovedEmails(ctx: {
       const html = emailShell(
         ctx.businessName,
         `<p>The price for your ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> is confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>
-         <p>Any remaining balance will be taken before your clean.</p>`
+         ${
+           ctx.payNow
+             ? `<p>To secure it, please pay ${ctx.payNow.isDeposit ? "your deposit of " : ""}<strong>${formatPence(ctx.payNow.amountPence)}</strong>: <a href="${ctx.payNow.url}">pay now</a>.</p>
+         <p>${ctx.payNow.isDeposit ? "The remaining balance will be taken before your clean." : ""}</p>`
+             : `<p>Any remaining balance will be taken before your clean.</p>`
+         }`
       );
       await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html);
     } catch {

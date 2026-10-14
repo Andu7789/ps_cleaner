@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { confirmBookingAndNotify } from "@/lib/payments";
+import { quoteAmountDue } from "@/lib/format";
 import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { BookingAccessMethod, Customer, PaymentType } from "@/lib/types";
@@ -71,11 +72,11 @@ async function createPaymentIntentForBooking(
 
 // What a customer pays at checkout: the deposit if the service has one,
 // otherwise the whole price. A booking still waiting on its quote only has
-// an estimated price, so without a deposit nothing is taken yet; the final
-// balance is charged once the price has been set.
+// an estimated price, so nothing is taken yet, deposit or not; the deposit
+// and balance are charged once the price has been set.
 function amountDueNow(b: { price_pence: number; deposit_pence: number; quote_status: string | null }): number {
-  if (b.deposit_pence > 0) return b.deposit_pence;
-  return b.quote_status === "pending" ? 0 : b.price_pence;
+  if (b.quote_status === "pending") return 0;
+  return b.deposit_pence > 0 ? b.deposit_pence : b.price_pence;
 }
 
 export interface RoomSelectionInput {
@@ -225,6 +226,62 @@ export async function resumeBookingPaymentAction(bookingId: string): Promise<Res
     paymentType
   );
 
+  return { clientSecret, amountDuePence };
+}
+
+// Takes the deposit (or full price) for a booking whose quote the owner has
+// now confirmed. Nothing is charged when a quote booking is made, so this is
+// the first payment; it also saves the card for the later balance charge.
+export async function payQuotedBookingAction(bookingId: string): Promise<ResumePaymentResult> {
+  const { customer } = await requireCustomer();
+  const supabase = await createClient();
+
+  const { data: booking, error } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("id, status, price_pence, deposit_pence, amount_paid_pence, quote_status, customer_id")
+    .eq("id", bookingId)
+    .single();
+  if (error) throw new Error(error.message);
+  if (booking.customer_id !== customer.id) throw new Error("Not your booking");
+  if (booking.status !== "confirmed") throw new Error("This booking can't be paid for.");
+
+  const amountDuePence = quoteAmountDue(booking);
+  if (amountDuePence <= 0) throw new Error("Nothing is due on this booking right now.");
+
+  const stripe = getStripe();
+  const service = createServiceClient();
+
+  // Reuse an unfinished payment for the same amount so reopening the page
+  // doesn't leave a new unused PaymentIntent in Stripe each time.
+  const { data: existingPayment } = await service
+    .from("PS_CLEAN_payments")
+    .select("stripe_payment_intent_id")
+    .eq("booking_id", bookingId)
+    .eq("status", "pending")
+    .eq("amount_pence", amountDuePence)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingPayment?.stripe_payment_intent_id) {
+    const intent = await stripe.paymentIntents.retrieve(existingPayment.stripe_payment_intent_id);
+    if (
+      intent.client_secret &&
+      intent.amount === amountDuePence &&
+      ["requires_payment_method", "requires_confirmation", "requires_action"].includes(intent.status)
+    ) {
+      return { clientSecret: intent.client_secret, amountDuePence };
+    }
+  }
+
+  const stripeCustomerId = await ensureStripeCustomerId(stripe, supabase, customer);
+  const clientSecret = await createPaymentIntentForBooking(
+    stripe,
+    service,
+    bookingId,
+    stripeCustomerId,
+    amountDuePence,
+    booking.deposit_pence > 0 ? "deposit" : "full"
+  );
   return { clientSecret, amountDuePence };
 }
 

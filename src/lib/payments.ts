@@ -44,6 +44,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
     customerName: customer?.full_name ?? null,
     customerEmail: customer?.email ?? null,
     customerPhone: customer?.phone ?? null,
+    quotePending: booking.quote_status === "pending",
   });
 
   if (booking.quote_status === "pending" && business?.contact_email) {

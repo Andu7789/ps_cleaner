@@ -24,6 +24,20 @@ export function quoteUnconfirmed(b: { quote_status: string | null }): boolean {
   return b.quote_status === "pending";
 }
 
+// What a customer still owes up front once their quote is confirmed: the
+// deposit if the service has one (never more than the price), otherwise the
+// whole price, less anything already paid. Zero until the quote is confirmed.
+export function quoteAmountDue(b: {
+  quote_status: string | null;
+  price_pence: number;
+  deposit_pence: number;
+  amount_paid_pence: number;
+}): number {
+  if (b.quote_status !== "quoted") return 0;
+  const target = b.deposit_pence > 0 ? Math.min(b.deposit_pence, b.price_pence) : b.price_pence;
+  return Math.max(0, target - b.amount_paid_pence);
+}
+
 export function customerMinutes(service: { duration_minutes: number; customer_duration_minutes: number | null }): number {
   return service.customer_duration_minutes ?? service.duration_minutes;
 }

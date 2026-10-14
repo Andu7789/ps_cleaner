@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatPence, formatTime } from "@/lib/format";
+import { formatDate, formatPence, formatServicePrice, formatTime, quoteUnconfirmed } from "@/lib/format";
+import { getCurrentBusiness } from "@/lib/business";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import { MakeRecurringForm } from "@/components/booking/make-recurring-form";
 import { ResumePayment } from "@/components/booking/resume-payment";
@@ -20,6 +21,7 @@ type BookingRow = Booking & {
 export default async function BookingDetailPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = await params;
   const { customer } = await requireCustomer();
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
 
   const { data } = await supabase
@@ -78,10 +80,20 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           {booking.PS_CLEAN_customer_addresses.postcode}
         </p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-sm font-semibold text-foreground">{formatPence(booking.price_pence)}</span>
+          <span className="text-sm font-semibold text-foreground">
+            {quoteUnconfirmed(booking)
+              ? `Estimate ${formatPence(booking.price_pence)}`
+              : formatServicePrice(booking.price_pence)}
+          </span>
           <span className="text-xs capitalize text-muted-foreground">{booking.status.replace("_", " ")}</span>
         </div>
       </div>
+
+      {quoteUnconfirmed(booking) && (
+        <p className="mt-4 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          The price above is an estimate. {business.business_name} will be in contact with your exact quote.
+        </p>
+      )}
 
       {booking.status === "pending_payment" && (
         <div className="mt-6 rounded-xl border border-border bg-card p-5">

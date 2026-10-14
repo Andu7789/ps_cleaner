@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBookingAction } from "@/lib/actions/booking";
 import { addAddressAction } from "@/lib/actions/customer";
-import { formatDate, formatPence, formatTime } from "@/lib/format";
+import { formatDate, formatPence, formatServicePrice, formatTime } from "@/lib/format";
+import { QuoteNotice } from "@/components/booking/quote-notice";
 import { PaymentStep } from "@/components/booking/payment-step";
 import type { Addon, BookingAccessMethod, CustomerAddress, Service } from "@/lib/types";
 
@@ -25,6 +26,7 @@ interface Props {
   addons: Addon[];
   creditBalancePence: number;
   roomSelections?: RoomSelection[];
+  businessName: string;
 }
 
 export function CheckoutForm({
@@ -37,6 +39,7 @@ export function CheckoutForm({
   addons,
   creditBalancePence,
   roomSelections = [],
+  businessName,
 }: Props) {
   const router = useRouter();
   const [addresses] = useState(initialAddresses);
@@ -44,7 +47,6 @@ export function CheckoutForm({
   const [showNewAddress, setShowNewAddress] = useState(initialAddresses.length === 0);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [useCredit, setUseCredit] = useState(creditBalancePence > 0);
-  const [wantsMeetCleanerFirst, setWantsMeetCleanerFirst] = useState(false);
   const [parkingAvailable, setParkingAvailable] = useState(false);
   const [hasPets, setHasPets] = useState(false);
   const [accessMethod, setAccessMethod] = useState<BookingAccessMethod>("let_in");
@@ -59,7 +61,10 @@ export function CheckoutForm({
   // due now if there's no deposit, or get folded into the later balance if
   // there is one — one payment-timing rule, not two (see the migration
   // comment on ps_clean_create_booking for why).
-  const amountDueBeforeCredit = service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : grandTotal;
+  // A quote service with no deposit takes nothing now: the listed price is
+  // only an estimate until the final price is set.
+  const amountDueBeforeCredit =
+    service.deposit_pence && service.deposit_pence > 0 ? service.deposit_pence : service.requires_quote ? 0 : grandTotal;
   const creditApplied = useCredit ? Math.min(creditBalancePence, amountDueBeforeCredit) : 0;
   const amountDue = amountDueBeforeCredit - creditApplied;
 
@@ -105,7 +110,6 @@ export function CheckoutForm({
         startsAt,
         addonIds: selectedAddonIds,
         applyCreditPence: creditApplied,
-        wantsMeetCleanerFirst,
         parkingAvailable,
         hasPets,
         accessMethod,
@@ -143,6 +147,7 @@ export function CheckoutForm({
 
   return (
     <div className="space-y-6">
+      {service.requires_quote && <QuoteNotice businessName={businessName} />}
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Your booking</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -160,10 +165,19 @@ export function CheckoutForm({
             ))}
           </ul>
         )}
-        <p className="mt-2 text-sm font-semibold text-brand">
-          {formatPence(amountDue)} due now
-          {service.deposit_pence ? ` (deposit — ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}
-        </p>
+        {service.requires_quote ? (
+          <p className="mt-2 text-sm font-semibold text-brand">
+            Estimated {formatServicePrice(grandTotal)}, {businessName} will be in contact with your exact quote
+            {amountDue > 0 ? `. ${formatPence(amountDue)} due now.` : ". Nothing to pay now."}
+          </p>
+        ) : amountDue <= 0 ? (
+          <p className="mt-2 text-sm font-semibold text-brand">{grandTotal <= 0 ? "Free, nothing to pay" : "Nothing to pay now"}</p>
+        ) : (
+          <p className="mt-2 text-sm font-semibold text-brand">
+            {formatPence(amountDue)} due now
+            {service.deposit_pence ? ` (deposit, ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}
+          </p>
+        )}
         {creditApplied > 0 && (
           <p className="mt-1 text-xs text-success">{formatPence(creditApplied)} credit applied</p>
         )}
@@ -196,7 +210,7 @@ export function CheckoutForm({
                     {addon.description && <span className="block text-xs text-muted-foreground">{addon.description}</span>}
                   </span>
                 </span>
-                <span className="shrink-0 text-muted-foreground">{formatPence(addon.price_pence)}</span>
+                <span className="shrink-0 text-muted-foreground">{formatServicePrice(addon.price_pence)}</span>
               </label>
             ))}
           </div>
@@ -206,11 +220,6 @@ export function CheckoutForm({
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Before your visit</h2>
         <div className="mt-3 space-y-4 text-sm">
-          <YesNoQuestion
-            label="Do you want to meet your cleaner first?"
-            value={wantsMeetCleanerFirst}
-            onChange={setWantsMeetCleanerFirst}
-          />
           <YesNoQuestion label="Is parking available nearby?" value={parkingAvailable} onChange={setParkingAvailable} />
           <YesNoQuestion label="Do you have any pets?" value={hasPets} onChange={setHasPets} />
           <div>

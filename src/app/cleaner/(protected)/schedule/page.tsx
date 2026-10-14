@@ -103,7 +103,7 @@ export default async function CleanerSchedulePage({
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-foreground">
-                          {formatTime(job.starts_at)} &middot; {job.PS_CLEAN_services.name}
+                          {formatTime(job.starts_at)} to {formatTime(job.ends_at)} &middot; {job.PS_CLEAN_services.name}
                         </span>
                         {job.recurring_booking_id && (
                           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Recurring</span>

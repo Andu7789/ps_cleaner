@@ -46,14 +46,19 @@ export default async function CleanerTodayPage() {
             className="block rounded-xl border border-border bg-card p-4 transition hover:border-brand"
           >
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">{formatTime(job.starts_at)}</span>
+              <span className="font-semibold text-foreground">
+                {formatTime(job.starts_at)} to {formatTime(job.ends_at)}
+              </span>
               <span
                 className={`text-xs capitalize ${job.status === "completed" ? "text-success" : "text-muted-foreground"}`}
               >
                 {job.status.replace("_", " ")}
               </span>
             </div>
-            <p className="mt-1 text-sm text-foreground">{job.PS_CLEAN_services.name}</p>
+            <p className="mt-1 text-sm text-foreground">
+              {job.PS_CLEAN_services.name}
+              {job.quote_status === "pending" && <span className="ml-2 text-xs text-muted-foreground">Price to be confirmed</span>}
+            </p>
             <p className="text-sm text-muted-foreground">
               {job.PS_CLEAN_customer_addresses.line1}, {job.PS_CLEAN_customer_addresses.postcode}
             </p>

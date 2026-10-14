@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatPence, formatTime } from "@/lib/format";
+import { formatDate, formatPence, formatServicePrice, formatTime, quoteUnconfirmed } from "@/lib/format";
 import type { Booking, Cleaner, Service } from "@/lib/types";
 
 export default async function ConfirmationPage({
@@ -37,7 +37,9 @@ export default async function ConfirmationPage({
           {booking.PS_CLEAN_services.name} with {booking.PS_CLEAN_cleaners.full_name} on{" "}
           {formatDate(booking.starts_at)} at {formatTime(booking.starts_at)}.
           <br />
-          Total: {formatPence(booking.price_pence)}
+          {quoteUnconfirmed(booking)
+            ? `Estimated price: ${formatPence(booking.price_pence)}. We'll be in contact with your exact quote.`
+            : `Total: ${formatServicePrice(booking.price_pence)}`}
         </p>
       ) : (
         <p className="mt-2 text-sm text-muted-foreground">We&apos;re confirming your booking now.</p>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { formatDuration, formatPence } from "@/lib/format";
+import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 export default async function BookPage({
@@ -36,8 +36,8 @@ export default async function BookPage({
             <h3 className="font-semibold text-foreground">{s.name}</h3>
             {s.description && <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>}
             <div className="mt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{formatDuration(s.duration_minutes)}</span>
-              <span className="font-semibold text-brand">{formatPence(s.price_pence)}</span>
+              <span className="text-muted-foreground">{formatDuration(customerMinutes(s))}</span>
+              <span className="font-semibold text-brand">{servicePriceLabel(s)}</span>
             </div>
           </Link>
         ))}

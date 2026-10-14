@@ -2,11 +2,19 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireCleaner } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/customer";
+import { createClient } from "@/lib/supabase/server";
 
 // Mirrors the admin (protected) route group: /cleaner/login sits outside
 // this layout entirely, so it never runs requireCleaner() or renders nav.
 export default async function CleanerLayout({ children }: { children: ReactNode }) {
   const { cleaner } = await requireCleaner();
+  const supabase = await createClient();
+  const { count: quotesWaiting } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("cleaner_id", cleaner.id)
+    .eq("quote_status", "pending")
+    .neq("status", "cancelled");
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
@@ -24,6 +32,12 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
       <nav className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border py-3 text-sm">
         <Link href="/cleaner" className="font-medium text-foreground hover:text-brand">
           Today
+        </Link>
+        <Link href="/cleaner/quotes" className="font-medium text-foreground hover:text-brand">
+          Quotes
+          {quotesWaiting ? (
+            <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{quotesWaiting}</span>
+          ) : null}
         </Link>
         <Link href="/cleaner/schedule" className="font-medium text-foreground hover:text-brand">
           Schedule

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { formatDuration, formatPence } from "@/lib/format";
+import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 export default async function HomePage() {
@@ -44,8 +44,8 @@ export default async function HomePage() {
                 <p className="mt-1 text-sm text-muted-foreground">{service.description}</p>
               )}
               <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{formatDuration(service.duration_minutes)}</span>
-                <span className="font-semibold text-brand">{formatPence(service.price_pence)}</span>
+                <span className="text-muted-foreground">{formatDuration(customerMinutes(service))}</span>
+                <span className="font-semibold text-brand">{servicePriceLabel(service)}</span>
               </div>
             </Link>
           ))}

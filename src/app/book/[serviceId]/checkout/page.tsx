@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCustomer, getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import { CheckoutForm } from "@/components/booking/checkout-form";
 import type { Addon, Cleaner, CustomerAddress, Service } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export default async function CheckoutPage({
   const customer = await getCustomer(user.id);
   if (!customer) redirect(`/account/setup?next=${encodeURIComponent(currentUrl)}`);
 
+  const business = await getCurrentBusiness();
   const supabase = await createClient();
   const [{ data: service }, { data: cleaner }, { data: addresses }, { data: addonLinks }, { data: creditBalance }] =
     await Promise.all([
@@ -81,6 +83,7 @@ export default async function CheckoutPage({
           addons={addons}
           creditBalancePence={creditBalance ?? 0}
           roomSelections={roomSelections}
+          businessName={business.business_name}
         />
       </div>
     </div>

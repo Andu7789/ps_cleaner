@@ -5,6 +5,7 @@ import { Header } from "@/components/ui/header";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getCurrentBusiness } from "@/lib/business";
 import { getUser } from "@/lib/auth";
+import { brandCss, watermarkStyle } from "@/lib/branding";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -41,6 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const [business, user] = await Promise.all([getCurrentBusiness(), getUser()]);
+  const watermark = watermarkStyle(business);
 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
@@ -50,11 +52,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           hardcoding a business_id switch into every component that uses
           the brand color. */}
       <head>
-        <style>{`:root { --brand: ${business.brand_color}; }`}</style>
+        <style>{brandCss(business)}</style>
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <Header businessName={business.business_name} logoUrl={business.logo_url} signedIn={Boolean(user)} />
-        <main className="w-full flex-1">{children}</main>
+        {watermark && <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0" style={watermark} />}
+        <Header
+          businessName={business.business_name}
+          logoUrl={business.logo_url}
+          signedIn={Boolean(user)}
+          brandHeader={business.header_style === "brand"}
+        />
+        <main className="relative z-10 w-full flex-1">{children}</main>
         <RegisterServiceWorker />
       </body>
     </html>

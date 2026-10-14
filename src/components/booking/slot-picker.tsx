@@ -10,7 +10,7 @@ import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
 import { WaitlistButton } from "@/components/booking/waitlist-button";
 import { PricingCalculator } from "@/components/booking/pricing-calculator";
-import { formatPence } from "@/lib/format";
+import { customerMinutes, formatPence, servicePriceLabel } from "@/lib/format";
 import type { CalculatorRoomType, Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
 
 function initials(name: string): string {
@@ -78,6 +78,9 @@ export function SlotPicker({
   const effectiveDurationMinutes = service.use_calculator
     ? service.duration_minutes + calculatorExtraMinutes
     : service.duration_minutes;
+  // What the customer is told, which can be shorter than the time blocked in
+  // the diary (effectiveDurationMinutes above, used for finding free slots).
+  const shownMinutes = customerMinutes(service) + (service.use_calculator ? calculatorExtraMinutes : 0);
   // null = no successful fetch has landed yet for the current date. Kept
   // stale (not reset to null) across a date change so switching dates
   // doesn't flash a loading state — matches this workspace's convention
@@ -163,9 +166,9 @@ export function SlotPicker({
                 "How many of each room do you have? Your cleaner will see this before they visit. There's no charge."
               ) : (
                 <>
-                  Tell us about your home and we&apos;ll adjust the price and job length — {formatPence(service.price_pence)} base
+                  Tell us about your home and we&apos;ll adjust the price and job length — {servicePriceLabel(service)} base
                   {calculatorTotal > 0 ? ` + ${formatPence(calculatorTotal)}` : ""}
-                  {calculatorExtraMinutes > 0 ? ` · ${effectiveDurationMinutes} min total` : ""}
+                  {calculatorExtraMinutes > 0 ? ` · ${shownMinutes} min total` : ""}
                 </>
               )}
             </p>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
+import { isOwner } from "@/lib/auth";
 import { BookingsTable } from "@/components/admin/bookings-table";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
 
@@ -50,7 +51,7 @@ export default async function AdminBookingsPage() {
     <div>
       <h1 className="text-xl font-semibold text-foreground">Bookings</h1>
       <div className="mt-4">
-        <BookingsTable bookings={bookings} />
+        <BookingsTable bookings={bookings} isOwner={await isOwner()} />
       </div>
 
       {changes.length > 0 && (

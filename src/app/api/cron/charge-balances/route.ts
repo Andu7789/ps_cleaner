@@ -41,6 +41,8 @@ async function handler(request: Request) {
       .select("id, starts_at, price_pence, amount_paid_pence, customer_id, PS_CLEAN_customers(stripe_customer_id, stripe_default_payment_method_id)")
       .eq("business_id", business.id)
       .eq("status", "confirmed")
+      // An unquoted booking only has an estimated price, never charge it.
+      .or("quote_status.is.null,quote_status.eq.quoted")
       .lt("starts_at", windowEnd.toISOString())
       .gt("starts_at", new Date().toISOString());
     if (error) return new Response(error.message, { status: 500 });

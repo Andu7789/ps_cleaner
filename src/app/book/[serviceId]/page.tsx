@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { formatDuration, formatPence } from "@/lib/format";
+import { customerMinutes, formatDuration, formatPence, servicePriceLabel } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/types";
 
@@ -69,11 +69,11 @@ export default async function ServiceBookingPage({
         <div className="flex shrink-0 gap-6 sm:flex-col sm:items-end sm:gap-1.5">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" aria-hidden="true" />
-            {formatDuration(service.duration_minutes)}
+            {formatDuration(customerMinutes(service as Service))}
           </div>
           <div className="flex items-center gap-1.5 text-lg font-semibold text-brand">
-            <PoundSterling className="h-4 w-4" aria-hidden="true" />
-            {formatPence(service.price_pence).replace("£", "")}
+            {(service as Service).price_pence > 0 && <PoundSterling className="h-4 w-4" aria-hidden="true" />}
+            {servicePriceLabel(service as Service).replace("£", "")}
           </div>
         </div>
       </div>

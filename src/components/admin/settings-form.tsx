@@ -38,7 +38,6 @@ export function SettingsForm({ settings }: { settings: Business }) {
   const [timezone, setTimezone] = useState(settings.timezone);
   const [reminderHoursBefore, setReminderHoursBefore] = useState(settings.reminder_hours_before);
   const [balanceChargeDaysBefore, setBalanceChargeDaysBefore] = useState(settings.balance_charge_days_before);
-  const [brandColor, setBrandColor] = useState(settings.brand_color);
   const [logoUrl, setLogoUrl] = useState(settings.logo_url ?? "");
   const [iconUrl, setIconUrl] = useState(settings.icon_url ?? "");
   const [uploading, setUploading] = useState(false);
@@ -78,7 +77,6 @@ export function SettingsForm({ settings }: { settings: Business }) {
           timezone,
           reminderHoursBefore,
           balanceChargeDaysBefore,
-          brandColor,
           logoUrl,
           iconUrl,
         });
@@ -101,26 +99,7 @@ export function SettingsForm({ settings }: { settings: Business }) {
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="text-xs text-muted-foreground">Brand color</label>
-          <div className="mt-1 flex items-center gap-2">
-            <input
-              type="color"
-              value={brandColor}
-              onChange={(e) => setBrandColor(e.target.value)}
-              className="h-9 w-12 shrink-0 rounded-lg border border-border p-1"
-              aria-label="Brand color"
-            />
-            <input
-              value={brandColor}
-              onChange={(e) => setBrandColor(e.target.value)}
-              placeholder="#0f766e"
-              className="block w-full rounded-lg border border-border px-3 py-2 text-sm"
-            />
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Used for buttons, links, and the browser theme color across the site.</p>
-        </div>
+      <div className="grid gap-3">
         <div>
           <label className="text-xs text-muted-foreground" htmlFor="logo-file">Logo (optional)</label>
           <div
@@ -184,7 +163,7 @@ export function SettingsForm({ settings }: { settings: Business }) {
             </div>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            PNG, JPG, WebP or SVG, up to 800KB. Shown in the header and used as the site/app icon. Any shape works: the header shows it as uploaded, and a square copy is made for the site/app icon. Remove it to use the default icon. Click Save settings to apply.
+            PNG, JPG, WebP or SVG, up to 800KB. Shown in the header and used as the site/app icon. It can also be faded into the page background, see Look and feel below. Any shape works: the header shows it as uploaded, and a square copy is made for the site/app icon. Remove it to use the default icon. Click Save settings to apply.
           </p>
         </div>
       </div>

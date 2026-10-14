@@ -69,6 +69,15 @@ async function createPaymentIntentForBooking(
   return paymentIntent.client_secret;
 }
 
+// What a customer pays at checkout: the deposit if the service has one,
+// otherwise the whole price. A booking still waiting on its quote only has
+// an estimated price, so without a deposit nothing is taken yet; the final
+// balance is charged once the price has been set.
+function amountDueNow(b: { price_pence: number; deposit_pence: number; quote_status: string | null }): number {
+  if (b.deposit_pence > 0) return b.deposit_pence;
+  return b.quote_status === "pending" ? 0 : b.price_pence;
+}
+
 export interface RoomSelectionInput {
   roomTypeId: string;
   quantity: number;
@@ -82,7 +91,6 @@ export interface CreateBookingInput {
   notes?: string;
   addonIds?: string[];
   applyCreditPence?: number;
-  wantsMeetCleanerFirst?: boolean;
   parkingAvailable?: boolean;
   hasPets?: boolean;
   accessMethod?: BookingAccessMethod;
@@ -115,7 +123,6 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
       p_starts_at: input.startsAt,
       p_notes: input.notes ?? null,
       p_addon_ids: input.addonIds ?? [],
-      p_wants_meet_cleaner_first: input.wantsMeetCleanerFirst ?? false,
       p_parking_available: input.parkingAvailable ?? false,
       p_has_pets: input.hasPets ?? false,
       p_access_method: input.accessMethod ?? "let_in",
@@ -124,7 +131,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     .single();
 
   if (error) throw new Error(error.message);
-  let bookingRow = booking as { id: string; price_pence: number; deposit_pence: number };
+  let bookingRow = booking as { id: string; price_pence: number; deposit_pence: number; quote_status: string | null };
 
   if (input.applyCreditPence && input.applyCreditPence > 0) {
     const { data: redeemed, error: redeemError } = await supabase
@@ -134,7 +141,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     bookingRow = redeemed as typeof bookingRow;
   }
 
-  const amountDuePence = bookingRow.deposit_pence > 0 ? bookingRow.deposit_pence : bookingRow.price_pence;
+  const amountDuePence = amountDueNow(bookingRow);
 
   if (amountDuePence <= 0) {
     const service = createServiceClient();
@@ -177,14 +184,14 @@ export async function resumeBookingPaymentAction(bookingId: string): Promise<Res
 
   const { data: booking, error: bookingError } = await supabase
     .from("PS_CLEAN_bookings")
-    .select("id, status, price_pence, deposit_pence, customer_id")
+    .select("id, status, price_pence, deposit_pence, quote_status, customer_id")
     .eq("id", bookingId)
     .single();
   if (bookingError) throw new Error(bookingError.message);
   if (booking.customer_id !== customer.id) throw new Error("Not your booking");
   if (booking.status !== "pending_payment") throw new Error("This booking doesn't need payment.");
 
-  const amountDuePence = booking.deposit_pence > 0 ? booking.deposit_pence : booking.price_pence;
+  const amountDuePence = amountDueNow(booking);
   const paymentType: PaymentType = booking.deposit_pence > 0 ? "deposit" : "full";
 
   const stripe = getStripe();

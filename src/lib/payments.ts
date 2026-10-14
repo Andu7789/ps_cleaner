@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
-import { sendBookingConfirmation } from "@/lib/notify";
+import { sendBookingConfirmation, sendQuoteRequestToOwner } from "@/lib/notify";
+import { getBusinessOrigin } from "@/lib/business";
+import { formatDate, formatTime } from "@/lib/format";
 
 // Marks a still-pending booking confirmed and sends the confirmation
 // notification — shared by whatever actually clears the amount due,
@@ -13,7 +15,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
   const { data: booking } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "id, business_id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id"
+      "id, business_id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id, quote_status"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -27,7 +29,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
       service.from("PS_CLEAN_cleaners").select("full_name").eq("id", booking.cleaner_id).maybeSingle(),
       service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
       service.from("PS_CLEAN_customer_addresses").select("line1, city, postcode").eq("id", booking.address_id).maybeSingle(),
-      service.from("PS_CLEAN_businesses").select("business_name").eq("id", booking.business_id).maybeSingle(),
+      service.from("PS_CLEAN_businesses").select("business_name, contact_email, slug, custom_domain").eq("id", booking.business_id).maybeSingle(),
     ]);
 
   await sendBookingConfirmation({
@@ -43,6 +45,17 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
     customerEmail: customer?.email ?? null,
     customerPhone: customer?.phone ?? null,
   });
+
+  if (booking.quote_status === "pending" && business?.contact_email) {
+    await sendQuoteRequestToOwner(
+      business.business_name,
+      business.contact_email,
+      svc?.name ?? "Clean",
+      `${formatDate(booking.starts_at)} at ${formatTime(booking.starts_at)}`,
+      customer?.full_name ?? null,
+      `${getBusinessOrigin(business)}/admin/bookings`
+    );
+  }
 }
 
 // The single place that reconciles a succeeded Stripe PaymentIntent against

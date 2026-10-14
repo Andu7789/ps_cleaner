@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness, getBusinessOrigin } from "@/lib/business";
-import { formatDate, formatPence, formatTime } from "@/lib/format";
+import { formatDate, formatPence, formatServicePrice, formatTime, quoteUnconfirmed } from "@/lib/format";
 import { signOutAction } from "@/lib/actions/customer";
 import { CopyLinkButton } from "@/components/account/copy-link-button";
 import { RecurringToggle } from "@/components/account/recurring-toggle";
@@ -118,13 +118,17 @@ export default async function AccountPage() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-foreground">{formatPence(b.price_pence)}</p>
+                  <p className="text-sm font-semibold text-foreground">{quoteUnconfirmed(b) ? `Est. ${formatPence(b.price_pence)}` : formatServicePrice(b.price_pence)}</p>
                   <p
                     className={`text-xs capitalize ${
                       b.status === "pending_payment" ? "font-medium text-danger" : "text-muted-foreground"
                     }`}
                   >
-                    {b.status === "pending_payment" ? "Payment needed" : b.status.replace("_", " ")}
+                    {b.status === "pending_payment"
+                      ? "Payment needed"
+                      : quoteUnconfirmed(b)
+                        ? "Quote to follow"
+                        : b.status.replace("_", " ")}
                   </p>
                 </div>
               </div>

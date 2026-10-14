@@ -34,6 +34,12 @@ export interface Service {
   use_calculator: boolean;
   // Room counts are collected for the cleaner but add nothing to price or length.
   rooms_no_charge: boolean;
+  // The real price is only known after the cleaner has seen the job; the
+  // listed price is just an estimate until they set the final one.
+  requires_quote: boolean;
+  // What customers are told the job takes. duration_minutes is the total
+  // time blocked in the diary; null here means "same as the total".
+  customer_duration_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -133,6 +139,8 @@ export interface CustomerAddress {
   created_at: string;
 }
 
+export type QuoteStatus = "pending" | "quoted";
+
 export type BookingAccessMethod = "keys" | "let_in";
 
 export interface Booking {
@@ -150,13 +158,14 @@ export interface Booking {
   deposit_pence: number;
   amount_paid_pence: number;
   notes: string | null;
-  wants_meet_cleaner_first: boolean;
   parking_available: boolean;
   has_pets: boolean;
   access_method: BookingAccessMethod;
   cancelled_at: string | null;
   cancellation_reason: string | null;
   recurring_booking_id: string | null;
+  quote_status: QuoteStatus | null;
+  quoted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -301,4 +310,12 @@ export interface Business {
   timezone: string;
   reminder_hours_before: number;
   balance_charge_days_before: number;
+  background_style: "neutral" | "tinted";
+  header_style: "light" | "brand";
+  logo_watermark: boolean;
+  watermark_opacity: number;
+  watermark_position: WatermarkPosition;
+  watermark_size: number;
 }
+
+export type WatermarkPosition = "center" | "top-right" | "bottom-right" | "tiled";

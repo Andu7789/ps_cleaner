@@ -146,6 +146,41 @@ export interface ServiceInput {
   bufferAfterMinutes?: number;
   pricePence: number;
   depositPence?: number | null;
+  // Minutes customers are told; leave out when it matches durationMinutes.
+  customerDurationMinutes?: number | null;
+  requiresQuote?: boolean;
+}
+
+function serviceColumns(input: ServiceInput) {
+  if (input.pricePence < 0) throw new Error("Price can't be negative");
+  if (input.durationMinutes < 5) throw new Error("Total time must be at least 5 minutes");
+  const customerDuration = input.customerDurationMinutes || null;
+  if (customerDuration && customerDuration > input.durationMinutes) {
+    throw new Error("Time shown to customers can't be longer than the total time blocked in the diary");
+  }
+  return {
+    name: input.name,
+    description: input.description ?? null,
+    duration_minutes: input.durationMinutes,
+    customer_duration_minutes: customerDuration,
+    buffer_before_minutes: input.bufferBeforeMinutes ?? 0,
+    buffer_after_minutes: input.bufferAfterMinutes ?? 0,
+    price_pence: input.pricePence,
+    deposit_pence: input.depositPence ?? null,
+    requires_quote: input.requiresQuote ?? false,
+  };
+}
+
+export async function updateServiceAction(serviceId: string, input: ServiceInput) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_services")
+    .update({ ...serviceColumns(input), updated_at: new Date().toISOString() })
+    .eq("id", serviceId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+  revalidatePath("/book", "layout");
 }
 
 export async function createServiceAction(input: ServiceInput) {
@@ -154,13 +189,7 @@ export async function createServiceAction(input: ServiceInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_services").insert({
     business_id: business.id,
-    name: input.name,
-    description: input.description ?? null,
-    duration_minutes: input.durationMinutes,
-    buffer_before_minutes: input.bufferBeforeMinutes ?? 0,
-    buffer_after_minutes: input.bufferAfterMinutes ?? 0,
-    price_pence: input.pricePence,
-    deposit_pence: input.depositPence ?? null,
+    ...serviceColumns(input),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");
@@ -363,6 +392,50 @@ export async function reconcilePaymentAction(bookingId: string): Promise<Reconci
   return { outcome: "still_pending", message: `Stripe still shows this as "${intent.status}" — not paid yet.` };
 }
 
+export interface AppearanceInput {
+  brandColor: string;
+  backgroundStyle: "neutral" | "tinted";
+  headerStyle: "light" | "brand";
+  logoWatermark: boolean;
+  watermarkOpacity: number;
+  watermarkPosition: "center" | "top-right" | "bottom-right" | "tiled";
+  watermarkSize: number;
+}
+
+// Owner-only look and feel: colour, background, header and the faded logo.
+// Kept apart from updateBusinessSettingsAction so saving contact details
+// can never overwrite a branding change made in the other form.
+export async function updateAppearanceAction(input: AppearanceInput) {
+  await requireOwner();
+  if (!/^#[0-9a-fA-F]{6}$/.test(input.brandColor)) throw new Error("Brand colour must be a hex code like #0f766e");
+  if (!["neutral", "tinted"].includes(input.backgroundStyle)) throw new Error("Unknown background style");
+  if (!["light", "brand"].includes(input.headerStyle)) throw new Error("Unknown header style");
+  if (!["center", "top-right", "bottom-right", "tiled"].includes(input.watermarkPosition)) {
+    throw new Error("Unknown logo position");
+  }
+  const opacity = Math.round(input.watermarkOpacity);
+  const size = Math.round(input.watermarkSize);
+  if (!(opacity >= 2 && opacity <= 30)) throw new Error("Logo strength must be between 2 and 30");
+  if (!(size >= 20 && size <= 100)) throw new Error("Logo size must be between 20 and 100");
+
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_businesses")
+    .update({
+      brand_color: input.brandColor,
+      background_style: input.backgroundStyle,
+      header_style: input.headerStyle,
+      logo_watermark: input.logoWatermark,
+      watermark_opacity: opacity,
+      watermark_position: input.watermarkPosition,
+      watermark_size: size,
+    })
+    .eq("id", business.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
 export interface BusinessSettingsInput {
   businessName: string;
   contactEmail?: string;
@@ -370,7 +443,6 @@ export interface BusinessSettingsInput {
   timezone: string;
   reminderHoursBefore: number;
   balanceChargeDaysBefore: number;
-  brandColor: string;
   logoUrl?: string;
   iconUrl?: string;
 }
@@ -383,9 +455,6 @@ export interface BusinessSettingsInput {
 // client.
 export async function updateBusinessSettingsAction(input: BusinessSettingsInput) {
   await requireOwner();
-  if (!/^#[0-9a-fA-F]{6}$/.test(input.brandColor)) {
-    throw new Error("Brand color must be a hex code like #0f766e");
-  }
   const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase
@@ -397,7 +466,6 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
       timezone: input.timezone,
       reminder_hours_before: input.reminderHoursBefore,
       balance_charge_days_before: input.balanceChargeDaysBefore,
-      brand_color: input.brandColor,
       logo_url: input.logoUrl || null,
       icon_url: input.logoUrl ? input.iconUrl || null : null,
     })

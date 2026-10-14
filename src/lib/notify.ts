@@ -241,3 +241,61 @@ export async function sendCancellationNotice(ctx: NotifyBookingContext): Promise
     }
   }
 }
+
+// A booking has come in for a service priced by quote: tells the owner to
+// confirm the price. Best-effort, the bookings list also flags it.
+export async function sendQuoteRequestToOwner(
+  businessName: string,
+  ownerEmail: string,
+  serviceName: string,
+  dateLine: string,
+  customerName: string | null,
+  adminUrl: string
+): Promise<void> {
+  try {
+    const html = emailShell(
+      businessName,
+      `<p>${customerName ?? "A customer"} has booked <strong>${serviceName}</strong> for ${dateLine}. This service needs an exact quote.</p>
+       <p>Please confirm or adjust the price. Once you do, the customer and the cleaner are told.</p>
+       <p><a href="${adminUrl}" style="color: #0f766e;">Review in bookings</a></p>`
+    );
+    await sendEmail(ownerEmail, `Quote needed: ${serviceName}, ${dateLine}`, html);
+  } catch {
+    // Best-effort, see above.
+  }
+}
+
+// The owner has confirmed the price: the cleaner gets it and the customer is
+// told what they will pay.
+export async function sendQuoteApprovedEmails(ctx: {
+  businessName: string;
+  serviceName: string;
+  dateLine: string;
+  pricePence: number;
+  cleanerEmail: string | null;
+  customerEmail: string | null;
+}): Promise<void> {
+  if (ctx.cleanerEmail) {
+    try {
+      const html = emailShell(
+        ctx.businessName,
+        `<p>The price for the ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> has been confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>`
+      );
+      await sendEmail(ctx.cleanerEmail, `Price confirmed: ${formatPence(ctx.pricePence)}`, html);
+    } catch {
+      // Best-effort.
+    }
+  }
+  if (ctx.customerEmail) {
+    try {
+      const html = emailShell(
+        ctx.businessName,
+        `<p>The price for your ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> is confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>
+         <p>Any remaining balance will be taken before your clean.</p>`
+      );
+      await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html);
+    } catch {
+      // Best-effort.
+    }
+  }
+}

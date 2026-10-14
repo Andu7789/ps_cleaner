@@ -92,6 +92,15 @@ export async function requireAdmin() {
   return user;
 }
 
+// Non-redirecting check, for pages that show owner-only controls to admins.
+export async function isOwner(): Promise<boolean> {
+  const user = await getUser();
+  if (!user) return false;
+  const business = await getCurrentBusiness();
+  const record = await getAdminRecord(user.id, user.email ?? undefined, business.id);
+  return record?.role === "owner";
+}
+
 export async function requireOwner() {
   const user = await requireAdmin();
   const business = await getCurrentBusiness();

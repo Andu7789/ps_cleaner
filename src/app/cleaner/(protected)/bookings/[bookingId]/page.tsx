@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireCleaner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatDuration, formatTime } from "@/lib/format";
+import { customerMinutes, formatDate, formatDuration, formatPence, formatTime } from "@/lib/format";
 import { CompleteButton } from "@/components/cleaner/complete-button";
 import { PhotoUpload } from "@/components/cleaner/photo-upload";
 import { PhotoThumb } from "@/components/cleaner/photo-thumb";
@@ -66,12 +66,34 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
         <h1 className="font-semibold text-foreground">{job.PS_CLEAN_services.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {formatDate(job.starts_at)} at {formatTime(job.starts_at)} &middot;{" "}
-          {formatDuration(job.PS_CLEAN_services.duration_minutes)}
+          {formatDuration(customerMinutes(job.PS_CLEAN_services))} with the customer
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Diary blocked {formatTime(job.starts_at)} to {formatTime(job.ends_at)} (
+          {formatDuration(Math.round((new Date(job.ends_at).getTime() - new Date(job.starts_at).getTime()) / 60_000))}
+          )
         </p>
         <span className="mt-2 inline-block text-xs capitalize text-muted-foreground">
           {job.status.replace("_", " ")}
         </span>
       </div>
+
+      {job.quote_status && job.status !== "cancelled" && (
+        <div
+          className={`mt-4 rounded-xl border p-5 ${
+            job.quote_status === "pending" ? "border-border bg-muted" : "border-border bg-card"
+          }`}
+        >
+          <h2 className="font-semibold text-foreground">
+            {job.quote_status === "pending" ? "Price not confirmed yet" : "Price confirmed"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {job.quote_status === "pending"
+              ? "This job needs an exact quote. The owner has been asked to confirm the price and you will be emailed when they do."
+              : `The owner confirmed the price at ${formatPence(job.price_pence)}.`}
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Customer</h2>
@@ -103,7 +125,6 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
         <h2 className="mt-4 font-semibold text-foreground">Before you arrive</h2>
         <ul className="mt-1 space-y-1 text-sm text-foreground">
           <li>{job.access_method === "keys" ? "Customer will provide keys" : "Customer will let you in"}</li>
-          {job.wants_meet_cleaner_first && <li>Customer wants to meet you first</li>}
           {job.has_pets && <li>Has pets</li>}
           <li className="text-muted-foreground">
             Parking nearby: {job.parking_available ? "Yes" : "No"}

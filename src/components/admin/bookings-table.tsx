@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { BookingStatusSelect } from "@/components/admin/booking-status-select";
 import { SyncPaymentButton } from "@/components/admin/sync-payment-button";
+import { QuoteForm } from "@/components/admin/quote-form";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
 
 type Row = Booking & { PS_CLEAN_services: Service; PS_CLEAN_cleaners: Cleaner; PS_CLEAN_customers: Customer };
@@ -38,7 +39,7 @@ function sortValue(row: Row, key: SortKey): string | number {
   }
 }
 
-export function BookingsTable({ bookings }: { bookings: Row[] }) {
+export function BookingsTable({ bookings, isOwner }: { bookings: Row[]; isOwner: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>("starts_at");
   const [sortDesc, setSortDesc] = useState(true);
   const [pageSize, setPageSize] = useState(25);
@@ -95,10 +96,30 @@ export function BookingsTable({ bookings }: { bookings: Row[] }) {
                 <td className="py-2">
                   {formatDate(b.starts_at)}
                   <br />
-                  {formatTime(b.starts_at)}
+                  {formatTime(b.starts_at)} to {formatTime(b.ends_at)}
                 </td>
                 <td className="py-2">{b.PS_CLEAN_customers?.full_name ?? "—"}</td>
-                <td className="py-2">{b.PS_CLEAN_services?.name}</td>
+                <td className="py-2">
+                  {b.PS_CLEAN_services?.name}
+                  {b.quote_status && b.status !== "cancelled" && (
+                    <div className="mt-1">
+                      <span className={`text-xs font-medium ${b.quote_status === "pending" ? "text-danger" : "text-success"}`}>
+                        {b.quote_status === "pending"
+                          ? isOwner
+                            ? "Quote needed, approve the price"
+                            : "Quote needed, waiting for an owner"
+                          : `Quoted ${formatPence(b.price_pence)}`}
+                      </span>
+                      {isOwner && (b.status === "confirmed" || b.status === "pending_payment") && (
+                        <QuoteForm
+                          bookingId={b.id}
+                          estimatePence={b.price_pence}
+                          quoted={b.quote_status === "quoted"}
+                        />
+                      )}
+                    </div>
+                  )}
+                </td>
                 <td className="py-2">{b.PS_CLEAN_cleaners?.full_name}</td>
                 <td className="py-2">{formatPence(b.amount_paid_pence)}</td>
                 <td className="py-2">

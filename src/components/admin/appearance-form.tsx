@@ -77,7 +77,7 @@ function ChoiceCards<T extends string>({
 
 // Owner-facing look and feel editor. Everything changes the live preview
 // straight away; nothing touches the real site until Save.
-export function AppearanceForm({ business }: { business: Business }) {
+export function AppearanceForm({ business, logoUrl }: { business: Business; logoUrl: string }) {
   const [brandColor, setBrandColor] = useState(business.brand_color);
   const [backgroundStyle, setBackgroundStyle] = useState(business.background_style);
   const [headerStyle, setHeaderStyle] = useState(business.header_style);
@@ -90,7 +90,9 @@ export function AppearanceForm({ business }: { business: Business }) {
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const logoUrl = business.logo_url;
+  // A logo uploaded above but not saved yet still previews here, but the live
+  // site can only use it once Save settings has stored it.
+  const logoSaved = logoUrl === (business.logo_url ?? "");
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +108,7 @@ export function AppearanceForm({ business }: { business: Business }) {
   const validColor = /^#[0-9a-fA-F]{6}$/.test(brandColor);
   const branding = {
     brand_color: validColor ? brandColor : business.brand_color,
-    logo_url: logoUrl,
+    logo_url: logoUrl || null,
     background_style: backgroundStyle,
     header_style: headerStyle,
     logo_watermark: logoWatermark,
@@ -197,7 +199,7 @@ export function AppearanceForm({ business }: { business: Business }) {
           <legend className="text-xs font-medium text-foreground">Faded logo behind the pages</legend>
           {!logoUrl ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload and save a logo in Business details above, then you can fade it into the background here.
+              Upload a logo in Business details above, then you can fade it into the background here.
             </p>
           ) : (
             <div className="mt-2 space-y-4">
@@ -239,6 +241,12 @@ export function AppearanceForm({ business }: { business: Business }) {
           )}
         </fieldset>
 
+        {!logoSaved && (
+          <p className="text-sm text-danger">
+            Your new logo isn&apos;t saved yet. Click Save settings in Business details above first, otherwise the faded
+            logo won&apos;t appear on the site.
+          </p>
+        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="button"

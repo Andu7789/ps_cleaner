@@ -31,7 +31,13 @@ async function makeSquareIcon(file: File): Promise<Blob | null> {
   }
 }
 
-export function SettingsForm({ settings }: { settings: Business }) {
+export function SettingsForm({
+  settings,
+  onLogoChange,
+}: {
+  settings: Business;
+  onLogoChange?: (logoUrl: string) => void;
+}) {
   const [businessName, setBusinessName] = useState(settings.business_name);
   const [contactEmail, setContactEmail] = useState(settings.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(settings.contact_phone ?? "");
@@ -57,6 +63,7 @@ export function SettingsForm({ settings }: { settings: Business }) {
       if (icon) body.append("icon", icon, "icon.png");
       const result = await uploadBusinessLogoAction(body);
       setLogoUrl(result.logoUrl);
+      onLogoChange?.(result.logoUrl);
       setIconUrl(result.iconUrl ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't upload logo");
@@ -140,6 +147,7 @@ export function SettingsForm({ settings }: { settings: Business }) {
                 {logoUrl && (
                   <button type="button" onClick={() => {
                       setLogoUrl("");
+                      onLogoChange?.("");
                       setIconUrl("");
                     }}
                     className="underline"

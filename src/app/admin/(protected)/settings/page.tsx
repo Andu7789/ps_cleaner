@@ -1,6 +1,5 @@
 import { getCurrentBusiness } from "@/lib/business";
-import { AppearanceForm } from "@/components/admin/appearance-form";
-import { SettingsForm } from "@/components/admin/settings-form";
+import { SettingsPanel } from "@/components/admin/settings-panel";
 
 export default async function AdminSettingsPage() {
   const settings = await getCurrentBusiness();
@@ -11,17 +10,7 @@ export default async function AdminSettingsPage() {
       <p className="mt-1 text-sm text-muted-foreground">
         Business details shown on the public site, and the timing of automatic reminders and balance charges.
       </p>
-      <div className="mt-4">
-        <SettingsForm settings={settings} />
-      </div>
-
-      <h2 className="mt-10 text-lg font-semibold text-foreground">Look and feel</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Match the site to your branding. Try the options and watch the preview, nothing goes live until you save.
-      </p>
-      <div className="mt-4">
-        <AppearanceForm business={settings} />
-      </div>
+      <SettingsPanel settings={settings} />
     </div>
   );
 }

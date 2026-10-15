@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createBookingAction } from "@/lib/actions/booking";
 import { addAddressAction } from "@/lib/actions/customer";
 import { formatDate, formatPence, formatServicePrice, formatTime } from "@/lib/format";
-import { QuoteNotice } from "@/components/booking/quote-notice";
 import { PaymentStep } from "@/components/booking/payment-step";
 import type { Addon, BookingAccessMethod, CustomerAddress, Service } from "@/lib/types";
 
@@ -142,7 +141,6 @@ export function CheckoutForm({
 
   return (
     <div className="space-y-6">
-      {service.requires_quote && <QuoteNotice businessName={businessName} />}
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Your booking</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -160,10 +158,14 @@ export function CheckoutForm({
             ))}
           </ul>
         )}
-        {service.requires_quote ? (
+        {service.requires_quote && grandTotal <= 0 ? (
           <p className="mt-2 text-sm font-semibold text-brand">
-            Estimated {formatServicePrice(grandTotal)}, {businessName} will be in contact with your exact quote
-            . Nothing to pay now, you pay once your price is confirmed.
+            This appointment is free. You&apos;ll be given a quote at the end of the walkthrough. Nothing to pay now.
+          </p>
+        ) : service.requires_quote ? (
+          <p className="mt-2 text-sm font-semibold text-brand">
+            Estimated {formatServicePrice(grandTotal)}. {businessName} will be in contact with your exact quote. Nothing
+            to pay now, you pay once your price is confirmed.
           </p>
         ) : amountDue <= 0 ? (
           <p className="mt-2 text-sm font-semibold text-brand">{grandTotal <= 0 ? "Free, nothing to pay" : "Nothing to pay now"}</p>

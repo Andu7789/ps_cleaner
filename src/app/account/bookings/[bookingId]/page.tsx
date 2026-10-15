@@ -104,7 +104,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm font-semibold text-foreground">
             {quoteUnconfirmed(booking)
-              ? `Estimate ${formatPence(booking.price_pence)}`
+              ? booking.price_pence <= 0
+                ? "Free, quote after the walkthrough"
+                : `Estimate ${formatPence(booking.price_pence)}`
               : formatServicePrice(booking.price_pence)}
           </span>
           <span className="text-xs capitalize text-muted-foreground">{booking.status.replace("_", " ")}</span>

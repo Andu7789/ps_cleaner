@@ -38,7 +38,9 @@ export default async function ConfirmationPage({
           {formatDate(booking.starts_at)} at {formatTime(booking.starts_at)}.
           <br />
           {quoteUnconfirmed(booking)
-            ? `Estimated price: ${formatPence(booking.price_pence)}. We'll be in contact with your exact quote.`
+            ? booking.price_pence <= 0
+              ? "This appointment is free. You'll be given a quote at the end of the walkthrough."
+              : `Estimated price: ${formatPence(booking.price_pence)}. We'll be in contact with your exact quote.`
             : `Total: ${formatServicePrice(booking.price_pence)}`}
         </p>
       ) : (

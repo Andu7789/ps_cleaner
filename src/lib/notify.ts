@@ -140,7 +140,9 @@ async function logNotification(
 export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promise<void> {
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
   const paymentLine = ctx.quotePending
-    ? "We will check the details and be in touch with your exact price. Nothing has been taken yet."
+    ? ctx.pricePence <= 0
+      ? "This appointment is free. You'll be given a quote at the end of the walkthrough."
+      : "We will check the details and be in touch with your exact price. Nothing has been taken yet."
     : `The full amount of ${formatPence(ctx.pricePence)} has been taken.`;
 
   if (ctx.customerEmail) {

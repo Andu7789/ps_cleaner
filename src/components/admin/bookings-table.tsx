@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { BookingStatusSelect } from "@/components/admin/booking-status-select";
 import { DeleteButton } from "@/components/admin/delete-button";
@@ -127,7 +128,13 @@ export function BookingsTable({ bookings, isOwner }: { bookings: Row[]; isOwner:
                 <td className="py-2">
                   <BookingStatusSelect bookingId={b.id} status={b.status} />
                   {b.status === "pending_payment" && <SyncPaymentButton bookingId={b.id} />}
-                  <div className="mt-1.5">
+                  <div className="mt-1.5 flex flex-col items-start gap-1.5">
+                    <Link
+                      href={`/admin/bookings/${b.id}`}
+                      className="rounded-lg border border-border px-2 py-1 text-xs font-medium text-brand hover:border-brand"
+                    >
+                      View details
+                    </Link>
                     <DeleteButton name="this booking" onDelete={deleteBookingAction.bind(null, b.id)} />
                   </div>
                 </td>

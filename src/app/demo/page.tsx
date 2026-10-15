@@ -22,6 +22,7 @@ import { getCurrentBusiness } from "@/lib/business";
 import { DEMO_COPY as copy } from "@/lib/demo-content";
 import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
 import { QuickBook } from "@/components/demo/quick-book";
+import { Reveal } from "@/components/demo/reveal";
 import type { Service } from "@/lib/types";
 
 export const metadata: Metadata = { title: "New look preview" };
@@ -148,7 +149,7 @@ export default async function DemoHomePage() {
       </section>
 
       {/* Services */}
-      <section id="services" className="scroll-mt-20 overflow-x-clip px-5 py-20 lg:py-28">
+      <section id="services" className="scroll-mt-20 px-5 py-20 lg:py-28">
         <div className="mx-auto max-w-6xl">
           <h2 className={`max-w-2xl text-balance text-[clamp(2rem,3.6vw,3rem)] font-semibold leading-tight tracking-[-0.015em] ${display}`}>
             {copy.services.heading}
@@ -157,9 +158,10 @@ export default async function DemoHomePage() {
 
           <div className="mt-10 grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-5">
             {featured && (
+              <Reveal variant="fade-up" className="col-span-full">
               <Link
                 href={`/book/${featured.id}`}
-                className="group relative grid overflow-hidden rounded-3xl bg-[var(--brand)] text-[var(--brand-foreground)] transition-transform hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] col-span-full sm:grid-cols-[1.2fr_1fr]"
+                className="group relative grid overflow-hidden rounded-3xl bg-[var(--brand)] text-[var(--brand-foreground)] transition-transform hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] sm:grid-cols-[1.2fr_1fr]"
               >
                 <div className="p-7 sm:p-10">
                   <p className="text-sm font-medium" style={{ color: GOLD }}>
@@ -194,33 +196,42 @@ export default async function DemoHomePage() {
                   className="hidden h-full min-h-64 w-full object-cover sm:block"
                 />
               </Link>
+              </Reveal>
             )}
 
             {others.map((s, i) => {
               const Icon = serviceIcon(s.name);
+              // Same rhythm as the MessageHome cards: zoom, fade up, zoom, staggered by column.
               return (
-                <Link
-                  key={s.id}
-                  href={`/book/${s.id}`}
-                  data-zoom={i % 2 === 0 ? "left" : "right"}
-                  className="demo-zoom group flex flex-col rounded-3xl border border-[#e9dfe3] bg-white p-6 transition duration-200 hover:-translate-y-1 hover:border-[var(--brand)] hover:shadow-[0_18px_40px_-24px_var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
-                >
-                  <span className="flex size-11 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--brand)_10%,white)] text-[var(--brand)]">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <h3 className={`mt-4 text-xl font-semibold ${display}`}>{s.name}</h3>
-                  {s.description && <p className="mt-1.5 flex-1 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}
-                  <div className="mt-5 flex items-end justify-between border-t border-[#efe7ea] pt-4">
-                    <div>
-                      <p className={`text-2xl font-semibold text-[var(--brand)] ${display}`}>{servicePriceLabel(s)}</p>
-                      <p className="text-sm text-[#5d5258]">{formatDuration(customerMinutes(s))}</p>
+                <Reveal key={s.id} variant={i % 3 === 1 ? "fade-up" : "zoom-in"} delay={((i % 3) + 1) * 100}>
+                  <Link
+                    href={`/book/${s.id}`}
+                    className="group relative flex h-full flex-col overflow-hidden rounded-[20px] border border-[#e9dfe3] bg-white px-7 py-8 transition duration-300 hover:-translate-y-2 hover:shadow-[0_20px_50px_-20px_rgba(26,17,22,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-0 top-0 h-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                      style={{ background: `linear-gradient(90deg, var(--brand), ${GOLD})` }}
+                    />
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-[45px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--brand)_10%,white)] text-[var(--brand)]">
+                        <Icon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="rounded-full bg-[color-mix(in_srgb,var(--brand)_8%,white)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
+                        {formatDuration(customerMinutes(s))}
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--brand)]">
-                      {copy.services.cardCta}
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                    </span>
-                  </div>
-                </Link>
+                    <h3 className={`mt-5 text-xl font-semibold ${display}`}>{s.name}</h3>
+                    {s.description && <p className="mt-2 flex-1 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}
+                    <div className="mt-6 flex items-center justify-between gap-3 border-t border-[#efe7ea] pt-4">
+                      <p className={`text-xl font-semibold text-[var(--brand)] ${display}`}>{servicePriceLabel(s)}</p>
+                      <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[var(--brand)]">
+                        {copy.services.cardCta}
+                        <ArrowRight className="size-4 transition-transform group-hover:translate-x-1.5" aria-hidden="true" />
+                      </span>
+                    </div>
+                  </Link>
+                </Reveal>
               );
             })}
             {services.length === 0 && <p className="text-[#5d5258]">Services will appear here once they are set up.</p>}

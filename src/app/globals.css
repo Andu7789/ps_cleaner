@@ -131,26 +131,19 @@ button:disabled,
   }
 }
 
-/* Service cards zoom in from alternating sides as they scroll into view. Uses
-   scroll driven animation where the browser supports it; elsewhere the cards
-   simply sit in place, so nothing is ever hidden. */
-@keyframes demo-zoom-from-left {
-  from { opacity: 0; transform: translateX(-90px) scale(0.8); }
-  to { opacity: 1; transform: none; }
+/* Scroll reveal (see components/demo/reveal.tsx). Same feel as the Creativo
+   pages: 600ms ease in out, plays once. */
+[data-reveal="hidden"] {
+  opacity: 0;
+  transform: scale(0.6);
 }
-@keyframes demo-zoom-from-right {
-  from { opacity: 0; transform: translateX(90px) scale(0.8); }
-  to { opacity: 1; transform: none; }
+[data-reveal="hidden"][data-variant="fade-up"] {
+  transform: translateY(100px);
 }
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .demo-zoom {
-      animation: demo-zoom-from-left linear backwards;
-      animation-timeline: view();
-      animation-range: entry 0% entry 70%;
-    }
-    .demo-zoom[data-zoom="right"] {
-      animation-name: demo-zoom-from-right;
-    }
-  }
+[data-reveal="shown"] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 600ms ease-in-out var(--reveal-delay, 0ms),
+    transform 600ms ease-in-out var(--reveal-delay, 0ms);
 }

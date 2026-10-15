@@ -41,7 +41,13 @@ export function servicePriceLabel(service: {
   requires_quote: boolean;
   price_is_from?: boolean;
   walkthrough_first?: boolean;
+  hourly_rate_pence?: number | null;
 }): string {
+  // A service charged by the hour is described by its rate, not the total for one clean.
+  if (service.hourly_rate_pence != null && service.hourly_rate_pence > 0) {
+    const rate = `${formatPence(service.hourly_rate_pence)} per hour`;
+    return service.requires_quote || service.price_is_from || service.walkthrough_first ? `From ${rate}` : rate;
+  }
   if (service.requires_quote) return service.price_pence > 0 ? `From ${formatPence(service.price_pence)}` : "Quote on request";
   if ((service.price_is_from || service.walkthrough_first) && service.price_pence > 0) return `From ${formatPence(service.price_pence)}`;
   return formatServicePrice(service.price_pence);

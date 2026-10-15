@@ -58,3 +58,14 @@ describe("walkthrough first", () => {
     expect(findWalkthroughService([svc("c", "Walkthrough clean", { walkthrough_first: true })])).toBeNull();
   });
 });
+
+describe("servicePriceLabel for hourly services", () => {
+  it("shows the hourly rate with per hour", () => {
+    expect(servicePriceLabel({ price_pence: 2400, requires_quote: false, hourly_rate_pence: 2400 })).toBe("£24.00 per hour");
+  });
+  it("adds from when the price starts from", () => {
+    expect(
+      servicePriceLabel({ price_pence: 2400, requires_quote: false, price_is_from: true, hourly_rate_pence: 2400 })
+    ).toBe("From £24.00 per hour");
+  });
+});

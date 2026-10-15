@@ -1,6 +1,6 @@
-// All the wording on the demo homepage lives here so the owner can change it
+// All the wording on the homepage lives here so the owner can change it
 // in one place. Everything below is placeholder copy written for the demo.
-export const DEMO_COPY = {
+export const HOME_COPY = {
   hero: {
     headline: "Come home to a house that feels freshly cared for",
     sub: "Friendly, vetted cleaners, honest prices and a booking that takes a couple of minutes. Pick a clean, pick a time, and we take it from there.",
@@ -58,5 +58,4 @@ export const DEMO_COPY = {
     heading: "Ready when you are",
     sub: "Your next clean can be booked in the time it takes to make a cup of tea.",
   },
-  toggle: { toDemo: "Preview new look", toCurrent: "Current site" },
 } as const;

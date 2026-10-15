@@ -161,8 +161,8 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
         <span>
           Book a walkthrough first (not bookable directly)
           <span className="block text-xs text-muted-foreground">
-            Customers see this service with a &quot;From £X&quot; price and the message &quot;Book a walkthrough first, then
-            you&apos;ll get a quote&quot;. The button takes them to your stand out (walkthrough) service instead, and they
+            Customers see this service with a &quot;From £X&quot; price and the message &quot;Simply book a walkthrough then
+            receive your quote!&quot;. The button takes them to your stand out (walkthrough) service instead, and they
             can&apos;t book this one themselves.
           </span>
         </span>

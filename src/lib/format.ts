@@ -12,7 +12,7 @@ export function hourlyPricePence(hourlyRatePence: number, cleanMinutes: number):
 }
 
 // Shown on the stand out service button when the owner hasn't written their own.
-export const WALKTHROUGH_FIRST_NOTE = "Book a walkthrough first, then you'll get a quote";
+export const WALKTHROUGH_FIRST_NOTE = "Simply book a walkthrough then receive your quote!";
 export const WALKTHROUGH_FIRST_CTA = "Book a walkthrough & get a quote";
 
 // The service customers are sent to for a "walkthrough first" job: the stand

@@ -5,7 +5,7 @@ import { Header } from "@/components/ui/header";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getCurrentBusiness } from "@/lib/business";
 import { getUser } from "@/lib/auth";
-import { brandCss } from "@/lib/branding";
+import { backgroundAttrs, brandCss } from "@/lib/branding";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -44,7 +44,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const [business, user] = await Promise.all([getCurrentBusiness(), getUser()]);
 
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      {...backgroundAttrs(business)}
+    >
       {/* Every bg-brand/text-brand utility ultimately resolves to this custom
           property (see globals.css's @theme inline block) — overriding it
           here is what makes the whole app re-color per business without

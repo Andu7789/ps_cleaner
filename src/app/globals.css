@@ -32,6 +32,24 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* With a custom page colour the root variables are retuned for the page, so
+   cards step back to the light palette. Everything inside a card (text, slot
+   buttons, dividers) then reads as normal on white. */
+[data-custom-bg] .bg-card {
+  --background: #f6f7f7;
+  --foreground: #111827;
+  --muted: #eef2f1;
+  --muted-foreground: #5b6b68;
+  --border: #dfe5e3;
+  color: var(--foreground);
+}
+
+/* Brand blocks sitting directly on a page of nearly the same colour. */
+[data-brand-low] .bg-brand {
+  outline: 1px solid color-mix(in srgb, var(--foreground) 35%, transparent);
+  outline-offset: 2px;
+}
+
 html {
   scrollbar-gutter: stable;
 }

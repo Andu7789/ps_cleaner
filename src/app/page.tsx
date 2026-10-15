@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
 import { ServiceList } from "@/components/service-list";
@@ -17,7 +16,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
-      <section className="rounded-2xl bg-brand px-6 py-14 text-center text-brand-foreground sm:px-12">
+      <section className="rounded-2xl bg-brand px-6 py-10 text-center text-brand-foreground sm:px-12">
         {business.logo_url && (
           // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
           <img src={business.logo_url} alt="" className="mx-auto mb-5 h-24 w-auto max-w-64 rounded-xl bg-white object-contain p-2" />
@@ -26,15 +25,9 @@ export default async function HomePage() {
         <p className="mx-auto mt-3 max-w-xl text-brand-foreground/90">
           {business.business_name} — pick a service, choose a time that suits you, and pay securely online.
         </p>
-        <Link
-          href="/book"
-          className="mt-6 inline-block rounded-lg bg-white px-6 py-3 font-semibold text-brand hover:bg-white/90"
-        >
-          Book now
-        </Link>
       </section>
 
-      <section className="mt-12">
+      <section className="mt-6">
         <h2 className="text-xl font-semibold text-foreground">Our services</h2>
         <div className="mt-4">
           <ServiceList services={services} />

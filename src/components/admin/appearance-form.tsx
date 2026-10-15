@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 import { updateAppearanceAction } from "@/lib/actions/admin";
-import { BRAND_PRESETS, brandVars, dominantColorsFromImage } from "@/lib/branding";
+import { BRAND_PRESETS, backgroundAttrs, brandVars, dominantColorsFromImage } from "@/lib/branding";
 import type { Business } from "@/lib/types";
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
@@ -213,6 +213,7 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
       <div className="lg:sticky lg:top-4 lg:self-start">
         <p className="mb-1.5 text-xs font-medium text-foreground">Preview</p>
         <div
+          {...backgroundAttrs(branding)}
           style={{ ...vars, containerType: "size" }}
           className="relative h-80 overflow-hidden rounded-xl border border-border bg-background text-foreground"
         >

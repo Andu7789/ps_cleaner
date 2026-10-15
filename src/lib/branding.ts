@@ -39,6 +39,27 @@ export function readableTextOn(hex: string): string {
   return whiteContrast >= darkContrast ? "#ffffff" : "#111827";
 }
 
+function hasCustomBackground(b: Pick<BrandingFields, "background_color">): boolean {
+  return Boolean(b.background_color && /^#[0-9a-fA-F]{6}$/.test(b.background_color));
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Attributes for the page root that switch on the custom background rules in
+// globals.css: light cards on a coloured page, and an outline on brand
+// blocks when the brand colour is too close to the page colour to see.
+export function backgroundAttrs(b: Pick<BrandingFields, "brand_color" | "background_color">): Record<string, string> {
+  if (!hasCustomBackground(b)) return {};
+  const attrs: Record<string, string> = { "data-custom-bg": "" };
+  if (/^#[0-9a-fA-F]{6}$/.test(b.brand_color) && contrast(b.brand_color, b.background_color as string) < 2.5) {
+    attrs["data-brand-low"] = "";
+  }
+  return attrs;
+}
+
 // CSS custom properties for a business. --brand drives every bg-brand /
 // text-brand utility; the rest tint surfaces from it.
 export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_style" | "background_color">): Record<string, string> {
@@ -49,12 +70,17 @@ export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_st
     vars["--muted"] = `color-mix(in srgb, ${brand} 12%, #ffffff)`;
     vars["--border"] = `color-mix(in srgb, ${brand} 18%, #e5e7eb)`;
   }
-  // A colour the owner picked wins over the tint. Muted and border follow it
-  // so cards and dividers still sit comfortably on the page.
-  if (b.background_color && /^#[0-9a-fA-F]{6}$/.test(b.background_color)) {
-    vars["--background"] = b.background_color;
-    vars["--muted"] = `color-mix(in srgb, ${b.background_color} 92%, #000000)`;
-    vars["--border"] = `color-mix(in srgb, ${b.background_color} 85%, #000000)`;
+  // A colour the owner picked wins over the tint. Text, muted text, dividers
+  // and tints are all derived from it so a dark page still reads well; cards
+  // keep their own light palette (see the data-custom-bg rule in globals.css).
+  if (hasCustomBackground(b)) {
+    const bg = b.background_color as string;
+    const fg = readableTextOn(bg);
+    vars["--background"] = bg;
+    vars["--foreground"] = fg;
+    vars["--muted"] = `color-mix(in srgb, ${fg} 8%, ${bg})`;
+    vars["--muted-foreground"] = `color-mix(in srgb, ${fg} 72%, ${bg})`;
+    vars["--border"] = `color-mix(in srgb, ${fg} 22%, ${bg})`;
   }
   return vars;
 }

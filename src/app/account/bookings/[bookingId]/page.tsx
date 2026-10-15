@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
+import { signOutAction } from "@/lib/actions/customer";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPence, formatServicePrice, formatTime, quoteAmountDue, quoteUnconfirmed } from "@/lib/format";
 import { getCurrentBusiness } from "@/lib/business";
@@ -31,7 +31,29 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .eq("customer_id", customer.id)
     .maybeSingle();
 
-  if (!data) notFound();
+  // Usually the link was opened while signed in as a different customer (for
+  // example a test account), so explain that instead of a bare 404.
+  if (!data) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-10">
+        <h1 className="text-xl font-semibold text-foreground">We can&apos;t show this booking</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This booking isn&apos;t on the account you&apos;re signed in with. If you followed a link from an email, sign
+          out and sign in again using the email address the message was sent to, then open the link again.
+        </p>
+        <div className="mt-4 flex items-center gap-4">
+          <form action={signOutAction}>
+            <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground">
+              Sign out
+            </button>
+          </form>
+          <Link href="/account" className="text-sm text-muted-foreground hover:underline">
+            Back to your bookings
+          </Link>
+        </div>
+      </div>
+    );
+  }
   const booking = data as BookingRow;
 
   let existingReview: Review | null = null;

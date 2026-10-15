@@ -17,7 +17,7 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
     .neq("status", "cancelled");
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
+    <div className="neutral-page mx-auto max-w-md px-4 py-6">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Cleaner</p>

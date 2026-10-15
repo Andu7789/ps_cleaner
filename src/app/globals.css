@@ -50,6 +50,28 @@
   outline-offset: 2px;
 }
 
+/* The stand out service button must never vanish into the page: when brand and
+   page colours are close it flips to a white button with brand coloured text. */
+[data-brand-low] .featured-cta {
+  background: #ffffff;
+  color: var(--brand);
+  outline: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #ffffff 40%, transparent);
+}
+
+/* Admin and cleaner screens always use the neutral palette, whatever page
+   colour the owner chose for customers. */
+html[data-custom-bg]:has(.neutral-page) {
+  --background: #f6f7f7;
+  --foreground: #111827;
+  --muted: #eef2f1;
+  --muted-foreground: #5b6b68;
+  --border: #dfe5e3;
+}
+html[data-brand-low]:has(.neutral-page) .bg-brand {
+  outline: none;
+}
+
 html {
   scrollbar-gutter: stable;
 }

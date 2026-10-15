@@ -14,7 +14,7 @@ export function ServiceList({ services }: { services: Service[] }) {
         <Link
           key={s.id}
           href={`/book/${s.id}`}
-          className="flex flex-col items-center gap-1 rounded-xl bg-brand px-6 py-6 text-center text-brand-foreground shadow-md ring-4 ring-brand/20 transition hover:brightness-110 sm:col-span-2"
+          className="featured-cta flex flex-col items-center gap-1 rounded-xl bg-brand px-6 py-6 text-center text-brand-foreground shadow-md ring-4 ring-brand/20 transition hover:brightness-110 sm:col-span-2"
         >
           <span className="text-xl font-semibold sm:text-2xl">{s.featured_message?.trim() || FEATURED_DEFAULT_MESSAGE}</span>
           <span className="text-sm opacity-90">

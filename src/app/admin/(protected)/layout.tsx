@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="neutral-page mx-auto max-w-5xl px-4 py-6">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <nav className="flex gap-4 text-sm">
           {links.map((l) => (

@@ -40,7 +40,7 @@ export function ServiceList({ services }: { services: Service[] }) {
             {s.description && <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>}
             {s.walkthrough_first && <p className="mt-2 text-sm font-medium text-foreground">{WALKTHROUGH_FIRST_NOTE}</p>}
             <div className="mt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{s.walkthrough_first ? "Quoted after a walkthrough" : formatDuration(customerMinutes(s))}</span>
+              <span className="text-muted-foreground">{s.walkthrough_first ? "" : formatDuration(customerMinutes(s))}</span>
               <span className="font-semibold text-brand">{servicePriceLabel(s)}</span>
             </div>
             {s.walkthrough_first && walkthrough && (

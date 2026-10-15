@@ -230,9 +230,11 @@ export default async function HomePage() {
                       <span className="flex size-[45px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--brand)_10%,white)] text-[var(--brand)]">
                         <Icon className="size-5" aria-hidden="true" />
                       </span>
-                      <span className="rounded-full bg-[color-mix(in_srgb,var(--brand)_8%,white)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
-                        {wf ? "Quoted after a walkthrough" : formatDuration(customerMinutes(s))}
-                      </span>
+                      {!wf && (
+                        <span className="rounded-full bg-[color-mix(in_srgb,var(--brand)_8%,white)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
+                          {formatDuration(customerMinutes(s))}
+                        </span>
+                      )}
                     </div>
                     <h3 className={`mt-5 text-xl font-semibold ${display}`}>{s.name}</h3>
                     {s.description && <p className="mt-2 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}

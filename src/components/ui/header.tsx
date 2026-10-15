@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DEMO_COPY } from "@/lib/demo-content";
 
 export function Header({
   businessName,
@@ -22,6 +23,7 @@ export function Header({
   // every route, not just ones under those nested layouts.
   const isStandaloneDocument = pathname?.startsWith("/admin/invoice/") || pathname?.startsWith("/cleaner/invoice/");
   if (isStandaloneDocument) return null;
+  const onDemo = pathname?.startsWith("/demo") ?? false;
 
   return (
     <header
@@ -38,7 +40,7 @@ export function Header({
           )}
           {businessName}
         </Link>
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex shrink-0 items-center gap-3 whitespace-nowrap text-sm sm:gap-4">
           <Link href="/book" className={brandHeader ? "text-brand-foreground hover:underline" : "text-foreground hover:text-brand"}>
             Book a clean
           </Link>
@@ -47,6 +49,13 @@ export function Header({
             className={`font-medium hover:underline ${brandHeader ? "text-brand-foreground" : "text-brand"}`}
           >
             {signedIn ? "My account" : "Sign in"}
+          </Link>
+          {/* Lets the owner flip between the live homepage and the demo look. */}
+          <Link
+            href={onDemo ? "/" : "/demo"}
+            className="rounded-full border border-current px-3 py-1 text-xs font-semibold opacity-90 hover:opacity-100"
+          >
+            {onDemo ? DEMO_COPY.toggle.toCurrent : DEMO_COPY.toggle.toDemo}
           </Link>
         </nav>
       </div>

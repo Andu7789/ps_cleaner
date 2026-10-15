@@ -28,7 +28,7 @@ import {
   formatDuration,
   servicePriceLabel,
 } from "@/lib/format";
-import { QuickBook } from "@/components/home/quick-book";
+import { ReturningCustomer } from "@/components/home/returning-customer";
 import { Reveal } from "@/components/home/reveal";
 import type { Service } from "@/lib/types";
 
@@ -67,9 +67,9 @@ export default async function HomePage() {
   const featured = services.find((s) => s.is_featured && !s.walkthrough_first);
   const others = services.filter((s) => s !== featured);
   const walkthrough = findWalkthroughService(services);
-  // The featured service leads the quick book chips and the main button.
-  // Walkthrough first services can't be booked directly, so they aren't chips.
-  const ordered = (featured ? [featured, ...others] : services).filter((s) => !s.walkthrough_first);
+  // Returning customers pick from every clean except the walkthrough. Walkthrough
+  // first services can't be booked directly, so they aren't offered either.
+  const returningServices = services.filter((s) => !s.walkthrough_first && s.id !== walkthrough?.id);
   const primaryHref = featured ? `/book/${featured.id}` : "/book";
   const primaryLabel = featured?.featured_message?.trim() || (featured ? "New here? Book a walkthrough" : "Book a clean");
 
@@ -112,6 +112,20 @@ export default async function HomePage() {
                 {copy.hero.secondaryCta}
               </a>
             </div>
+            <div className="demo-rise" style={rise(4)}>
+              <ReturningCustomer
+                services={returningServices.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  priceLabel: servicePriceLabel(s),
+                  duration: formatDuration(customerMinutes(s)),
+                }))}
+                buttonLabel={copy.returning.button}
+                title={copy.quickBook.title}
+                hint={copy.quickBook.hint}
+                cta={copy.quickBook.cta}
+              />
+            </div>
           </div>
 
           <div className="demo-rise relative mx-auto w-full max-w-md lg:max-w-none" style={rise(2)}>
@@ -121,22 +135,9 @@ export default async function HomePage() {
               alt={copy.hero.imageAlt}
               width={1000}
               height={1500}
-              className="aspect-[4/5] w-full rounded-[2rem] object-cover lg:ml-auto lg:max-w-sm"
+              className="aspect-[4/5] w-full rounded-[2rem] object-cover lg:ml-auto lg:max-w-md"
               fetchPriority="high"
             />
-            <div className="relative z-10 -mt-16 px-3 lg:-mt-24 lg:-ml-10 lg:mr-auto lg:max-w-sm lg:px-0">
-              <QuickBook
-                services={ordered.map((s) => ({
-                  id: s.id,
-                  name: s.name,
-                  priceLabel: servicePriceLabel(s),
-                  duration: formatDuration(customerMinutes(s)),
-                }))}
-                title={copy.quickBook.title}
-                hint={copy.quickBook.hint}
-                cta={copy.quickBook.cta}
-              />
-            </div>
           </div>
         </div>
       </section>

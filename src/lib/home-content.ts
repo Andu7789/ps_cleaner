@@ -7,6 +7,7 @@ export const HOME_COPY = {
     secondaryCta: "See our cleans",
     imageAlt: "A bright living room with a grey sofa, wooden side tables and fresh plants, tidy and calm",
   },
+  returning: { button: "Returning customer" },
   quickBook: {
     title: "Book in under two minutes",
     hint: "Choose a clean to see what's included",

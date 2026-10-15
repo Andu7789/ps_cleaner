@@ -141,7 +141,7 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
   const paymentLine = ctx.quotePending
     ? ctx.pricePence <= 0
-      ? "This appointment is free. You'll be given a quote at the end of the walkthrough."
+      ? "You'll be given a quote at the end of the walkthrough."
       : "We will check the details and be in touch with your exact price. Nothing has been taken yet."
     : `The full amount of ${formatPence(ctx.pricePence)} has been taken.`;
 
@@ -157,7 +157,11 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
       );
       const result = await sendEmail(
         ctx.customerEmail,
-        ctx.quotePending ? `Booking received, price to follow — ${dateLine}` : `Booking confirmed — ${dateLine}`,
+        ctx.quotePending && ctx.pricePence > 0
+          ? `Booking received, price to follow — ${dateLine}`
+          : ctx.quotePending
+            ? `Booking received — ${dateLine}`
+            : `Booking confirmed — ${dateLine}`,
         html
       );
       await logNotification(ctx.bookingId, "email", "confirmation", { ok: true, providerId: result.id });
@@ -169,7 +173,7 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
   if (ctx.customerPhone) {
     try {
       const body = ctx.quotePending
-        ? `${ctx.businessName}: we have received your ${ctx.serviceName} booking for ${dateLine} and will be in touch with your exact price. Reply STOP to opt out of texts.`
+        ? `${ctx.businessName}: we have received your ${ctx.serviceName} booking for ${dateLine} ${ctx.pricePence <= 0 ? "and you'll be given a quote at the end of the walkthrough." : "and will be in touch with your exact price."} Reply STOP to opt out of texts.`
         : `${ctx.businessName}: your ${ctx.serviceName} is confirmed for ${dateLine} at ${ctx.addressLine}. Reply STOP to opt out of texts.`;
       const result = await sendSms(ctx.customerPhone, body);
       await logNotification(ctx.bookingId, "sms", "confirmation", { ok: true, providerId: result.sid });

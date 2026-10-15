@@ -36,11 +36,12 @@ export default async function ConfirmationPage({
         <p className="mt-2 text-sm text-muted-foreground">
           {booking.PS_CLEAN_services.name} with {booking.PS_CLEAN_cleaners.full_name} on{" "}
           {formatDate(booking.starts_at)} at {formatTime(booking.starts_at)}.
-          <br />
+          {/* A free appointment that gets quoted later has no price line to show. */}
+          {!(quoteUnconfirmed(booking) && booking.price_pence <= 0) && <br />}
           {quoteUnconfirmed(booking)
-            ? booking.price_pence <= 0
-              ? "This appointment is free. You'll be given a quote at the end of the walkthrough."
-              : `Estimated price: ${formatPence(booking.price_pence)}. We'll be in contact with your exact quote.`
+            ? booking.price_pence > 0
+              ? `Estimated price: ${formatPence(booking.price_pence)}. We'll be in contact with your exact quote.`
+              : null
             : `Total: ${formatServicePrice(booking.price_pence)}`}
         </p>
       ) : (

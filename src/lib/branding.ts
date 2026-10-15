@@ -81,6 +81,11 @@ export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_st
     vars["--muted"] = `color-mix(in srgb, ${fg} 8%, ${bg})`;
     vars["--muted-foreground"] = `color-mix(in srgb, ${fg} 72%, ${bg})`;
     vars["--border"] = `color-mix(in srgb, ${fg} 22%, ${bg})`;
+    // Red and green status colours need a lighter shade to read on a dark page.
+    if (fg === "#ffffff") {
+      vars["--danger"] = "#ff9a92";
+      vars["--success"] = "#6ee7a0";
+    }
   }
   return vars;
 }

@@ -41,6 +41,8 @@
   --muted: #eef2f1;
   --muted-foreground: #5b6b68;
   --border: #dfe5e3;
+  --danger: #b3261e;
+  --success: #15803d;
   color: var(--foreground);
 }
 
@@ -67,6 +69,8 @@ html[data-custom-bg]:has(.neutral-page) {
   --muted: #eef2f1;
   --muted-foreground: #5b6b68;
   --border: #dfe5e3;
+  --danger: #b3261e;
+  --success: #15803d;
 }
 html[data-brand-low]:has(.neutral-page) .bg-brand {
   outline: none;

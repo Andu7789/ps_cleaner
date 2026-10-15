@@ -22,7 +22,7 @@ export function CancelBookingButton({ bookingId }: { bookingId: string }) {
             }
           })
         }
-        className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-60"
+        className="rounded-lg border-2 border-danger px-3 py-1.5 text-sm font-semibold text-danger hover:bg-danger/5 disabled:opacity-60"
       >
         {pending ? "Cancelling…" : "Cancel booking"}
       </button>

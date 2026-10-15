@@ -148,7 +148,7 @@ export default async function DemoHomePage() {
       </section>
 
       {/* Services */}
-      <section id="services" className="scroll-mt-20 px-5 py-20 lg:py-28">
+      <section id="services" className="scroll-mt-20 overflow-x-clip px-5 py-20 lg:py-28">
         <div className="mx-auto max-w-6xl">
           <h2 className={`max-w-2xl text-balance text-[clamp(2rem,3.6vw,3rem)] font-semibold leading-tight tracking-[-0.015em] ${display}`}>
             {copy.services.heading}
@@ -196,13 +196,14 @@ export default async function DemoHomePage() {
               </Link>
             )}
 
-            {others.map((s) => {
+            {others.map((s, i) => {
               const Icon = serviceIcon(s.name);
               return (
                 <Link
                   key={s.id}
                   href={`/book/${s.id}`}
-                  className="group flex flex-col rounded-3xl border border-[#e9dfe3] bg-white p-6 transition duration-200 hover:-translate-y-1 hover:border-[var(--brand)] hover:shadow-[0_18px_40px_-24px_var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
+                  data-zoom={i % 2 === 0 ? "left" : "right"}
+                  className="demo-zoom group flex flex-col rounded-3xl border border-[#e9dfe3] bg-white p-6 transition duration-200 hover:-translate-y-1 hover:border-[var(--brand)] hover:shadow-[0_18px_40px_-24px_var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
                 >
                   <span className="flex size-11 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--brand)_10%,white)] text-[var(--brand)]">
                     <Icon className="size-5" aria-hidden="true" />

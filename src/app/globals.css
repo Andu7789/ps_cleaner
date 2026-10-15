@@ -130,3 +130,27 @@ button:disabled,
     animation: ps-clean-fade-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
+
+/* Service cards zoom in from alternating sides as they scroll into view. Uses
+   scroll driven animation where the browser supports it; elsewhere the cards
+   simply sit in place, so nothing is ever hidden. */
+@keyframes demo-zoom-from-left {
+  from { opacity: 0; transform: translateX(-90px) scale(0.8); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes demo-zoom-from-right {
+  from { opacity: 0; transform: translateX(90px) scale(0.8); }
+  to { opacity: 1; transform: none; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .demo-zoom {
+      animation: demo-zoom-from-left linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+    .demo-zoom[data-zoom="right"] {
+      animation-name: demo-zoom-from-right;
+    }
+  }
+}

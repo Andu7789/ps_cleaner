@@ -25,7 +25,7 @@ export function Header({
 
   return (
     <header
-      className={`relative z-10 border-b ${
+      className={`sticky top-0 z-20 border-b ${
         brandHeader ? "border-transparent bg-brand text-brand-foreground" : "border-border bg-card"
       }`}
     >

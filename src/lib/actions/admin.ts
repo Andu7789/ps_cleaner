@@ -208,6 +208,8 @@ export interface ServiceInput {
   hourlyRatePence?: number | null;
   // Describe the price as "From £X" to customers.
   priceIsFrom?: boolean;
+  // Not bookable directly: customers book a walkthrough first and are quoted.
+  walkthroughFirst?: boolean;
   isFeatured?: boolean;
   featuredMessage?: string | null;
 }
@@ -232,6 +234,7 @@ function serviceColumns(input: ServiceInput) {
     price_pence: hourly !== null ? hourlyPricePence(hourly, cleanMinutes) : input.pricePence,
     hourly_rate_pence: hourly,
     price_is_from: input.priceIsFrom ?? false,
+    walkthrough_first: input.walkthroughFirst ?? false,
     // Deposits are no longer used; always cleared so old values never apply.
     deposit_pence: null,
     requires_quote: input.requiresQuote ?? false,

@@ -26,6 +26,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
     service?.hourly_rate_pence != null ? (service.hourly_rate_pence / 100).toString() : ""
   );
   const [priceIsFrom, setPriceIsFrom] = useState(service?.price_is_from ?? false);
+  const [walkthroughFirst, setWalkthroughFirst] = useState(service?.walkthrough_first ?? false);
   const [isFeatured, setIsFeatured] = useState(service?.is_featured ?? false);
   const [featuredMessage, setFeaturedMessage] = useState(service?.featured_message ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       bufferAfterMinutes: Number(bufferAfter),
       pricePence: Math.round(Number(price || 0) * 100),
       priceIsFrom,
+      walkthroughFirst,
       hourlyRatePence: hourly ? Math.round(Number(hourlyRate || 0) * 100) : null,
       requiresQuote,
       isFeatured,
@@ -69,6 +71,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           setCustomerMinutes("");
           setRequiresQuote(false);
           setPriceIsFrom(false);
+          setWalkthroughFirst(false);
           setHourly(false);
           setHourlyRate("");
           setIsFeatured(false);
@@ -142,6 +145,17 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           <span className="block text-xs text-muted-foreground">
             Enter an hourly rate instead of a fixed price. The price is worked out from the time shown to customers, so a
             1 hour 30 minute clean at £20 an hour costs £30. Untick it to use a fixed price.
+          </span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2 text-sm text-foreground">
+        <input type="checkbox" className="mt-1 accent-brand" checked={walkthroughFirst} onChange={(e) => setWalkthroughFirst(e.target.checked)} />
+        <span>
+          Book a walkthrough first (not bookable directly)
+          <span className="block text-xs text-muted-foreground">
+            Customers see this service with a &quot;From £X&quot; price and the message &quot;Book a walkthrough first, then
+            you&apos;ll get a quote&quot;. The button takes them to your stand out (walkthrough) service instead, and they
+            can&apos;t book this one themselves.
           </span>
         </span>
       </label>

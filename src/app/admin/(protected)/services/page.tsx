@@ -41,6 +41,7 @@ export default async function AdminServicesPage() {
                 · {s.price_pence <= 0 ? "Free" : formatPence(s.price_pence)}
                 {s.hourly_rate_pence != null ? ` (${formatPence(s.hourly_rate_pence)} an hour)` : ""}
                 {s.price_is_from ? " (shown as from price)" : ""}
+                {s.walkthrough_first ? " (walkthrough first, not bookable)" : ""}
                 {s.requires_quote ? " (exact quote needed)" : ""}
                 {s.is_featured ? " (stand out button)" : ""}
  · buffers {s.buffer_before_minutes}m

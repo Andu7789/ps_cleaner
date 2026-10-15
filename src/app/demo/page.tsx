@@ -20,7 +20,14 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
 import { DEMO_COPY as copy } from "@/lib/demo-content";
-import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
+import {
+  WALKTHROUGH_FIRST_CTA,
+  WALKTHROUGH_FIRST_NOTE,
+  customerMinutes,
+  findWalkthroughService,
+  formatDuration,
+  servicePriceLabel,
+} from "@/lib/format";
 import { QuickBook } from "@/components/demo/quick-book";
 import { Reveal } from "@/components/demo/reveal";
 import type { Service } from "@/lib/types";
@@ -55,10 +62,12 @@ export default async function DemoHomePage() {
     .eq("is_active", true)
     .order("price_pence", { ascending: true });
   const services = (data ?? []) as Service[];
-  const featured = services.find((s) => s.is_featured);
-  const others = services.filter((s) => !s.is_featured);
+  const featured = services.find((s) => s.is_featured && !s.walkthrough_first);
+  const others = services.filter((s) => s !== featured);
+  const walkthrough = findWalkthroughService(services);
   // The featured service leads the quick book chips and the main button.
-  const ordered = featured ? [featured, ...others] : services;
+  // Walkthrough first services can't be booked directly, so they aren't chips.
+  const ordered = (featured ? [featured, ...others] : services).filter((s) => !s.walkthrough_first);
   const primaryHref = featured ? `/book/${featured.id}` : "/book";
   const primaryLabel = featured?.featured_message?.trim() || (featured ? "New here? Book a walkthrough" : "Book a clean");
 
@@ -201,11 +210,13 @@ export default async function DemoHomePage() {
 
             {others.map((s, i) => {
               const Icon = serviceIcon(s.name);
+              const wf = s.walkthrough_first;
+              const href = wf ? (walkthrough ? `/book/${walkthrough.id}` : "/book") : `/book/${s.id}`;
               // Same rhythm as the MessageHome cards: zoom, fade up, zoom, staggered by column.
               return (
                 <Reveal key={s.id} variant={i % 3 === 1 ? "fade-up" : "zoom-in"} delay={((i % 3) + 1) * 100}>
                   <Link
-                    href={`/book/${s.id}`}
+                    href={href}
                     className="group relative flex h-full flex-col overflow-hidden rounded-[20px] border border-[#e9dfe3] bg-white px-7 py-8 transition duration-300 hover:-translate-y-2 hover:shadow-[0_20px_50px_-20px_rgba(26,17,22,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
                   >
                     <span
@@ -218,15 +229,17 @@ export default async function DemoHomePage() {
                         <Icon className="size-5" aria-hidden="true" />
                       </span>
                       <span className="rounded-full bg-[color-mix(in_srgb,var(--brand)_8%,white)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
-                        {formatDuration(customerMinutes(s))}
+                        {wf ? "Quoted after a walkthrough" : formatDuration(customerMinutes(s))}
                       </span>
                     </div>
                     <h3 className={`mt-5 text-xl font-semibold ${display}`}>{s.name}</h3>
-                    {s.description && <p className="mt-2 flex-1 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}
+                    {s.description && <p className="mt-2 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}
+                    {wf && <p className="mt-2 text-sm font-semibold text-[#1a1116]">{WALKTHROUGH_FIRST_NOTE}</p>}
+                    <div className="flex-1" />
                     <div className="mt-6 flex items-center justify-between gap-3 border-t border-[#efe7ea] pt-4">
                       <p className={`text-xl font-semibold text-[var(--brand)] ${display}`}>{servicePriceLabel(s)}</p>
                       <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[var(--brand)]">
-                        {copy.services.cardCta}
+                        {wf ? WALKTHROUGH_FIRST_CTA : copy.services.cardCta}
                         <ArrowRight className="size-4 transition-transform group-hover:translate-x-1.5" aria-hidden="true" />
                       </span>
                     </div>

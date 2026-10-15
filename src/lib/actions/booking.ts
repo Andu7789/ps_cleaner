@@ -114,6 +114,16 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
   const { customer } = await requireCustomer();
   const supabase = await createClient();
 
+  // Walkthrough first services are quoted after a visit, never booked directly.
+  const { data: serviceRow } = await supabase
+    .from("PS_CLEAN_services")
+    .select("walkthrough_first")
+    .eq("id", input.serviceId)
+    .maybeSingle();
+  if (serviceRow?.walkthrough_first) {
+    throw new Error("This service needs a walkthrough first. Please book a walkthrough and we will send you a quote.");
+  }
+
   const { data: booking, error } = await supabase
     .rpc("ps_clean_create_booking", {
       p_customer_id: customer.id,

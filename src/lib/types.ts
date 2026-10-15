@@ -47,6 +47,9 @@ export interface Service {
   hourly_rate_pence: number | null;
   // Shows the price to customers as "From £X" (pricing starts from).
   price_is_from: boolean;
+  // Shown with a "from" price but not bookable directly: customers are sent to
+  // book a walkthrough first and are quoted afterwards.
+  walkthrough_first: boolean;
   is_featured: boolean;
   featured_message: string | null;
   created_at: string;

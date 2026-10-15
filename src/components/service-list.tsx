@@ -1,12 +1,23 @@
 import Link from "next/link";
-import { FEATURED_DEFAULT_MESSAGE, customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
+import {
+  FEATURED_DEFAULT_MESSAGE,
+  WALKTHROUGH_FIRST_CTA,
+  WALKTHROUGH_FIRST_NOTE,
+  customerMinutes,
+  findWalkthroughService,
+  formatDuration,
+  servicePriceLabel,
+} from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 // Service cards in two columns. A featured service becomes a wide button across
-// both columns, above the rest, with the owner's own message.
+// both columns, above the rest, with the owner's own message. A "walkthrough
+// first" service is shown with its from price and a note, and its button goes
+// to the walkthrough instead of a booking page.
 export function ServiceList({ services }: { services: Service[] }) {
-  const featured = services.filter((s) => s.is_featured);
-  const rest = services.filter((s) => !s.is_featured);
+  const featured = services.filter((s) => s.is_featured && !s.walkthrough_first);
+  const rest = services.filter((s) => !featured.includes(s));
+  const walkthrough = findWalkthroughService(services);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -22,20 +33,39 @@ export function ServiceList({ services }: { services: Service[] }) {
           </span>
         </Link>
       ))}
-      {rest.map((s) => (
-        <Link
-          key={s.id}
-          href={`/book/${s.id}`}
-          className="rounded-xl border border-border bg-card p-5 transition hover:border-brand"
-        >
-          <h3 className="font-semibold text-foreground">{s.name}</h3>
-          {s.description && <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>}
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{formatDuration(customerMinutes(s))}</span>
-            <span className="font-semibold text-brand">{servicePriceLabel(s)}</span>
-          </div>
-        </Link>
-      ))}
+      {rest.map((s) => {
+        const body = (
+          <>
+            <h3 className="font-semibold text-foreground">{s.name}</h3>
+            {s.description && <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>}
+            {s.walkthrough_first && <p className="mt-2 text-sm font-medium text-foreground">{WALKTHROUGH_FIRST_NOTE}</p>}
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{s.walkthrough_first ? "Quoted after a walkthrough" : formatDuration(customerMinutes(s))}</span>
+              <span className="font-semibold text-brand">{servicePriceLabel(s)}</span>
+            </div>
+            {s.walkthrough_first && walkthrough && (
+              <p className="mt-3 text-sm font-semibold text-brand">{WALKTHROUGH_FIRST_CTA} &rarr;</p>
+            )}
+          </>
+        );
+        const cardClass = "rounded-xl border border-border bg-card p-5";
+        if (s.walkthrough_first && !walkthrough) {
+          return (
+            <div key={s.id} className={cardClass}>
+              {body}
+            </div>
+          );
+        }
+        return (
+          <Link
+            key={s.id}
+            href={`/book/${s.walkthrough_first && walkthrough ? walkthrough.id : s.id}`}
+            className={`${cardClass} transition hover:border-brand`}
+          >
+            {body}
+          </Link>
+        );
+      })}
     </div>
   );
 }

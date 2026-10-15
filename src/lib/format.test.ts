@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hourlyPricePence, quoteAmountDue, servicePriceLabel } from "./format";
+import { findWalkthroughService, hourlyPricePence, quoteAmountDue, servicePriceLabel } from "./format";
 
 describe("hourlyPricePence", () => {
   it("prorates the hourly rate over the clean time", () => {
@@ -35,5 +35,26 @@ describe("quoteAmountDue", () => {
   });
   it("is zero before the quote is confirmed", () => {
     expect(quoteAmountDue({ quote_status: "pending", price_pence: 20500, amount_paid_pence: 0 })).toBe(0);
+  });
+});
+
+describe("walkthrough first", () => {
+  const svc = (id: string, name: string, extra: Partial<{ is_featured: boolean; walkthrough_first: boolean }> = {}) => ({
+    id,
+    name,
+    is_featured: false,
+    walkthrough_first: false,
+    ...extra,
+  });
+  it("shows a from price for a walkthrough first service", () => {
+    expect(servicePriceLabel({ price_pence: 15000, requires_quote: false, walkthrough_first: true })).toBe("From £150.00");
+  });
+  it("sends customers to the featured service", () => {
+    const list = [svc("a", "Standard"), svc("b", "Walkthrough", { is_featured: true }), svc("c", "End of Tenancy", { walkthrough_first: true })];
+    expect(findWalkthroughService(list)?.id).toBe("b");
+  });
+  it("falls back to a service named walkthrough and never picks a walkthrough first one", () => {
+    expect(findWalkthroughService([svc("a", "Standard"), svc("w", "Free Walk-through")])?.id).toBe("w");
+    expect(findWalkthroughService([svc("c", "Walkthrough clean", { walkthrough_first: true })])).toBeNull();
   });
 });

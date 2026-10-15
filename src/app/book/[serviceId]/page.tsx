@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
+import { customerMinutes, findWalkthroughService, formatDuration, servicePriceLabel } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/types";
 
@@ -23,6 +23,18 @@ export default async function ServiceBookingPage({
     .eq("is_active", true)
     .maybeSingle();
   if (!service) notFound();
+
+  // Walkthrough first services can't be booked directly: send the customer to
+  // book the walkthrough instead.
+  if ((service as Service).walkthrough_first) {
+    const { data: others } = await supabase
+      .from("PS_CLEAN_services")
+      .select("*")
+      .eq("business_id", business.id)
+      .eq("is_active", true);
+    const walkthrough = findWalkthroughService((others ?? []) as Service[]);
+    redirect(walkthrough ? `/book/${walkthrough.id}` : "/book");
+  }
 
   const { data: cleanerLinks } = await supabase
     .from("PS_CLEAN_cleaner_services")

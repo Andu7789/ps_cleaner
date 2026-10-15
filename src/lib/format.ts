@@ -12,6 +12,19 @@ export function hourlyPricePence(hourlyRatePence: number, cleanMinutes: number):
 }
 
 // Shown on the stand out service button when the owner hasn't written their own.
+export const WALKTHROUGH_FIRST_NOTE = "Book a walkthrough first, then you'll get a quote";
+export const WALKTHROUGH_FIRST_CTA = "Book a walkthrough";
+
+// The service customers are sent to for a "walkthrough first" job: the stand
+// out service if there is one, otherwise any bookable service with walkthrough
+// in its name. Null when the owner hasn't set one up.
+export function findWalkthroughService<T extends { id: string; name: string; is_featured: boolean; walkthrough_first: boolean }>(
+  services: T[]
+): T | null {
+  const bookable = services.filter((s) => !s.walkthrough_first);
+  return bookable.find((s) => s.is_featured) ?? bookable.find((s) => /walk\s?-?through/i.test(s.name)) ?? null;
+}
+
 export const FEATURED_DEFAULT_MESSAGE = "New here? Book a walkthrough";
 
 // Customer-facing price: a £0 service reads as "Free" rather than "£0.00".
@@ -27,9 +40,10 @@ export function servicePriceLabel(service: {
   price_pence: number;
   requires_quote: boolean;
   price_is_from?: boolean;
+  walkthrough_first?: boolean;
 }): string {
   if (service.requires_quote) return service.price_pence > 0 ? `From ${formatPence(service.price_pence)}` : "Quote on request";
-  if (service.price_is_from && service.price_pence > 0) return `From ${formatPence(service.price_pence)}`;
+  if ((service.price_is_from || service.walkthrough_first) && service.price_pence > 0) return `From ${formatPence(service.price_pence)}`;
   return formatServicePrice(service.price_pence);
 }
 

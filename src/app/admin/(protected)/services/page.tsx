@@ -39,6 +39,7 @@ export default async function AdminServicesPage() {
                   : formatDuration(s.duration_minutes)}{" "}
                 · {s.price_pence <= 0 ? "Free" : formatPence(s.price_pence)}
                 {s.requires_quote ? " (exact quote needed)" : ""}
+                {s.is_featured ? " (stand out button)" : ""}
                 {s.deposit_pence
                   ? ` (${formatPence(s.deposit_pence)} deposit${s.requires_quote ? ", taken once the price is confirmed" : ""})`
                   : ""} · buffers {s.buffer_before_minutes}m

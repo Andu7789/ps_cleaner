@@ -5,6 +5,9 @@ export function formatPence(pence: number): string {
   }).format(pence / 100);
 }
 
+// Shown on the stand out service button when the owner hasn't written their own.
+export const FEATURED_DEFAULT_MESSAGE = "New here? Book a walkthrough";
+
 // Customer-facing price: a £0 service reads as "Free" rather than "£0.00".
 export function formatServicePrice(pence: number): string {
   return pence <= 0 ? "Free" : formatPence(pence);

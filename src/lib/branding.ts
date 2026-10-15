@@ -1,15 +1,12 @@
-import type { Business, WatermarkPosition } from "@/lib/types";
+import type { Business } from "@/lib/types";
 
 export type BrandingFields = Pick<
   Business,
   | "brand_color"
   | "logo_url"
   | "background_style"
+  | "background_color"
   | "header_style"
-  | "logo_watermark"
-  | "watermark_opacity"
-  | "watermark_position"
-  | "watermark_size"
 >;
 
 export const BRAND_PRESETS: { name: string; hex: string }[] = [
@@ -21,13 +18,6 @@ export const BRAND_PRESETS: { name: string; hex: string }[] = [
   { name: "Berry", hex: "#be123c" },
   { name: "Coral", hex: "#c2410c" },
   { name: "Charcoal", hex: "#1f2937" },
-];
-
-export const WATERMARK_POSITIONS: { value: WatermarkPosition; label: string }[] = [
-  { value: "center", label: "Centre" },
-  { value: "top-right", label: "Top right" },
-  { value: "bottom-right", label: "Bottom right" },
-  { value: "tiled", label: "Repeating" },
 ];
 
 function channel(hex: string, start: number): number {
@@ -49,33 +39,9 @@ export function readableTextOn(hex: string): string {
   return whiteContrast >= darkContrast ? "#ffffff" : "#111827";
 }
 
-// Where and how big the faded logo sits, as plain CSS properties. Shared by
-// the live site and the preview in the admin so they can't drift apart.
-export function watermarkStyle(b: BrandingFields, scale = 1): Record<string, string> | null {
-  if (!b.logo_watermark || !b.logo_url) return null;
-  const size = b.watermark_size * scale;
-  const base: Record<string, string> = {
-    backgroundImage: `url("${b.logo_url.replace(/"/g, "%22")}")`,
-    opacity: String(b.watermark_opacity / 100),
-    backgroundRepeat: "no-repeat",
-    backgroundSize: `${size}vmin auto`,
-    backgroundPosition: "center",
-  };
-  switch (b.watermark_position) {
-    case "top-right":
-      return { ...base, backgroundPosition: "right 4vmin top 12vmin" };
-    case "bottom-right":
-      return { ...base, backgroundPosition: "right 4vmin bottom 4vmin" };
-    case "tiled":
-      return { ...base, backgroundRepeat: "repeat", backgroundSize: `${Math.max(14, size / 3)}vmin auto` };
-    default:
-      return base;
-  }
-}
-
 // CSS custom properties for a business. --brand drives every bg-brand /
 // text-brand utility; the rest tint surfaces from it.
-export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_style">): Record<string, string> {
+export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_style" | "background_color">): Record<string, string> {
   const brand = /^#[0-9a-fA-F]{6}$/.test(b.brand_color) ? b.brand_color : "#0f766e";
   const vars: Record<string, string> = { "--brand": brand, "--brand-foreground": readableTextOn(brand) };
   if (b.background_style === "tinted") {
@@ -83,10 +49,17 @@ export function brandVars(b: Pick<BrandingFields, "brand_color" | "background_st
     vars["--muted"] = `color-mix(in srgb, ${brand} 12%, #ffffff)`;
     vars["--border"] = `color-mix(in srgb, ${brand} 18%, #e5e7eb)`;
   }
+  // A colour the owner picked wins over the tint. Muted and border follow it
+  // so cards and dividers still sit comfortably on the page.
+  if (b.background_color && /^#[0-9a-fA-F]{6}$/.test(b.background_color)) {
+    vars["--background"] = b.background_color;
+    vars["--muted"] = `color-mix(in srgb, ${b.background_color} 92%, #000000)`;
+    vars["--border"] = `color-mix(in srgb, ${b.background_color} 85%, #000000)`;
+  }
   return vars;
 }
 
-export function brandCss(b: Pick<BrandingFields, "brand_color" | "background_style">): string {
+export function brandCss(b: Pick<BrandingFields, "brand_color" | "background_style" | "background_color">): string {
   const decls = Object.entries(brandVars(b)).map(([k, v]) => `${k}: ${v};`);
   return `:root { ${decls.join(" ")} }`;
 }

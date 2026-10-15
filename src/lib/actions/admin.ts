@@ -149,6 +149,8 @@ export interface ServiceInput {
   // Minutes customers are told; leave out when it matches durationMinutes.
   customerDurationMinutes?: number | null;
   requiresQuote?: boolean;
+  isFeatured?: boolean;
+  featuredMessage?: string | null;
 }
 
 function serviceColumns(input: ServiceInput) {
@@ -168,6 +170,8 @@ function serviceColumns(input: ServiceInput) {
     price_pence: input.pricePence,
     deposit_pence: input.depositPence ?? null,
     requires_quote: input.requiresQuote ?? false,
+    is_featured: input.isFeatured ?? false,
+    featured_message: input.featuredMessage?.trim() || null,
   };
 }
 
@@ -180,6 +184,7 @@ export async function updateServiceAction(serviceId: string, input: ServiceInput
     .eq("id", serviceId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");
+  revalidatePath("/");
   revalidatePath("/book", "layout");
 }
 
@@ -193,6 +198,8 @@ export async function createServiceAction(input: ServiceInput) {
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");
+  revalidatePath("/");
+  revalidatePath("/book", "layout");
 }
 
 export async function setServiceActiveAction(serviceId: string, isActive: boolean) {
@@ -395,14 +402,12 @@ export async function reconcilePaymentAction(bookingId: string): Promise<Reconci
 export interface AppearanceInput {
   brandColor: string;
   backgroundStyle: "neutral" | "tinted";
+  // Any hex colour, or null to use the background style instead.
+  backgroundColor: string | null;
   headerStyle: "light" | "brand";
-  logoWatermark: boolean;
-  watermarkOpacity: number;
-  watermarkPosition: "center" | "top-right" | "bottom-right" | "tiled";
-  watermarkSize: number;
 }
 
-// Owner-only look and feel: colour, background, header and the faded logo.
+// Owner-only look and feel: colour, background and header.
 // Kept apart from updateBusinessSettingsAction so saving contact details
 // can never overwrite a branding change made in the other form.
 export async function updateAppearanceAction(input: AppearanceInput) {
@@ -410,13 +415,9 @@ export async function updateAppearanceAction(input: AppearanceInput) {
   if (!/^#[0-9a-fA-F]{6}$/.test(input.brandColor)) throw new Error("Brand colour must be a hex code like #0f766e");
   if (!["neutral", "tinted"].includes(input.backgroundStyle)) throw new Error("Unknown background style");
   if (!["light", "brand"].includes(input.headerStyle)) throw new Error("Unknown header style");
-  if (!["center", "top-right", "bottom-right", "tiled"].includes(input.watermarkPosition)) {
-    throw new Error("Unknown logo position");
+  if (input.backgroundColor !== null && !/^#[0-9a-fA-F]{6}$/.test(input.backgroundColor)) {
+    throw new Error("Background colour must be a hex code like #f6f7f7");
   }
-  const opacity = Math.round(input.watermarkOpacity);
-  const size = Math.round(input.watermarkSize);
-  if (!(opacity >= 2 && opacity <= 30)) throw new Error("Logo strength must be between 2 and 30");
-  if (!(size >= 20 && size <= 100)) throw new Error("Logo size must be between 20 and 100");
 
   const business = await getCurrentBusiness();
   const supabase = await createClient();
@@ -425,11 +426,8 @@ export async function updateAppearanceAction(input: AppearanceInput) {
     .update({
       brand_color: input.brandColor,
       background_style: input.backgroundStyle,
+      background_color: input.backgroundColor,
       header_style: input.headerStyle,
-      logo_watermark: input.logoWatermark,
-      watermark_opacity: opacity,
-      watermark_position: input.watermarkPosition,
-      watermark_size: size,
     })
     .eq("id", business.id);
   if (error) throw new Error(error.message);

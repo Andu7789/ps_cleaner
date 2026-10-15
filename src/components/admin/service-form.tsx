@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createServiceAction, updateServiceAction } from "@/lib/actions/admin";
+import { FEATURED_DEFAULT_MESSAGE } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 // Explicit text and background colours: inputs inherit colour from the muted label around them, which made typed values look disabled.
@@ -21,6 +22,8 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
   const [bufferBefore, setBufferBefore] = useState(String(service?.buffer_before_minutes ?? 0));
   const [bufferAfter, setBufferAfter] = useState(String(service?.buffer_after_minutes ?? 15));
   const [requiresQuote, setRequiresQuote] = useState(service?.requires_quote ?? false);
+  const [isFeatured, setIsFeatured] = useState(service?.is_featured ?? false);
+  const [featuredMessage, setFeaturedMessage] = useState(service?.featured_message ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -39,6 +42,8 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       pricePence: Math.round(Number(price || 0) * 100),
       depositPence: deposit ? Math.round(Number(deposit) * 100) : null,
       requiresQuote,
+      isFeatured,
+      featuredMessage: isFeatured ? featuredMessage : null,
     };
     startTransition(async () => {
       try {
@@ -54,6 +59,8 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           setDeposit("");
           setCustomerMinutes("");
           setRequiresQuote(false);
+          setIsFeatured(false);
+          setFeaturedMessage("");
           setSaved(true);
         }
       } catch (err) {
@@ -119,6 +126,28 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           </span>
         </span>
       </label>
+      <label className="flex items-start gap-2 text-sm text-foreground">
+        <input type="checkbox" className="mt-1 accent-brand" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+        <span>
+          Make this the stand out button
+          <span className="block text-xs text-muted-foreground">
+            Shows this service as a wide button across both columns above the other services. Only one service should
+            be ticked at a time.
+          </span>
+        </span>
+      </label>
+      {isFeatured && (
+        <label className="block text-xs text-muted-foreground">
+          Stand out message
+          <input
+            value={featuredMessage}
+            onChange={(e) => setFeaturedMessage(e.target.value)}
+            placeholder={FEATURED_DEFAULT_MESSAGE}
+            maxLength={80}
+            className={inputClass}
+          />
+        </label>
+      )}
       {error && <p className="text-sm text-danger">{error}</p>}
       {saved && !error && <p className="text-sm text-success">Saved.</p>}
       <button type="submit" disabled={pending} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-60">

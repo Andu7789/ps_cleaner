@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { brandCss, pickDominantColors, readableTextOn, watermarkStyle } from "./branding";
+import { brandCss, pickDominantColors, readableTextOn } from "./branding";
 
 const base = {
   brand_color: "#0f766e",
   logo_url: "https://example.com/logo.png",
   background_style: "neutral" as const,
+  background_color: null,
   header_style: "light" as const,
-  logo_watermark: true,
-  watermark_opacity: 8,
-  watermark_position: "center" as const,
-  watermark_size: 60,
 };
 
 describe("readableTextOn", () => {
@@ -27,21 +24,13 @@ describe("brandCss", () => {
     expect(brandCss(base)).not.toContain("--background");
     expect(brandCss({ ...base, background_style: "tinted" })).toContain("--background");
   });
+  it("uses a custom background colour over the style", () => {
+    const css = brandCss({ ...base, background_style: "tinted", background_color: "#fdf2f8" });
+    expect(css).toContain("--background: #fdf2f8");
+    expect(brandCss({ ...base, background_color: "red" })).not.toContain("--background");
+  });
   it("ignores an invalid colour", () => {
     expect(brandCss({ ...base, brand_color: "red; } body { display:none" })).toContain("#0f766e");
-  });
-});
-
-describe("watermarkStyle", () => {
-  it("is off without a logo or when disabled", () => {
-    expect(watermarkStyle({ ...base, logo_url: null })).toBeNull();
-    expect(watermarkStyle({ ...base, logo_watermark: false })).toBeNull();
-  });
-  it("converts percent opacity", () => {
-    expect(watermarkStyle(base)?.opacity).toBe("0.08");
-  });
-  it("repeats when tiled", () => {
-    expect(watermarkStyle({ ...base, watermark_position: "tiled" })?.backgroundRepeat).toBe("repeat");
   });
 });
 

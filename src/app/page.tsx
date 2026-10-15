@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
+import { ServiceList } from "@/components/service-list";
 import type { Service } from "@/lib/types";
 
 export default async function HomePage() {
@@ -18,6 +18,10 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <section className="rounded-2xl bg-brand px-6 py-14 text-center text-brand-foreground sm:px-12">
+        {business.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
+          <img src={business.logo_url} alt="" className="mx-auto mb-5 h-24 w-auto max-w-64 rounded-xl bg-white object-contain p-2" />
+        )}
         <h1 className="text-3xl font-semibold sm:text-4xl">Book a trusted clean in minutes</h1>
         <p className="mx-auto mt-3 max-w-xl text-brand-foreground/90">
           {business.business_name} — pick a service, choose a time that suits you, and pay securely online.
@@ -32,23 +36,8 @@ export default async function HomePage() {
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold text-foreground">Our services</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {services.map((service) => (
-            <Link
-              key={service.id}
-              href={`/book?service=${service.id}`}
-              className="rounded-xl border border-border bg-card p-5 transition hover:border-brand"
-            >
-              <h3 className="font-semibold text-foreground">{service.name}</h3>
-              {service.description && (
-                <p className="mt-1 text-sm text-muted-foreground">{service.description}</p>
-              )}
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{formatDuration(customerMinutes(service))}</span>
-                <span className="font-semibold text-brand">{servicePriceLabel(service)}</span>
-              </div>
-            </Link>
-          ))}
+        <div className="mt-4">
+          <ServiceList services={services} />
           {services.length === 0 && (
             <p className="text-sm text-muted-foreground">Services will appear here once they&apos;re set up.</p>
           )}

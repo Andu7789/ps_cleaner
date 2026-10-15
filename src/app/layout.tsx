@@ -5,7 +5,7 @@ import { Header } from "@/components/ui/header";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getCurrentBusiness } from "@/lib/business";
 import { getUser } from "@/lib/auth";
-import { brandCss, watermarkStyle } from "@/lib/branding";
+import { brandCss } from "@/lib/branding";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -42,7 +42,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const [business, user] = await Promise.all([getCurrentBusiness(), getUser()]);
-  const watermark = watermarkStyle(business);
 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
@@ -55,7 +54,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <style>{brandCss(business)}</style>
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        {watermark && <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0" style={watermark} />}
         <Header
           businessName={business.business_name}
           logoUrl={business.logo_url}

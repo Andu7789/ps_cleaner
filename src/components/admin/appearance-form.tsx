@@ -3,13 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 import { updateAppearanceAction } from "@/lib/actions/admin";
-import {
-  BRAND_PRESETS,
-  WATERMARK_POSITIONS,
-  brandVars,
-  dominantColorsFromImage,
-  watermarkStyle,
-} from "@/lib/branding";
+import { BRAND_PRESETS, brandVars, dominantColorsFromImage } from "@/lib/branding";
 import type { Business } from "@/lib/types";
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
@@ -81,18 +75,13 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
   const [brandColor, setBrandColor] = useState(business.brand_color);
   const [backgroundStyle, setBackgroundStyle] = useState(business.background_style);
   const [headerStyle, setHeaderStyle] = useState(business.header_style);
-  const [logoWatermark, setLogoWatermark] = useState(business.logo_watermark);
-  const [opacity, setOpacity] = useState(business.watermark_opacity);
-  const [position, setPosition] = useState(business.watermark_position);
-  const [size, setSize] = useState(business.watermark_size);
+  const [customBackground, setCustomBackground] = useState(Boolean(business.background_color));
+  const [backgroundColor, setBackgroundColor] = useState(business.background_color ?? "#f6f7f7");
   const [logoColors, setLogoColors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  // A logo uploaded above but not saved yet still previews here, but the live
-  // site can only use it once Save settings has stored it.
-  const logoSaved = logoUrl === (business.logo_url ?? "");
 
   useEffect(() => {
     let cancelled = false;
@@ -106,24 +95,15 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
   }, [logoUrl]);
 
   const validColor = /^#[0-9a-fA-F]{6}$/.test(brandColor);
+  const validBackground = /^#[0-9a-fA-F]{6}$/.test(backgroundColor);
   const branding = {
     brand_color: validColor ? brandColor : business.brand_color,
     logo_url: logoUrl || null,
     background_style: backgroundStyle,
+    background_color: customBackground && validBackground ? backgroundColor : null,
     header_style: headerStyle,
-    logo_watermark: logoWatermark,
-    watermark_opacity: opacity,
-    watermark_position: position,
-    watermark_size: size,
   };
   const vars = brandVars(branding) as CSSProperties;
-  // The live site sizes the logo against the viewport (vmin); the preview is
-  // a small box, so it uses container units instead.
-  const rawWatermark = watermarkStyle(branding);
-  const previewWatermark: CSSProperties | null = rawWatermark
-    ? (Object.fromEntries(Object.entries(rawWatermark).map(([k, v]) => [k, v.replace(/vmin/g, "cqmin")])) as CSSProperties)
-    : null;
-
   function save() {
     setError(null);
     setSaved(false);
@@ -132,11 +112,8 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
         await updateAppearanceAction({
           brandColor: branding.brand_color,
           backgroundStyle,
+          backgroundColor: branding.background_color,
           headerStyle,
-          logoWatermark: logoWatermark && Boolean(logoUrl),
-          watermarkOpacity: opacity,
-          watermarkPosition: position,
-          watermarkSize: size,
         });
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -196,61 +173,36 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
         <ChoiceCards legend="Header" value={headerStyle} options={HEADERS} onChange={setHeaderStyle} />
 
         <fieldset>
-          <legend className="text-xs font-medium text-foreground">Faded logo behind the pages</legend>
-          {!logoUrl ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Upload a logo in Business details above, then you can fade it into the background here.
-            </p>
-          ) : (
-            <div className="mt-2 space-y-4">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input type="checkbox" className="accent-brand" checked={logoWatermark} onChange={(e) => setLogoWatermark(e.target.checked)} />
-                Show my logo faded in the background
-              </label>
-              {logoWatermark && (
-                <>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Position</p>
-                    <div className="mt-1.5 flex flex-wrap gap-2">
-                      {WATERMARK_POSITIONS.map((p) => (
-                        <button
-                          key={p.value}
-                          type="button"
-                          aria-pressed={position === p.value}
-                          onClick={() => setPosition(p.value)}
-                          className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-                            position === p.value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <label className="block text-xs text-muted-foreground">
-                    Strength: {opacity}% (lower is fainter, keep it low so text stays easy to read)
-                    <input type="range" min={2} max={30} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} className="mt-1 block w-full accent-brand" />
-                  </label>
-                  <label className="block text-xs text-muted-foreground">
-                    Size: {size}%
-                    <input type="range" min={20} max={100} step={5} value={size} onChange={(e) => setSize(Number(e.target.value))} className="mt-1 block w-full accent-brand" />
-                  </label>
-                </>
-              )}
+          <legend className="text-xs font-medium text-foreground">Page background colour</legend>
+          <label className="mt-1.5 flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" className="accent-brand" checked={customBackground} onChange={(e) => setCustomBackground(e.target.checked)} />
+            Choose my own background colour
+          </label>
+          {customBackground && (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={validBackground ? backgroundColor : "#f6f7f7"}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                className="h-9 w-12 shrink-0 rounded-lg border border-border p-1"
+                aria-label="Pick a background colour"
+              />
+              <input
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                placeholder="#f6f7f7"
+                aria-label="Background colour hex code"
+                className="block w-32 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+              />
+              {!validBackground && <span className="text-xs text-danger">Use a hex code like #f6f7f7</span>}
             </div>
           )}
         </fieldset>
 
-        {!logoSaved && (
-          <p className="text-sm text-danger">
-            Your new logo isn&apos;t saved yet. Click Save settings in Business details above first, otherwise the faded
-            logo won&apos;t appear on the site.
-          </p>
-        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="button"
-          disabled={pending || !validColor}
+          disabled={pending || !validColor || (customBackground && !validBackground)}
           onClick={save}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-60"
         >
@@ -264,7 +216,6 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
           style={{ ...vars, containerType: "size" }}
           className="relative h-80 overflow-hidden rounded-xl border border-border bg-background text-foreground"
         >
-          {previewWatermark && <div aria-hidden="true" className="absolute inset-0" style={previewWatermark} />}
           <div className="relative flex h-full flex-col">
             <div
               className={`flex items-center justify-between border-b px-3 py-2 text-xs ${
@@ -276,6 +227,10 @@ export function AppearanceForm({ business, logoUrl }: { business: Business; logo
             </div>
             <div className="space-y-3 p-3">
               <div className="rounded-lg bg-brand p-3 text-brand-foreground">
+                {logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- preview of an uploaded logo
+                  <img src={logoUrl} alt="" className="mb-2 h-8 w-auto rounded bg-white object-contain p-1" />
+                )}
                 <p className="text-sm font-semibold">Book a trusted clean</p>
                 <span className="mt-2 inline-block rounded-md bg-white px-2 py-1 text-xs font-semibold text-brand">Book now</span>
               </div>

@@ -40,6 +40,10 @@ export interface Service {
   // What customers are told the job takes. duration_minutes is the total
   // time blocked in the diary; null here means "same as the total".
   customer_duration_minutes: number | null;
+  // Shown as a wide stand out button above the other services, with this
+  // message (a default is used when it is blank).
+  is_featured: boolean;
+  featured_message: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -311,11 +315,7 @@ export interface Business {
   reminder_hours_before: number;
   balance_charge_days_before: number;
   background_style: "neutral" | "tinted";
+  // Any hex colour the owner picks; wins over background_style when set.
+  background_color: string | null;
   header_style: "light" | "brand";
-  logo_watermark: boolean;
-  watermark_opacity: number;
-  watermark_position: WatermarkPosition;
-  watermark_size: number;
 }
-
-export type WatermarkPosition = "center" | "top-right" | "bottom-right" | "tiled";

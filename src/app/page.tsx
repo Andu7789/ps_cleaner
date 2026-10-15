@@ -238,9 +238,9 @@ export default async function HomePage() {
                     {s.description && <p className="mt-2 text-sm leading-relaxed text-[#5d5258]">{s.description}</p>}
                     {wf && <p className="mt-2 text-sm font-semibold text-[#1a1116]">{WALKTHROUGH_FIRST_NOTE}</p>}
                     <div className="flex-1" />
-                    <div className="mt-6 flex items-center justify-between gap-3 border-t border-[#efe7ea] pt-4">
+                    <div className="mt-6 flex flex-col items-start gap-2 border-t border-[#efe7ea] pt-4">
                       <p className={`text-xl font-semibold text-[var(--brand)] ${display}`}>{servicePriceLabel(s)}</p>
-                      <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[var(--brand)]">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--brand)]">
                         {wf ? WALKTHROUGH_FIRST_CTA : copy.services.cardCta}
                         <ArrowRight className="size-4 transition-transform group-hover:translate-x-1.5" aria-hidden="true" />
                       </span>

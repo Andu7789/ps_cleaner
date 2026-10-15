@@ -243,28 +243,42 @@ function serviceColumns(input: ServiceInput) {
   };
 }
 
-export async function updateServiceAction(serviceId: string, input: ServiceInput) {
+// These return the error instead of throwing: production masks thrown server
+// action errors as an unreadable "Minified React error", hiding why a save failed.
+export async function updateServiceAction(serviceId: string, input: ServiceInput): Promise<{ error: string } | undefined> {
   await requireAdmin();
+  let columns;
+  try {
+    columns = serviceColumns(input);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Check the service details" };
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("PS_CLEAN_services")
-    .update({ ...serviceColumns(input), updated_at: new Date().toISOString() })
+    .update({ ...columns, updated_at: new Date().toISOString() })
     .eq("id", serviceId);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/admin/services");
   revalidatePath("/");
   revalidatePath("/book", "layout");
 }
 
-export async function createServiceAction(input: ServiceInput) {
+export async function createServiceAction(input: ServiceInput): Promise<{ error: string } | undefined> {
   await requireAdmin();
+  let columns;
+  try {
+    columns = serviceColumns(input);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Check the service details" };
+  }
   const business = await getCurrentBusiness();
   const supabase = await createClient();
   const { error } = await supabase.from("PS_CLEAN_services").insert({
     business_id: business.id,
-    ...serviceColumns(input),
+    ...columns,
   });
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/admin/services");
   revalidatePath("/");
   revalidatePath("/book", "layout");

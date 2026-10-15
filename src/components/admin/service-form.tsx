@@ -60,11 +60,19 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
     startTransition(async () => {
       try {
         if (service) {
-          await updateServiceAction(service.id, input);
+          const result = await updateServiceAction(service.id, input);
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
           setSaved(true);
           onDone?.();
         } else {
-          await createServiceAction(input);
+          const result = await createServiceAction(input);
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
           setName("");
           setDescription("");
           setPrice("");

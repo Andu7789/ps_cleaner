@@ -26,6 +26,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
   const [hourlyRate, setHourlyRate] = useState(
     service?.hourly_rate_pence != null ? (service.hourly_rate_pence / 100).toString() : ""
   );
+  const [priceIsFrom, setPriceIsFrom] = useState(service?.price_is_from ?? false);
   const [isFeatured, setIsFeatured] = useState(service?.is_featured ?? false);
   const [featuredMessage, setFeaturedMessage] = useState(service?.featured_message ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       bufferBeforeMinutes: Number(bufferBefore),
       bufferAfterMinutes: Number(bufferAfter),
       pricePence: Math.round(Number(price || 0) * 100),
+      priceIsFrom,
       hourlyRatePence: hourly ? Math.round(Number(hourlyRate || 0) * 100) : null,
       depositPence: deposit ? Math.round(Number(deposit) * 100) : null,
       requiresQuote,
@@ -69,6 +71,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           setDeposit("");
           setCustomerMinutes("");
           setRequiresQuote(false);
+          setPriceIsFrom(false);
           setHourly(false);
           setHourlyRate("");
           setIsFeatured(false);
@@ -146,6 +149,16 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           <span className="block text-xs text-muted-foreground">
             Enter an hourly rate instead of a fixed price. The price is worked out from the time shown to customers, so a
             1 hour 30 minute clean at £20 an hour costs £30. Untick it to use a fixed price.
+          </span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2 text-sm text-foreground">
+        <input type="checkbox" className="mt-1 accent-brand" checked={priceIsFrom} onChange={(e) => setPriceIsFrom(e.target.checked)} />
+        <span>
+          Pricing starts from
+          <span className="block text-xs text-muted-foreground">
+            Customers see this as &quot;From £X&quot;, for example &quot;From £60.00&quot;, so they know the price can go up
+            depending on the job. Use it with &quot;We will check the quote&quot; below if you confirm the exact price yourself.
           </span>
         </span>
       </label>

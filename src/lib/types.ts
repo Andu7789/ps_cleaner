@@ -45,6 +45,8 @@ export interface Service {
   // Set when the service is charged by the hour; price_pence is then the rate
   // worked out over the clean time, refreshed each time the service is saved.
   hourly_rate_pence: number | null;
+  // Shows the price to customers as "From £X" (pricing starts from).
+  price_is_from: boolean;
   is_featured: boolean;
   featured_message: string | null;
   created_at: string;

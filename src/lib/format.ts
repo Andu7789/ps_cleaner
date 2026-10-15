@@ -23,8 +23,13 @@ export function formatServicePrice(pence: number): string {
 // blocked in the diary, which can be longer (travel, set up).
 // Price as shown on a service card: free, a plain price, or "from" for a
 // service whose final price is quoted after the cleaner has seen the job.
-export function servicePriceLabel(service: { price_pence: number; requires_quote: boolean }): string {
+export function servicePriceLabel(service: {
+  price_pence: number;
+  requires_quote: boolean;
+  price_is_from?: boolean;
+}): string {
   if (service.requires_quote) return service.price_pence > 0 ? `From ${formatPence(service.price_pence)}` : "Quote on request";
+  if (service.price_is_from && service.price_pence > 0) return `From ${formatPence(service.price_pence)}`;
   return formatServicePrice(service.price_pence);
 }
 

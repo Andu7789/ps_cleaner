@@ -207,6 +207,8 @@ export interface ServiceInput {
   requiresQuote?: boolean;
   // Charge by the hour: the price becomes this rate over the clean time.
   hourlyRatePence?: number | null;
+  // Describe the price as "From £X" to customers.
+  priceIsFrom?: boolean;
   isFeatured?: boolean;
   featuredMessage?: string | null;
 }
@@ -230,6 +232,7 @@ function serviceColumns(input: ServiceInput) {
     buffer_after_minutes: input.bufferAfterMinutes ?? 0,
     price_pence: hourly !== null ? hourlyPricePence(hourly, cleanMinutes) : input.pricePence,
     hourly_rate_pence: hourly,
+    price_is_from: input.priceIsFrom ?? false,
     deposit_pence: input.depositPence ?? null,
     requires_quote: input.requiresQuote ?? false,
     is_featured: input.isFeatured ?? false,

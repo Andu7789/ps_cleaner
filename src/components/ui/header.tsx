@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DEMO_COPY } from "@/lib/demo-content";
+import { signOutAction } from "@/lib/actions/customer";
 
 export function Header({
   businessName,
@@ -50,6 +51,16 @@ export function Header({
           >
             {signedIn ? "My account" : "Sign in"}
           </Link>
+          {signedIn && (
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className={brandHeader ? "text-brand-foreground hover:underline" : "text-muted-foreground hover:text-foreground"}
+              >
+                Sign out
+              </button>
+            </form>
+          )}
           {/* Lets the owner flip between the live homepage and the demo look. */}
           <Link
             href={onDemo ? "/" : "/demo"}

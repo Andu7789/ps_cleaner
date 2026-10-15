@@ -52,6 +52,20 @@
   outline-offset: 2px;
 }
 
+/* Plain brand buttons on a page of nearly the same colour become white with
+   brand text, so Continue / Sign in style buttons never disappear. Inside
+   cards and on the neutral admin pages they stay brand coloured. */
+[data-brand-low] button.bg-brand {
+  background: #ffffff;
+  color: var(--brand);
+  outline: none;
+}
+[data-brand-low] .bg-card button.bg-brand,
+[data-brand-low] .neutral-page button.bg-brand {
+  background: var(--brand);
+  color: var(--brand-foreground);
+}
+
 /* The stand out service button must never vanish into the page: when brand and
    page colours are close it flips to a white button with brand coloured text. */
 [data-brand-low] .featured-cta {

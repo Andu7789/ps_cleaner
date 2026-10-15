@@ -154,6 +154,35 @@ export async function deleteCleanerAction(cleanerId: string): Promise<{ error: s
   revalidatePath("/admin/cleaners");
 }
 
+// Permanently removes a booking along with its payment log, photos, add-ons and
+// review. Refused for a booking that still holds money (paid and not cancelled):
+// those should be cancelled and refunded so the payment record survives.
+export async function deleteBookingAction(bookingId: string): Promise<{ error: string } | undefined> {
+  await requireAdmin();
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { data: booking } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("status, amount_paid_pence")
+    .eq("id", bookingId)
+    .eq("business_id", business.id)
+    .maybeSingle();
+  if (!booking) return { error: "Couldn't find this booking." };
+  if (booking.amount_paid_pence > 0 && booking.status !== "cancelled") {
+    return { error: "This booking has been paid for. Cancel it (and refund if needed) before deleting it." };
+  }
+  const { error, count } = await supabase
+    .from("PS_CLEAN_bookings")
+    .delete({ count: "exact" })
+    .eq("id", bookingId)
+    .eq("business_id", business.id);
+  if (error) return { error: error.message };
+  if (!count) return { error: "Couldn't delete this booking." };
+  revalidatePath("/admin/bookings");
+  revalidatePath("/cleaner", "layout");
+  revalidatePath("/account", "layout");
+}
+
 export async function setCleanerActiveAction(cleanerId: string, isActive: boolean) {
   await requireAdmin();
   const supabase = await createClient();

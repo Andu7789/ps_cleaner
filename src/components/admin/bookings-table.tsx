@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { formatDate, formatPence, formatTime } from "@/lib/format";
 import { BookingStatusSelect } from "@/components/admin/booking-status-select";
+import { DeleteButton } from "@/components/admin/delete-button";
+import { deleteBookingAction } from "@/lib/actions/admin";
 import { SyncPaymentButton } from "@/components/admin/sync-payment-button";
 import { QuoteForm } from "@/components/admin/quote-form";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
@@ -125,6 +127,9 @@ export function BookingsTable({ bookings, isOwner }: { bookings: Row[]; isOwner:
                 <td className="py-2">
                   <BookingStatusSelect bookingId={b.id} status={b.status} />
                   {b.status === "pending_payment" && <SyncPaymentButton bookingId={b.id} />}
+                  <div className="mt-1.5">
+                    <DeleteButton name="this booking" onDelete={deleteBookingAction.bind(null, b.id)} />
+                  </div>
                 </td>
               </tr>
             ))}

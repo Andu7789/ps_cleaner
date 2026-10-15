@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
+import { sendPushToCleaner } from "@/lib/push";
 import { sendBookingConfirmation, sendQuoteRequestToOwner } from "@/lib/notify";
 import { getBusinessOrigin } from "@/lib/business";
 import { formatDate, formatTime } from "@/lib/format";
@@ -46,6 +47,16 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
     quotePending: booking.quote_status === "pending",
   });
 
+  // Tell the cleaner on their phone, if they have notifications turned on.
+  const isWalkthrough = /walk\s?-?through/i.test(svc?.name ?? "");
+  await sendPushToCleaner(service, booking.cleaner_id, {
+    title: isWalkthrough ? "New walkthrough booked" : "New booking",
+    body: `${svc?.name ?? "Clean"}, ${formatDate(booking.starts_at)} at ${formatTime(booking.starts_at)}${
+      address ? `, ${address.line1}, ${address.postcode}` : ""
+    }`,
+    url: `/cleaner/bookings/${booking.id}`,
+  });
+
   if (booking.quote_status === "pending" && business?.contact_email) {
     await sendQuoteRequestToOwner(
       business.business_name,
@@ -53,7 +64,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
       svc?.name ?? "Clean",
       `${formatDate(booking.starts_at)} at ${formatTime(booking.starts_at)}`,
       customer?.full_name ?? null,
-      `${getBusinessOrigin(business)}/admin/bookings`
+      `${getBusinessOrigin(business)}/admin/bookings/${booking.id}`
     );
   }
 }

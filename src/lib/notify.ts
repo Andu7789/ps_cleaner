@@ -264,11 +264,11 @@ export async function sendQuoteRequestToOwner(
   try {
     const html = emailShell(
       businessName,
-      `<p>${customerName ?? "A customer"} has booked <strong>${serviceName}</strong> for ${dateLine}. This service needs an exact quote.</p>
-       <p>Please confirm or adjust the price. Once you do, the customer and the cleaner are told.</p>
-       <p><a href="${adminUrl}" style="color: #0f766e;">Review in bookings</a></p>`
+      `<p>${customerName ?? "A customer"} has booked <strong>${serviceName}</strong> for ${dateLine}.</p>
+       <p>Open the booking to see their address, a map and the size of the home. This service needs an exact quote, so once the visit is done please confirm the price and the customer and cleaner will be told.</p>
+       <p><a href="${adminUrl}" style="color: #0f766e;">View the booking</a></p>`
     );
-    await sendEmail(ownerEmail, `Quote needed: ${serviceName}, ${dateLine}`, html);
+    await sendEmail(ownerEmail, `New booking: ${serviceName}, ${dateLine}`, html);
   } catch {
     // Best-effort, see above.
   }

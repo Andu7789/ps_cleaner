@@ -26,3 +26,38 @@ self.addEventListener("fetch", (event) => {
   }
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
 });
+
+// Job notifications for cleaners (see lib/push.ts). The server sends JSON with
+// a title, body and the in-app page to open when it is tapped.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "New booking", {
+      body: data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: data.url || "/cleaner" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/cleaner";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ("focus" in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});

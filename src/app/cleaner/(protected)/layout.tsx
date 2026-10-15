@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireCleaner } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/customer";
 import { createClient } from "@/lib/supabase/server";
+import { PushToggle } from "@/components/cleaner/push-toggle";
 
 // Mirrors the admin (protected) route group: /cleaner/login sits outside
 // this layout entirely, so it never runs requireCleaner() or renders nav.
@@ -29,6 +30,7 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
           </button>
         </form>
       </div>
+      {process.env.VAPID_PUBLIC_KEY && <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY} />}
       <nav className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border py-3 text-sm">
         <Link href="/cleaner" className="font-medium text-foreground hover:text-brand">
           Today

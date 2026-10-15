@@ -28,7 +28,7 @@ import {
   formatDuration,
   servicePriceLabel,
 } from "@/lib/format";
-import { ReturningCustomer } from "@/components/home/returning-customer";
+import { ReturningButton, ReturningCard, ReturningProvider } from "@/components/home/returning-customer";
 import { Reveal } from "@/components/home/reveal";
 import type { Service } from "@/lib/types";
 
@@ -82,6 +82,7 @@ export default async function HomePage() {
           className="pointer-events-none absolute -right-40 -top-40 size-[34rem] rounded-full opacity-[0.12]"
           style={{ background: `radial-gradient(circle, ${GOLD}, transparent 65%)` }}
         />
+        <ReturningProvider>
         <div className="relative mx-auto grid max-w-6xl gap-10 px-5 pb-20 pt-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-14 lg:pb-28 lg:pt-16">
           <div>
             <p className="demo-rise text-sm font-medium" style={{ ...rise(0), color: GOLD }}>
@@ -113,18 +114,7 @@ export default async function HomePage() {
               </a>
             </div>
             <div className="demo-rise" style={rise(4)}>
-              <ReturningCustomer
-                services={returningServices.map((s) => ({
-                  id: s.id,
-                  name: s.name,
-                  priceLabel: servicePriceLabel(s),
-                  duration: formatDuration(customerMinutes(s)),
-                }))}
-                buttonLabel={copy.returning.button}
-                title={copy.quickBook.title}
-                hint={copy.quickBook.hint}
-                cta={copy.quickBook.cta}
-              />
+              <ReturningButton label={copy.returning.button} />
             </div>
           </div>
 
@@ -135,11 +125,23 @@ export default async function HomePage() {
               alt={copy.hero.imageAlt}
               width={1000}
               height={1500}
-              className="aspect-[4/5] w-full rounded-[2rem] object-cover lg:ml-auto lg:max-w-md"
+              className="aspect-[4/5] w-full rounded-[2rem] object-cover lg:ml-auto lg:max-w-sm"
               fetchPriority="high"
+            />
+            <ReturningCard
+              services={returningServices.map((s) => ({
+                id: s.id,
+                name: s.name,
+                priceLabel: servicePriceLabel(s),
+                duration: formatDuration(customerMinutes(s)),
+              }))}
+              title={copy.quickBook.title}
+              hint={copy.quickBook.hint}
+              cta={copy.quickBook.cta}
             />
           </div>
         </div>
+        </ReturningProvider>
       </section>
 
       {/* Trust */}

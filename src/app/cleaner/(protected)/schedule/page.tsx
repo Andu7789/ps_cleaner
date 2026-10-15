@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireCleaner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatTime } from "@/lib/format";
+import { WeekPicker } from "@/components/cleaner/week-picker";
 import { toLondonDateKey, zonedTimeToUtc } from "@/lib/calendar";
 import type { Booking, CustomerAddress, RecurringBooking, Service } from "@/lib/types";
 
@@ -78,7 +79,7 @@ export default async function CleanerSchedulePage({
         <Link href={`/cleaner/schedule?week=${addDays(mondayKey, -7)}`} className="text-brand hover:underline">
           &larr; Previous
         </Link>
-        <span className="font-medium text-foreground">{weekLabel}</span>
+        <WeekPicker label={weekLabel} value={mondayKey} />
         <Link href={`/cleaner/schedule?week=${addDays(mondayKey, 7)}`} className="text-brand hover:underline">
           Next &rarr;
         </Link>

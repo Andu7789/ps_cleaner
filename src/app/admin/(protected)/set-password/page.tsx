@@ -1,4 +1,5 @@
-import { SetPasswordForm } from "@/components/admin/set-password-form";
+import { SetPasswordForm } from "@/components/auth/set-password-form";
+import { setAdminPasswordAction } from "@/lib/actions/admin-auth";
 
 export default function SetPasswordPage() {
   return (
@@ -7,7 +8,7 @@ export default function SetPasswordPage() {
       <p className="mt-1 text-sm text-muted-foreground">
         You&apos;ll use this with your email to sign in to the admin portal.
       </p>
-      <SetPasswordForm />
+      <SetPasswordForm action={setAdminPasswordAction} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { AdminLoginForm } from "@/components/admin/admin-login-form";
+import { PasswordLoginForm } from "@/components/auth/password-login-form";
+import { adminSignInAction, requestAdminPasswordSetupAction } from "@/lib/actions/admin-auth";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -17,7 +18,12 @@ export default async function AdminLoginPage({
       <p className="mb-4 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Admin sign in
       </p>
-      <AdminLoginForm initialError={errorMessage} />
+      <PasswordLoginForm
+        signIn={adminSignInAction}
+        requestSetup={requestAdminPasswordSetupAction}
+        setupWho="an admin"
+        initialError={errorMessage}
+      />
     </div>
   );
 }

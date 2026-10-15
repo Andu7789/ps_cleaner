@@ -1,12 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { adminSignInAction, requestAdminPasswordSetupAction } from "@/lib/actions/admin-auth";
 
 const inputClass =
   "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-brand";
 
-export function AdminLoginForm({ initialError }: { initialError?: string }) {
+type SignIn = (email: string, password: string) => Promise<{ error: string } | undefined>;
+type RequestSetup = (email: string) => Promise<void>;
+
+// Email and password sign in shared by the admin and cleaner portals. The
+// forgot password link emails a one time link that lands on set password.
+export function PasswordLoginForm({
+  signIn,
+  requestSetup,
+  setupWho,
+  initialError,
+}: {
+  signIn: SignIn;
+  requestSetup: RequestSetup;
+  setupWho: string;
+  initialError?: string;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -18,7 +32,7 @@ export function AdminLoginForm({ initialError }: { initialError?: string }) {
     setPending(true);
     setError(null);
     try {
-      const result = await adminSignInAction(email, password);
+      const result = await signIn(email, password);
       if (result?.error) {
         setError(result.error);
         setPending(false);
@@ -40,7 +54,7 @@ export function AdminLoginForm({ initialError }: { initialError?: string }) {
     setPending(true);
     setError(null);
     try {
-      await requestAdminPasswordSetupAction(email);
+      await requestSetup(email);
       setResetSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -54,7 +68,7 @@ export function AdminLoginForm({ initialError }: { initialError?: string }) {
       <div className="text-center">
         <h1 className="text-xl font-semibold text-foreground">Check your email</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          If {email} is an admin account, we&apos;ve sent a link to set a new password.
+          If {email} is {setupWho} account, we&apos;ve sent a link to set a new password.
         </p>
       </div>
     );

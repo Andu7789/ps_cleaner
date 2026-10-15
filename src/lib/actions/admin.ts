@@ -79,7 +79,7 @@ export async function createCleanerAction(input: CleanerInput) {
         email,
         input.fullName,
         "cleaner",
-        await generateMagicLink(business, email, "/cleaner"),
+        await generateMagicLink(business, email, "/cleaner/set-password"),
         `${getBusinessOrigin(business)}/cleaner/login`
       );
     } catch (err) {
@@ -104,7 +104,7 @@ export async function resendCleanerInviteAction(cleanerId: string) {
     cleaner.email.trim().toLowerCase(),
     cleaner.full_name,
     "cleaner",
-    await generateMagicLink(business, cleaner.email.trim().toLowerCase(), "/cleaner"),
+    await generateMagicLink(business, cleaner.email.trim().toLowerCase(), "/cleaner/set-password"),
         `${getBusinessOrigin(business)}/cleaner/login`
   );
 }

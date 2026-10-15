@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { setAdminPasswordAction } from "@/lib/actions/admin-auth";
 
-export function SetPasswordForm() {
+export function SetPasswordForm({
+  action,
+}: {
+  action: (password: string) => Promise<{ error: string } | undefined>;
+}) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -13,7 +16,7 @@ export function SetPasswordForm() {
     setPending(true);
     setError(null);
     try {
-      const result = await setAdminPasswordAction(password);
+      const result = await action(password);
       if (result?.error) {
         setError(result.error);
         setPending(false);

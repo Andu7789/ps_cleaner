@@ -89,18 +89,14 @@ export async function sendStaffInviteEmail(
   const greeting = name ? `Hi ${name},` : "Hi,";
   const roleLine =
     role === "cleaner"
-      ? `You've been added as a cleaner at ${businessName}. You can see your schedule, bookings and invoices once you sign in.`
+      ? `You've been added as a cleaner at ${businessName}. Set a password to see your schedule, bookings and invoices.`
       : `You've been invited to help manage ${businessName}.`;
   const html = emailShell(
     businessName,
     `<p>${greeting}</p>
      <p>${roleLine}</p>
-     <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">${role === "admin" ? "Set your password" : `Sign in to ${businessName}`}</a></p>
-     <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. ${
-       role === "admin"
-         ? `Once your password is set, sign in at <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a>. If the button has stopped working, use "Forgot password" on that page with ${email}.`
-         : `If it's stopped working, go to <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a> and enter ${email} to get a fresh link, no password needed.`
-     }</p>`
+     <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">Set your password</a></p>
+     <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. Once your password is set, sign in at <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a>. If the button has stopped working, use "Forgot password" on that page with ${email}.</p>`
   );
   await sendEmail(email, `You've been added to ${businessName}`, html);
 }

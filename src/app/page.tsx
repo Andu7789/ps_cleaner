@@ -193,7 +193,7 @@ export default async function HomePage() {
                     className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-[#2a1018]"
                     style={{ backgroundColor: GOLD }}
                   >
-                    {copy.services.cardCta}
+                    {copy.services.featuredCta}
                     <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                   </span>
                 </div>

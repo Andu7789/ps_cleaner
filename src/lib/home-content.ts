@@ -22,7 +22,8 @@ export const HOME_COPY = {
     heading: "Pick a clean, we'll do the rest",
     sub: "Clear prices up front. Choose the one that fits, then pick a time that suits you.",
     featuredLead: "Our most popular first step",
-    cardCta: "Book your appointment",
+    cardCta: "Book your clean",
+    featuredCta: "Book your appointment",
   },
   how: {
     heading: "How it works",

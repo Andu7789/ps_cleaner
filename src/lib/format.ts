@@ -5,6 +5,12 @@ export function formatPence(pence: number): string {
   }).format(pence / 100);
 }
 
+// Price for a clean charged by the hour: the rate over the time the customer is
+// told it takes, rounded to the nearest penny.
+export function hourlyPricePence(hourlyRatePence: number, cleanMinutes: number): number {
+  return Math.round((hourlyRatePence * cleanMinutes) / 60);
+}
+
 // Shown on the stand out service button when the owner hasn't written their own.
 export const FEATURED_DEFAULT_MESSAGE = "New here? Book a walkthrough";
 

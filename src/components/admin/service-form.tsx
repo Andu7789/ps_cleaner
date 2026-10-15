@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createServiceAction, updateServiceAction } from "@/lib/actions/admin";
-import { FEATURED_DEFAULT_MESSAGE } from "@/lib/format";
+import { FEATURED_DEFAULT_MESSAGE, formatPence, hourlyPricePence } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 // Explicit text and background colours: inputs inherit colour from the muted label around them, which made typed values look disabled.
@@ -22,11 +22,20 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
   const [bufferBefore, setBufferBefore] = useState(String(service?.buffer_before_minutes ?? 0));
   const [bufferAfter, setBufferAfter] = useState(String(service?.buffer_after_minutes ?? 15));
   const [requiresQuote, setRequiresQuote] = useState(service?.requires_quote ?? false);
+  const [hourly, setHourly] = useState(service?.hourly_rate_pence != null);
+  const [hourlyRate, setHourlyRate] = useState(
+    service?.hourly_rate_pence != null ? (service.hourly_rate_pence / 100).toString() : ""
+  );
   const [isFeatured, setIsFeatured] = useState(service?.is_featured ?? false);
   const [featuredMessage, setFeaturedMessage] = useState(service?.featured_message ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // The price follows the time customers are told the clean takes.
+  const cleanMinutes = Number(customerMinutes || totalMinutes) || 0;
+  const cleanPricePence = hourlyPricePence(Math.round(Number(hourlyRate || 0) * 100), cleanMinutes);
+  const cleanHoursLabel = `${Math.round((cleanMinutes / 60) * 100) / 100} hr`;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +49,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       bufferBeforeMinutes: Number(bufferBefore),
       bufferAfterMinutes: Number(bufferAfter),
       pricePence: Math.round(Number(price || 0) * 100),
+      hourlyRatePence: hourly ? Math.round(Number(hourlyRate || 0) * 100) : null,
       depositPence: deposit ? Math.round(Number(deposit) * 100) : null,
       requiresQuote,
       isFeatured,
@@ -59,6 +69,8 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           setDeposit("");
           setCustomerMinutes("");
           setRequiresQuote(false);
+          setHourly(false);
+          setHourlyRate("");
           setIsFeatured(false);
           setFeaturedMessage("");
           setSaved(true);
@@ -87,10 +99,21 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
         className={inputClass}
       />
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs text-muted-foreground">
-          Price (£). Enter 0 to show it to customers as Free
-          <input type="number" required min={0} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} />
-        </label>
+        {hourly ? (
+          <label className="text-xs text-muted-foreground">
+            Hourly rate (£ per hour)
+            <input type="number" required min={0} step={0.01} value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className={inputClass} />
+            <span className="mt-1 block">
+              Price for this clean: <strong className="text-foreground">{formatPence(cleanPricePence)}</strong> ({cleanHoursLabel} at
+              the hourly rate)
+            </span>
+          </label>
+        ) : (
+          <label className="text-xs text-muted-foreground">
+            Price (£). Enter 0 to show it to customers as Free
+            <input type="number" required min={0} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} />
+          </label>
+        )}
         <label className="text-xs text-muted-foreground">
           Deposit (£, optional, leave blank for full payment)
           <input type="number" min={0} step={0.01} value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputClass} />
@@ -116,6 +139,16 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
         The total time is what gets blocked in the diary, so include travel or set up. Customers only see the time shown
         to them, for example a walkthrough that takes 20 minutes with the customer but blocks 45.
       </p>
+      <label className="flex items-start gap-2 text-sm text-foreground">
+        <input type="checkbox" className="mt-1 accent-brand" checked={hourly} onChange={(e) => setHourly(e.target.checked)} />
+        <span>
+          Charge by the hour
+          <span className="block text-xs text-muted-foreground">
+            Enter an hourly rate instead of a fixed price. The price is worked out from the time shown to customers, so a
+            1 hour 30 minute clean at £20 an hour costs £30. Untick it to use a fixed price.
+          </span>
+        </span>
+      </label>
       <label className="flex items-start gap-2 text-sm text-foreground">
         <input type="checkbox" className="mt-1 accent-brand" checked={requiresQuote} onChange={(e) => setRequiresQuote(e.target.checked)} />
         <span>

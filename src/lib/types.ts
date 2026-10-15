@@ -42,6 +42,9 @@ export interface Service {
   customer_duration_minutes: number | null;
   // Shown as a wide stand out button above the other services, with this
   // message (a default is used when it is blank).
+  // Set when the service is charged by the hour; price_pence is then the rate
+  // worked out over the clean time, refreshed each time the service is saved.
+  hourly_rate_pence: number | null;
   is_featured: boolean;
   featured_message: string | null;
   created_at: string;

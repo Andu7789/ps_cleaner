@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireOwner } from "@/lib/auth";
 import type { AdminRole } from "@/lib/types";
 import { getBusinessOrigin, getCurrentBusiness } from "@/lib/business";
+import { hourlyPricePence } from "@/lib/format";
 import { generateMagicLink } from "@/lib/magic-link";
 import { sendStaffInviteEmail } from "@/lib/notify";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
@@ -149,17 +150,22 @@ export interface ServiceInput {
   // Minutes customers are told; leave out when it matches durationMinutes.
   customerDurationMinutes?: number | null;
   requiresQuote?: boolean;
+  // Charge by the hour: the price becomes this rate over the clean time.
+  hourlyRatePence?: number | null;
   isFeatured?: boolean;
   featuredMessage?: string | null;
 }
 
 function serviceColumns(input: ServiceInput) {
   if (input.pricePence < 0) throw new Error("Price can't be negative");
+  if (input.hourlyRatePence != null && input.hourlyRatePence < 0) throw new Error("Hourly rate can't be negative");
   if (input.durationMinutes < 5) throw new Error("Total time must be at least 5 minutes");
   const customerDuration = input.customerDurationMinutes || null;
   if (customerDuration && customerDuration > input.durationMinutes) {
     throw new Error("Time shown to customers can't be longer than the total time blocked in the diary");
   }
+  const hourly = input.hourlyRatePence ?? null;
+  const cleanMinutes = customerDuration ?? input.durationMinutes;
   return {
     name: input.name,
     description: input.description ?? null,
@@ -167,7 +173,8 @@ function serviceColumns(input: ServiceInput) {
     customer_duration_minutes: customerDuration,
     buffer_before_minutes: input.bufferBeforeMinutes ?? 0,
     buffer_after_minutes: input.bufferAfterMinutes ?? 0,
-    price_pence: input.pricePence,
+    price_pence: hourly !== null ? hourlyPricePence(hourly, cleanMinutes) : input.pricePence,
+    hourly_rate_pence: hourly,
     deposit_pence: input.depositPence ?? null,
     requires_quote: input.requiresQuote ?? false,
     is_featured: input.isFeatured ?? false,

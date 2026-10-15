@@ -38,6 +38,7 @@ export default async function AdminServicesPage() {
                   ? `${formatDuration(s.customer_duration_minutes)} shown to customers, ${formatDuration(s.duration_minutes)} in the diary`
                   : formatDuration(s.duration_minutes)}{" "}
                 · {s.price_pence <= 0 ? "Free" : formatPence(s.price_pence)}
+                {s.hourly_rate_pence != null ? ` (${formatPence(s.hourly_rate_pence)} an hour)` : ""}
                 {s.requires_quote ? " (exact quote needed)" : ""}
                 {s.is_featured ? " (stand out button)" : ""}
                 {s.deposit_pence

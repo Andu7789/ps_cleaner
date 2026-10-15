@@ -128,6 +128,32 @@ export async function updateCleanerDetailsAction(cleanerId: string, input: Clean
   revalidatePath("/admin/cleaners");
 }
 
+// Postgres foreign key violation: the row is still referenced by bookings,
+// payouts or invoices, which must keep their history.
+const FOREIGN_KEY_VIOLATION = "23503";
+
+// Permanently removes a cleaner. Refused (with a clear message, not thrown, as
+// production masks thrown errors) if they have any bookings, payouts or
+// invoices; deactivating is the way to retire those and keep the records.
+export async function deleteCleanerAction(cleanerId: string): Promise<{ error: string } | undefined> {
+  await requireAdmin();
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { error, count } = await supabase
+    .from("PS_CLEAN_cleaners")
+    .delete({ count: "exact" })
+    .eq("id", cleanerId)
+    .eq("business_id", business.id);
+  if (error) {
+    if (error.code === FOREIGN_KEY_VIOLATION) {
+      return { error: "This cleaner has bookings, payouts or invoices, so it can't be deleted. Deactivate them instead to keep the records." };
+    }
+    return { error: error.message };
+  }
+  if (!count) return { error: "Couldn't delete this cleaner." };
+  revalidatePath("/admin/cleaners");
+}
+
 export async function setCleanerActiveAction(cleanerId: string, isActive: boolean) {
   await requireAdmin();
   const supabase = await createClient();
@@ -204,6 +230,29 @@ export async function createServiceAction(input: ServiceInput) {
     ...serviceColumns(input),
   });
   if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+  revalidatePath("/");
+  revalidatePath("/book", "layout");
+}
+
+// Permanently removes a service. Refused if any booking or recurring booking
+// uses it; deactivating hides it from customers and keeps the history.
+export async function deleteServiceAction(serviceId: string): Promise<{ error: string } | undefined> {
+  await requireAdmin();
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { error, count } = await supabase
+    .from("PS_CLEAN_services")
+    .delete({ count: "exact" })
+    .eq("id", serviceId)
+    .eq("business_id", business.id);
+  if (error) {
+    if (error.code === FOREIGN_KEY_VIOLATION) {
+      return { error: "This service has bookings, so it can't be deleted. Deactivate it instead to hide it and keep the records." };
+    }
+    return { error: error.message };
+  }
+  if (!count) return { error: "Couldn't delete this service." };
   revalidatePath("/admin/services");
   revalidatePath("/");
   revalidatePath("/book", "layout");

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { createCleanerAction, setCleanerActiveAction } from "@/lib/actions/admin";
+import { createCleanerAction, deleteCleanerAction, setCleanerActiveAction } from "@/lib/actions/admin";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
+import { DeleteButton } from "@/components/admin/delete-button";
 import type { Cleaner } from "@/lib/types";
 
 export default async function AdminCleanersPage() {
@@ -35,7 +36,10 @@ export default async function AdminCleanersPage() {
               <p className="truncate font-medium text-foreground">{c.full_name}</p>
               <p className="truncate text-sm text-muted-foreground">{c.email ?? c.phone ?? "No contact details"}</p>
             </Link>
-            <ToggleActiveButton isActive={c.is_active} onToggle={setCleanerActiveAction.bind(null, c.id)} />
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <ToggleActiveButton isActive={c.is_active} onToggle={setCleanerActiveAction.bind(null, c.id)} />
+              <DeleteButton name={c.full_name} onDelete={deleteCleanerAction.bind(null, c.id)} />
+            </div>
           </div>
         ))}
         {cleaners.length === 0 && <p className="text-sm text-muted-foreground">No cleaners yet.</p>}

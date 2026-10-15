@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
 import { formatDuration, formatPence } from "@/lib/format";
-import { setServiceActiveAction } from "@/lib/actions/admin";
+import { deleteServiceAction, setServiceActiveAction } from "@/lib/actions/admin";
 import { ServiceForm } from "@/components/admin/service-form";
 import { ServiceEditor } from "@/components/admin/service-editor";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
+import { DeleteButton } from "@/components/admin/delete-button";
 import { ServiceCalculatorToggle } from "@/components/admin/service-calculator-toggle";
 import { RoomTypesManager } from "@/components/admin/room-types-manager";
 import type { CalculatorRoomType, Service } from "@/lib/types";
@@ -56,7 +57,10 @@ export default async function AdminServicesPage() {
                 />
               </div>
             </div>
-            <ToggleActiveButton isActive={s.is_active} onToggle={setServiceActiveAction.bind(null, s.id)} />
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <ToggleActiveButton isActive={s.is_active} onToggle={setServiceActiveAction.bind(null, s.id)} />
+              <DeleteButton name={s.name} onDelete={deleteServiceAction.bind(null, s.id)} />
+            </div>
           </div>
         ))}
         {services.length === 0 && <p className="text-sm text-muted-foreground">No services yet.</p>}

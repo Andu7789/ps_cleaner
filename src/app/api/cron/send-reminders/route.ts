@@ -34,7 +34,7 @@ async function handler(request: Request) {
     const { data: bookings, error } = await service
       .from("PS_CLEAN_bookings")
       .select(
-        "id, starts_at, notes, customer_id, cleaner_id, service_id, address_id, price_pence, deposit_pence, PS_CLEAN_customers(full_name, email, phone), PS_CLEAN_cleaners(full_name), PS_CLEAN_services(name), PS_CLEAN_customer_addresses(line1, city, postcode)"
+        "id, starts_at, notes, customer_id, cleaner_id, service_id, address_id, price_pence, PS_CLEAN_customers(full_name, email, phone), PS_CLEAN_cleaners(full_name), PS_CLEAN_services(name), PS_CLEAN_customer_addresses(line1, city, postcode)"
       )
       .eq("business_id", business.id)
       .eq("status", "confirmed")
@@ -69,7 +69,6 @@ async function handler(request: Request) {
         startsAt: booking.starts_at,
         addressLine: address ? `${address.line1}, ${address.city} ${address.postcode}` : "your address",
         pricePence: booking.price_pence,
-        depositPence: booking.deposit_pence,
         customerName: customer?.full_name ?? null,
         customerEmail: customer?.email ?? null,
         customerPhone: customer?.phone ?? null,

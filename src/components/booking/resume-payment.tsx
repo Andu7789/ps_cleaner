@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { payQuotedBookingAction, resumeBookingPaymentAction } from "@/lib/actions/booking";
 import { PaymentStep } from "@/components/booking/payment-step";
 
-// `quoted` is for a confirmed quote booking paying its deposit for the first
+// `quoted` is for a confirmed quote booking paying for the first
 // time; otherwise this resumes an unfinished checkout payment.
 export function ResumePayment({ bookingId, quoted = false }: { bookingId: string; quoted?: boolean }) {
   const [state, setState] = useState<

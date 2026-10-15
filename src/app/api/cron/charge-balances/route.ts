@@ -3,7 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-// Deposit-now, off-session-balance-later (see DECISIONS.md #6): a few days
+// Off-session balance charge (see DECISIONS.md #6). Deposits are no longer used, so this now only
+// catches anything still unpaid on older bookings: a few days
 // before the job, charge whatever's still owed against the payment method
 // saved at booking time. The actual success/failure of the charge is
 // reconciled by the Stripe webhook (payment_intent.succeeded/failed), not

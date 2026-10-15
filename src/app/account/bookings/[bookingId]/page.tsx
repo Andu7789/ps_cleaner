@@ -131,13 +131,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
       {booking.status === "confirmed" && quoteAmountDue(booking) > 0 && (
         <div className="mt-6 rounded-xl border border-border bg-card p-5">
-          <h2 className="font-semibold text-foreground">
-            {booking.deposit_pence > 0 ? "Pay your deposit" : "Pay for your clean"}
-          </h2>
+          <h2 className="font-semibold text-foreground">Pay for your clean</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Your price is confirmed at {formatPence(booking.price_pence)}. {formatPence(quoteAmountDue(booking))} is due
-            now
-            {booking.deposit_pence > 0 ? ", and the rest is taken before your clean" : ""}.
+            now.
           </p>
           <div className="mt-4">
             <ResumePayment bookingId={booking.id} quoted />

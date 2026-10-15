@@ -9,7 +9,6 @@ export interface NotifyBookingContext {
   startsAt: string;
   addressLine: string;
   pricePence: number;
-  depositPence: number;
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
@@ -140,15 +139,9 @@ async function logNotification(
 // a missed notification is visible to the admin panel rather than silent.
 export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promise<void> {
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
-  const depositLine = ctx.quotePending
-    ? `We will check the details and be in touch with your exact price. Nothing has been taken yet${
-        ctx.depositPence > 0 ? `; the ${formatPence(ctx.depositPence)} deposit is taken once the price is confirmed` : ""
-      }.`
-    : ctx.depositPence > 0
-      ? `A deposit of ${formatPence(ctx.depositPence)} has been taken; the remaining ${formatPence(
-          ctx.pricePence - ctx.depositPence
-        )} is due before your clean.`
-      : `The full amount of ${formatPence(ctx.pricePence)} has been taken.`;
+  const paymentLine = ctx.quotePending
+    ? "We will check the details and be in touch with your exact price. Nothing has been taken yet."
+    : `The full amount of ${formatPence(ctx.pricePence)} has been taken.`;
 
   if (ctx.customerEmail) {
     try {
@@ -156,9 +149,9 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
         ctx.businessName,
         ctx.quotePending
           ? `<p>Thank you for booking your ${ctx.serviceName} for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}. Your slot is held.</p>
-         <p>${depositLine}</p>`
+         <p>${paymentLine}</p>`
           : `<p>Your ${ctx.serviceName} is confirmed for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}.</p>
-         <p>${depositLine}</p>`
+         <p>${paymentLine}</p>`
       );
       const result = await sendEmail(
         ctx.customerEmail,
@@ -285,7 +278,7 @@ export async function sendQuoteApprovedEmails(ctx: {
   cleanerEmail: string | null;
   customerEmail: string | null;
   // Set when the customer still has something to pay up front.
-  payNow?: { amountPence: number; isDeposit: boolean; url: string };
+  payNow?: { amountPence: number; url: string };
 }): Promise<void> {
   if (ctx.cleanerEmail) {
     try {
@@ -305,9 +298,8 @@ export async function sendQuoteApprovedEmails(ctx: {
         `<p>The price for your ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> is confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>
          ${
            ctx.payNow
-             ? `<p>To secure it, please pay ${ctx.payNow.isDeposit ? "your deposit of " : ""}<strong>${formatPence(ctx.payNow.amountPence)}</strong>: <a href="${ctx.payNow.url}">pay now</a>.</p>
-         <p>${ctx.payNow.isDeposit ? "The remaining balance will be taken before your clean." : ""}</p>`
-             : `<p>Any remaining balance will be taken before your clean.</p>`
+             ? `<p>To secure it, please pay <strong>${formatPence(ctx.payNow.amountPence)}</strong>: <a href="${ctx.payNow.url}">pay now</a>.</p>`
+             : ""
          }`
       );
       await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html);

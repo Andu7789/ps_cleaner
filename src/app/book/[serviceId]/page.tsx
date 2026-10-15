@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Clock, PoundSterling } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { customerMinutes, formatDuration, formatPence, servicePriceLabel } from "@/lib/format";
+import { customerMinutes, formatDuration, servicePriceLabel } from "@/lib/format";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/types";
 
@@ -77,13 +77,11 @@ export default async function ServiceBookingPage({
           </div>
         </div>
       </div>
-      {service.deposit_pence ? (
+      {(service as Service).requires_quote && (
         <p className="mt-3 text-sm text-muted-foreground">
-          {(service as Service).requires_quote
-            ? `Nothing to pay when you book · ${formatPence(service.deposit_pence)} deposit is taken once your exact price is confirmed`
-            : `${formatPence(service.deposit_pence)} deposit at booking · remainder due before your clean`}
+          Nothing to pay when you book · you pay once your exact price is confirmed
         </p>
-      ) : null}
+      )}
 
       <div className="mt-8">
         {cleaners.length === 0 ? (

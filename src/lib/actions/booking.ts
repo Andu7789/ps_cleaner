@@ -70,13 +70,12 @@ async function createPaymentIntentForBooking(
   return paymentIntent.client_secret;
 }
 
-// What a customer pays at checkout: the deposit if the service has one,
-// otherwise the whole price. A booking still waiting on its quote only has
-// an estimated price, so nothing is taken yet, deposit or not; the deposit
-// and balance are charged once the price has been set.
-function amountDueNow(b: { price_pence: number; deposit_pence: number; quote_status: string | null }): number {
+// What a customer pays at checkout: the whole price. A booking still waiting
+// on its quote only has an estimated price, so nothing is taken yet; the full
+// price is charged once the owner has confirmed it.
+function amountDueNow(b: { price_pence: number; quote_status: string | null }): number {
   if (b.quote_status === "pending") return 0;
-  return b.deposit_pence > 0 ? b.deposit_pence : b.price_pence;
+  return b.price_pence;
 }
 
 export interface RoomSelectionInput {
@@ -132,7 +131,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     .single();
 
   if (error) throw new Error(error.message);
-  let bookingRow = booking as { id: string; price_pence: number; deposit_pence: number; quote_status: string | null };
+  let bookingRow = booking as { id: string; price_pence: number; quote_status: string | null };
 
   if (input.applyCreditPence && input.applyCreditPence > 0) {
     const { data: redeemed, error: redeemError } = await supabase
@@ -150,7 +149,7 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
     return { bookingId: bookingRow.id, clientSecret: null, amountDuePence: 0 };
   }
 
-  const paymentType: PaymentType = bookingRow.deposit_pence > 0 ? "deposit" : "full";
+  const paymentType: PaymentType = "full";
 
   const stripe = getStripe();
   const service = createServiceClient();
@@ -185,7 +184,7 @@ export async function resumeBookingPaymentAction(bookingId: string): Promise<Res
 
   const { data: booking, error: bookingError } = await supabase
     .from("PS_CLEAN_bookings")
-    .select("id, status, price_pence, deposit_pence, quote_status, customer_id")
+    .select("id, status, price_pence, quote_status, customer_id")
     .eq("id", bookingId)
     .single();
   if (bookingError) throw new Error(bookingError.message);
@@ -193,7 +192,7 @@ export async function resumeBookingPaymentAction(bookingId: string): Promise<Res
   if (booking.status !== "pending_payment") throw new Error("This booking doesn't need payment.");
 
   const amountDuePence = amountDueNow(booking);
-  const paymentType: PaymentType = booking.deposit_pence > 0 ? "deposit" : "full";
+  const paymentType: PaymentType = "full";
 
   const stripe = getStripe();
   const service = createServiceClient();
@@ -229,16 +228,15 @@ export async function resumeBookingPaymentAction(bookingId: string): Promise<Res
   return { clientSecret, amountDuePence };
 }
 
-// Takes the deposit (or full price) for a booking whose quote the owner has
-// now confirmed. Nothing is charged when a quote booking is made, so this is
-// the first payment; it also saves the card for the later balance charge.
+// Takes the full price for a booking whose quote the owner has now confirmed.
+// Nothing is charged when a quote booking is made, so this is the first payment.
 export async function payQuotedBookingAction(bookingId: string): Promise<ResumePaymentResult> {
   const { customer } = await requireCustomer();
   const supabase = await createClient();
 
   const { data: booking, error } = await supabase
     .from("PS_CLEAN_bookings")
-    .select("id, status, price_pence, deposit_pence, amount_paid_pence, quote_status, customer_id")
+    .select("id, status, price_pence, amount_paid_pence, quote_status, customer_id")
     .eq("id", bookingId)
     .single();
   if (error) throw new Error(error.message);
@@ -280,7 +278,7 @@ export async function payQuotedBookingAction(bookingId: string): Promise<ResumeP
     bookingId,
     stripeCustomerId,
     amountDuePence,
-    booking.deposit_pence > 0 ? "deposit" : "full"
+    "full"
   );
   return { clientSecret, amountDuePence };
 }

@@ -138,7 +138,7 @@ export async function seedInvoiceDemoDataAction(): Promise<SeedResult> {
       buffer_before_minutes: svc.buffer_before_minutes,
       buffer_after_minutes: svc.buffer_after_minutes,
       price_pence: svc.price_pence,
-      deposit_pence: svc.deposit_pence ?? 0,
+      deposit_pence: 0,
       amount_paid_pence: svc.price_pence,
       notes: DEMO_MARKER,
     });

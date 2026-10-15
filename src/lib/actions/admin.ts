@@ -201,7 +201,6 @@ export interface ServiceInput {
   bufferBeforeMinutes?: number;
   bufferAfterMinutes?: number;
   pricePence: number;
-  depositPence?: number | null;
   // Minutes customers are told; leave out when it matches durationMinutes.
   customerDurationMinutes?: number | null;
   requiresQuote?: boolean;
@@ -233,7 +232,8 @@ function serviceColumns(input: ServiceInput) {
     price_pence: hourly !== null ? hourlyPricePence(hourly, cleanMinutes) : input.pricePence,
     hourly_rate_pence: hourly,
     price_is_from: input.priceIsFrom ?? false,
-    deposit_pence: input.depositPence ?? null,
+    // Deposits are no longer used; always cleared so old values never apply.
+    deposit_pence: null,
     requires_quote: input.requiresQuote ?? false,
     is_featured: input.isFeatured ?? false,
     featured_message: input.featuredMessage?.trim() || null,

@@ -37,7 +37,7 @@ export function ServiceCalculatorToggle({
             startTransition(() => setServiceRequiresQuoteAction(serviceId, next));
           }}
         />
-        We will check the quote and provide a price (deposit is taken once the price is confirmed)
+        We will check the quote and provide a price (paid once the price is confirmed)
       </label>
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input

@@ -29,7 +29,7 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
   const { data } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "id, starts_at, deposit_pence, amount_paid_pence, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name, slug, custom_domain)"
+      "id, starts_at, amount_paid_pence, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name, slug, custom_domain)"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -43,7 +43,6 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
       const due = quoteAmountDue({
         quote_status: "quoted",
         price_pence: pricePence,
-        deposit_pence: data.deposit_pence,
         amount_paid_pence: data.amount_paid_pence,
       });
       await sendQuoteApprovedEmails({
@@ -57,7 +56,6 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
           due > 0
             ? {
                 amountPence: due,
-                isDeposit: data.deposit_pence > 0,
                 url: `${getBusinessOrigin(business)}/account/bookings/${data.id}`,
               }
             : undefined,

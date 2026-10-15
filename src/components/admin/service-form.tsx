@@ -14,7 +14,6 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
   const [name, setName] = useState(service?.name ?? "");
   const [description, setDescription] = useState(service?.description ?? "");
   const [price, setPrice] = useState(service ? (service.price_pence / 100).toString() : "");
-  const [deposit, setDeposit] = useState(service?.deposit_pence ? (service.deposit_pence / 100).toString() : "");
   const [totalMinutes, setTotalMinutes] = useState(String(service?.duration_minutes ?? 60));
   const [customerMinutes, setCustomerMinutes] = useState(
     service?.customer_duration_minutes ? String(service.customer_duration_minutes) : ""
@@ -52,7 +51,6 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
       pricePence: Math.round(Number(price || 0) * 100),
       priceIsFrom,
       hourlyRatePence: hourly ? Math.round(Number(hourlyRate || 0) * 100) : null,
-      depositPence: deposit ? Math.round(Number(deposit) * 100) : null,
       requiresQuote,
       isFeatured,
       featuredMessage: isFeatured ? featuredMessage : null,
@@ -68,7 +66,6 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           setName("");
           setDescription("");
           setPrice("");
-          setDeposit("");
           setCustomerMinutes("");
           setRequiresQuote(false);
           setPriceIsFrom(false);
@@ -118,10 +115,6 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           </label>
         )}
         <label className="text-xs text-muted-foreground">
-          Deposit (£, optional, leave blank for full payment)
-          <input type="number" min={0} step={0.01} value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputClass} />
-        </label>
-        <label className="text-xs text-muted-foreground">
           Total time in the diary (minutes)
           <input type="number" required min={5} step={5} value={totalMinutes} onChange={(e) => setTotalMinutes(e.target.value)} className={inputClass} />
         </label>
@@ -168,7 +161,7 @@ export function ServiceForm({ service, onDone }: { service?: Service; onDone?: (
           We will check the quote and provide a price
           <span className="block text-xs text-muted-foreground">
             Customers are told you will be in contact with an exact price and pay nothing when they book. You confirm the
-            price, then the cleaner and customer are told. Any deposit is taken once the price is confirmed.
+            price, then the cleaner and customer are told. The customer pays once the price is confirmed.
           </span>
         </span>
       </label>

@@ -15,7 +15,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
   const { data: booking } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "id, business_id, status, price_pence, deposit_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id, quote_status"
+      "id, business_id, status, price_pence, starts_at, notes, customer_id, cleaner_id, service_id, address_id, quote_status"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -40,7 +40,6 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
     startsAt: booking.starts_at,
     addressLine: address ? `${address.line1}, ${address.city} ${address.postcode}` : "your address",
     pricePence: booking.price_pence,
-    depositPence: booking.deposit_pence,
     customerName: customer?.full_name ?? null,
     customerEmail: customer?.email ?? null,
     customerPhone: customer?.phone ?? null,

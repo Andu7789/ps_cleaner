@@ -43,9 +43,7 @@ export default async function AdminServicesPage() {
                 {s.price_is_from ? " (shown as from price)" : ""}
                 {s.requires_quote ? " (exact quote needed)" : ""}
                 {s.is_featured ? " (stand out button)" : ""}
-                {s.deposit_pence
-                  ? ` (${formatPence(s.deposit_pence)} deposit${s.requires_quote ? ", taken once the price is confirmed" : ""})`
-                  : ""} · buffers {s.buffer_before_minutes}m
+ · buffers {s.buffer_before_minutes}m
                 before / {s.buffer_after_minutes}m after
               </p>
               <ServiceEditor service={s} />

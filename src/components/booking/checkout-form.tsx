@@ -57,17 +57,9 @@ export function CheckoutForm({
   const addonTotal = addons.filter((a) => selectedAddonIds.includes(a.id)).reduce((sum, a) => sum + a.price_pence, 0);
   const roomTotal = roomSelections.reduce((sum, r) => sum + r.quantity * r.pricePerUnitPence, 0);
   const grandTotal = service.price_pence + addonTotal + roomTotal;
-  // A deposit covers only the base clean; add-ons ride along on whatever's
-  // due now if there's no deposit, or get folded into the later balance if
-  // there is one — one payment-timing rule, not two (see the migration
-  // comment on ps_clean_create_booking for why).
-  // A quote service takes nothing now, deposit or not: the listed price is
-  // only an estimate, so any deposit is taken once the final price is set.
-  const amountDueBeforeCredit = service.requires_quote
-    ? 0
-    : service.deposit_pence && service.deposit_pence > 0
-      ? service.deposit_pence
-      : grandTotal;
+  // The whole price is paid at booking. A quote service takes nothing now: the
+  // listed price is only an estimate, so it is paid once the final price is set.
+  const amountDueBeforeCredit = service.requires_quote ? 0 : grandTotal;
   const creditApplied = useCredit ? Math.min(creditBalancePence, amountDueBeforeCredit) : 0;
   const amountDue = amountDueBeforeCredit - creditApplied;
 
@@ -171,15 +163,13 @@ export function CheckoutForm({
         {service.requires_quote ? (
           <p className="mt-2 text-sm font-semibold text-brand">
             Estimated {formatServicePrice(grandTotal)}, {businessName} will be in contact with your exact quote
-            . Nothing to pay now
-            {service.deposit_pence ? `, the ${formatPence(service.deposit_pence)} deposit is taken once your price is confirmed.` : "."}
+            . Nothing to pay now, you pay once your price is confirmed.
           </p>
         ) : amountDue <= 0 ? (
           <p className="mt-2 text-sm font-semibold text-brand">{grandTotal <= 0 ? "Free, nothing to pay" : "Nothing to pay now"}</p>
         ) : (
           <p className="mt-2 text-sm font-semibold text-brand">
             {formatPence(amountDue)} due now
-            {service.deposit_pence ? ` (deposit, ${formatPence(grandTotal - service.deposit_pence)} due before your clean)` : ""}
           </p>
         )}
         {creditApplied > 0 && (

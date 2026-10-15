@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { signOutAction } from "@/lib/actions/customer";
 
 // The (protected) route group keeps /admin/login as a sibling outside this
@@ -10,29 +10,10 @@ import { signOutAction } from "@/lib/actions/customer";
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   await requireAdmin();
 
-  const links = [
-    { href: "/admin", label: "Overview" },
-    { href: "/admin/bookings", label: "Bookings" },
-    { href: "/admin/cleaners", label: "Cleaners" },
-    { href: "/admin/services", label: "Services" },
-    { href: "/admin/addons", label: "Add-ons" },
-    { href: "/admin/invoices", label: "Invoices" },
-    { href: "/admin/reports", label: "Reports" },
-    { href: "/admin/settings", label: "Settings" },
-    { href: "/admin/team", label: "Team" },
-    { href: "/admin/demo-data", label: "Demo data" },
-  ];
-
   return (
     <div className="neutral-page mx-auto max-w-5xl px-4 py-6">
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <nav className="flex gap-4 text-sm">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href} className="text-foreground hover:text-brand">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+      <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <AdminNav />
         <form action={signOutAction}>
           <button type="submit" className="text-sm text-muted-foreground hover:underline">
             Sign out

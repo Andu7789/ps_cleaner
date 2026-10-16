@@ -2,7 +2,7 @@
 // in one place. Everything below is placeholder copy written for the demo.
 export const HOME_COPY = {
   hero: {
-    headline: "Come home to a house that feels freshly cared for",
+    headline: "Tailored cleaning, just for you",
     sub: "Friendly, vetted cleaners, honest prices and a booking that takes a couple of minutes. Pick a clean, pick a time, and we take it from there.",
     secondaryCta: "See our cleans",
     imageAlt: "A bright living room with a grey sofa, wooden side tables and fresh plants, tidy and calm",

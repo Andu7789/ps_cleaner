@@ -71,7 +71,7 @@ export default async function HomePage() {
   // first services can't be booked directly, so they aren't offered either.
   const returningServices = services.filter((s) => !s.walkthrough_first && s.id !== walkthrough?.id);
   const primaryHref = featured ? `/book/${featured.id}` : "/book";
-  const primaryLabel = featured?.featured_message?.trim() || (featured ? "New here? Book a walkthrough" : "Book a clean");
+  const primaryLabel = featured?.featured_message?.trim() || (featured ? "New here? Book a free walkthrough" : "Book a clean");
 
   return (
     <div className={`${displayFont.variable} bg-white text-[#1a1116]`}>
@@ -182,7 +182,7 @@ export default async function HomePage() {
                     {copy.services.featuredLead}
                   </p>
                   <h3 className={`mt-2 text-balance text-3xl font-semibold leading-tight sm:text-4xl ${display}`}>
-                    {featured.featured_message?.trim() || "New here? Book a walkthrough"}
+                    {featured.featured_message?.trim() || "New here? Book a free walkthrough"}
                   </h3>
                   {featured.description && <p className="mt-3 max-w-md opacity-90">{featured.description}</p>}
                   <p className="mt-5 flex items-center gap-3 text-sm opacity-90">

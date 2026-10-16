@@ -116,6 +116,21 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
+      {booking.status === "cancelled" && (
+        <div role="status" className="mt-4 rounded-xl border-2 border-danger bg-card p-5">
+          <h2 className="font-semibold text-danger">This booking has been cancelled</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The slot has been released and nothing more is needed from you.
+          </p>
+          <Link
+            href="/book"
+            className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-brand-foreground hover:opacity-90"
+          >
+            Book another time
+          </Link>
+        </div>
+      )}
+
       {quoteUnconfirmed(booking) && !isWalkthrough && (
         <p className="mt-4 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           The price above is an estimate. {business.business_name} will be in contact with your exact quote.

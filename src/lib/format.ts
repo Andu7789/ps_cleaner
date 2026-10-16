@@ -25,7 +25,7 @@ export function findWalkthroughService<T extends { id: string; name: string; is_
   return bookable.find((s) => s.is_featured) ?? bookable.find((s) => /walk\s?-?through/i.test(s.name)) ?? null;
 }
 
-export const FEATURED_DEFAULT_MESSAGE = "New here? Book a walkthrough";
+export const FEATURED_DEFAULT_MESSAGE = "New here? Book a free walkthrough";
 
 // Customer-facing price: a £0 service reads as "Free" rather than "£0.00".
 export function formatServicePrice(pence: number): string {

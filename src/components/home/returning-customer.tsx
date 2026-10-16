@@ -8,6 +8,8 @@ import { QuickBook, type QuickBookService } from "@/components/home/quick-book";
 // The "Returning customer" button sits under the main call to action on the
 // left of the hero, and the quick book card it opens appears over the photo on
 // the right, so the two share one open/closed state through a small context.
+// The card is absolutely positioned over the photo's bottom corner, so opening
+// it never pushes the sections below the hero down.
 const ReturningContext = createContext<{ open: boolean; toggle: () => void } | null>(null);
 
 function useReturning() {
@@ -62,7 +64,7 @@ export function ReturningCard({
     <div
       ref={ref}
       id="returning-customer-card"
-      className="ps-clean-fade-in relative z-10 -mt-16 px-3 lg:-mt-24 lg:-ml-10 lg:mr-auto lg:max-w-sm lg:px-0"
+      className="ps-clean-fade-in absolute inset-x-3 bottom-3 z-10 lg:inset-x-auto lg:-bottom-6 lg:-right-4 lg:w-80"
     >
       <QuickBook services={services} title={title} hint={hint} cta={cta} />
     </div>

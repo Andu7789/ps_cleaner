@@ -22,19 +22,20 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: business.business_name, template: `%s · ${business.business_name}` },
     description: `Book a professional clean online with ${business.business_name}.`,
     manifest: "/manifest.webmanifest",
-    // A real uploaded logo wins for both. Otherwise: the browser favicon
-    // comes from favicon.svg (generated per-business from brand_color —
-    // see that route for why it's hand-built SVG, not next/og). The Apple
-    // touch icon still falls back to the static default, since iOS
-    // requires a raster PNG and this app can't generate one dynamically
-    // (see favicon.svg/route.ts — the same sharp stub blocks that here too).
+    // A real uploaded logo wins for both. Otherwise both fall back to the
+    // static white gloves PNGs in public/. The old generated favicon.svg
+    // (a brand coloured initial) is no longer used here, which is why the
+    // tab was still showing green.
     icons: business.icon_url ?? business.logo_url
       ? {
           icon: [{ url: (business.icon_url ?? business.logo_url)! }],
           apple: [{ url: (business.icon_url ?? business.logo_url)! }],
         }
       : {
-          icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+          icon: [
+            { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+            { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+          ],
           apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],
         },
   };

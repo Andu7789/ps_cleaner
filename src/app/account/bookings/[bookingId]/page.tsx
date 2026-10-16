@@ -86,6 +86,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     };
   }
 
+  // A free booking awaiting a quote is the walkthrough visit itself.
+  const isWalkthrough = quoteUnconfirmed(booking) && booking.price_pence <= 0;
+
   return (
     <div className="mx-auto max-w-md px-4 py-10">
       <Link href="/account" className="text-sm text-muted-foreground hover:underline">
@@ -113,7 +116,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {quoteUnconfirmed(booking) && (
+      {quoteUnconfirmed(booking) && !isWalkthrough && (
         <p className="mt-4 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           The price above is an estimate. {business.business_name} will be in contact with your exact quote.
         </p>
@@ -146,7 +149,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
       {booking.status === "confirmed" && (
         <div className="mt-6 space-y-4">
-          {!booking.recurring_booking_id && (
+          {!booking.recurring_booking_id && !isWalkthrough && (
             <div className="rounded-xl border border-border bg-card p-5">
               <h2 className="font-semibold text-foreground">Make it regular</h2>
               <p className="mt-1 text-sm text-muted-foreground">

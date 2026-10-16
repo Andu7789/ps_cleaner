@@ -60,7 +60,7 @@ export function QuickBook({
             <p className="text-sm text-[#5d5258]">{selected.duration}</p>
           </div>
           <Link
-            href={`/book/${selected.id}`}
+            href={`/book/${selected.id}?returning=1`}
             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-[var(--brand-foreground)] transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
           >
             {cta}

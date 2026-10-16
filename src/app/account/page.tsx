@@ -6,7 +6,7 @@ import { formatDate, formatPence, formatServicePrice, formatTime, quoteUnconfirm
 import { signOutAction } from "@/lib/actions/customer";
 import { CopyLinkButton } from "@/components/account/copy-link-button";
 import { RecurringToggle } from "@/components/account/recurring-toggle";
-import type { Booking, Cleaner, RecurringBooking, Service } from "@/lib/types";
+import type { Booking, Cleaner, CustomerAddress, RecurringBooking, Service } from "@/lib/types";
 
 type BookingRow = Booking & { PS_CLEAN_services: Service | null; PS_CLEAN_cleaners: Cleaner | null };
 type RecurringRow = RecurringBooking & { PS_CLEAN_services: Service | null; PS_CLEAN_cleaners: Cleaner | null };
@@ -14,7 +14,7 @@ type RecurringRow = RecurringBooking & { PS_CLEAN_services: Service | null; PS_C
 export default async function AccountPage() {
   const { user, customer } = await requireCustomer();
   const supabase = await createClient();
-  const [{ data }, { data: creditBalance }, { data: recurringData }] = await Promise.all([
+  const [{ data }, { data: creditBalance }, { data: recurringData }, { data: addressData }] = await Promise.all([
     supabase
       .from("PS_CLEAN_bookings")
       .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*)")
@@ -26,7 +26,15 @@ export default async function AccountPage() {
       .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*)")
       .eq("customer_id", customer.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("PS_CLEAN_customer_addresses")
+      .select("*")
+      .eq("customer_id", customer.id)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1),
   ]);
+  const mainAddress = ((addressData ?? [])[0] as CustomerAddress | undefined) ?? null;
 
   const recurring = (recurringData ?? []) as RecurringRow[];
 
@@ -39,25 +47,40 @@ export default async function AccountPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Hi {customer.full_name || user.email}</h1>
-          <p className="text-sm text-muted-foreground">{customer.email}</p>
-        </div>
-        <div className="flex gap-3 text-sm">
-          <Link href="/account/details" className="text-brand hover:underline">
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h1 className="text-xl font-semibold text-foreground">Hi {customer.full_name || user.email}</h1>
+        <dl className="mt-3 space-y-1 text-sm">
+          <div className="flex gap-2">
+            <dt className="w-16 text-muted-foreground">Email</dt>
+            <dd className="text-foreground">{customer.email}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-16 text-muted-foreground">Phone</dt>
+            <dd className="text-foreground">{customer.phone || "Not added yet"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 text-muted-foreground">Address</dt>
+            <dd className="text-foreground">
+              {mainAddress
+                ? `${mainAddress.line1}, ${mainAddress.city} ${mainAddress.postcode}`
+                : "No address saved yet"}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          <Link href="/account/details" className="rounded-lg border border-border px-3 py-1.5 font-medium text-brand hover:bg-muted">
             My details
           </Link>
-          <Link href="/account/addresses" className="text-brand hover:underline">
+          <Link href="/account/addresses" className="rounded-lg border border-border px-3 py-1.5 font-medium text-brand hover:bg-muted">
             Addresses
           </Link>
           <form action={signOutAction}>
-            <button type="submit" className="text-muted-foreground hover:underline">
+            <button type="submit" className="rounded-lg border border-border px-3 py-1.5 font-medium text-muted-foreground hover:bg-muted">
               Sign out
             </button>
           </form>
         </div>
-      </div>
+      </section>
 
       {referralLink && (
         <section className="mt-6 rounded-xl border border-border bg-card p-4">

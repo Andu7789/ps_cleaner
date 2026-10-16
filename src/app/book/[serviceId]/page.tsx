@@ -8,10 +8,13 @@ import type { CalculatorRoomType, Cleaner, CleanerRating, Service } from "@/lib/
 
 export default async function ServiceBookingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ serviceId: string }>;
+  searchParams: Promise<{ returning?: string }>;
 }) {
   const { serviceId } = await params;
+  const { returning } = await searchParams;
   const business = await getCurrentBusiness();
   const supabase = await createClient();
 
@@ -24,9 +27,10 @@ export default async function ServiceBookingPage({
     .maybeSingle();
   if (!service) notFound();
 
-  // Walkthrough first services can't be booked directly: send the customer to
-  // book the walkthrough instead.
-  if ((service as Service).walkthrough_first) {
+  // New customers can't book a walkthrough first service directly: send them
+  // to book the walkthrough instead. Returning customers arrive with ?returning=1
+  // (the booking action checks they really have booked before).
+  if ((service as Service).walkthrough_first && returning !== "1") {
     const { data: others } = await supabase
       .from("PS_CLEAN_services")
       .select("*")

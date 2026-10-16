@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
+import { DeleteAccount } from "@/components/account/delete-account";
 import { CustomerDetailsForm } from "@/components/account/customer-details-form";
 
 export default async function AccountDetailsPage() {
@@ -17,6 +18,7 @@ export default async function AccountDetailsPage() {
         initialPhone={customer.phone ?? ""}
         email={customer.email ?? user.email ?? ""}
       />
+      <DeleteAccount />
     </div>
   );
 }

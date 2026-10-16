@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { addAddressAction, deleteAddressAction } from "@/lib/actions/customer";
+import { addAddressAction } from "@/lib/actions/customer";
+import { AddressCard } from "@/components/account/address-card";
 import type { CustomerAddress } from "@/lib/types";
 
 export default async function AddressesPage() {
@@ -28,36 +30,16 @@ export default async function AddressesPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="text-xl font-semibold text-foreground">Your addresses</h1>
+      <Link href="/account" className="text-sm text-brand hover:underline">
+        Back to my account
+      </Link>
+      <h1 className="mt-3 text-xl font-semibold text-foreground">Your addresses</h1>
 
       <div className="mt-4 space-y-3">
         {addresses.map((a) => (
-          <div key={a.id} className="flex items-start justify-between rounded-xl border border-border bg-card p-4">
-            <div>
-              <p className="font-medium text-foreground">{a.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {a.line1}
-                {a.line2 ? `, ${a.line2}` : ""}, {a.city} {a.postcode}
-              </p>
-            </div>
-            <form
-              action={async () => {
-                "use server";
-                await deleteAddressAction(a.id);
-              }}
-            >
-              <button
-                type="submit"
-                className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/5"
-              >
-                Remove
-              </button>
-            </form>
-          </div>
+          <AddressCard key={a.id} address={a} />
         ))}
-        {addresses.length === 0 && (
-          <p className="text-sm text-muted-foreground">No saved addresses yet.</p>
-        )}
+        {addresses.length === 0 && <p className="text-sm text-muted-foreground">No saved addresses yet.</p>}
       </div>
 
       <form action={addAddress} className="mt-8 space-y-3 rounded-xl border border-border bg-card p-5">

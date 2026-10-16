@@ -114,14 +114,23 @@ export async function createBookingAction(input: CreateBookingInput): Promise<Cr
   const { customer } = await requireCustomer();
   const supabase = await createClient();
 
-  // Walkthrough first services are quoted after a visit, never booked directly.
+  // Walkthrough first services are for returning customers only: someone who
+  // has already booked with us (the walkthrough counts). New customers book the
+  // walkthrough first and are quoted after the visit.
   const { data: serviceRow } = await supabase
     .from("PS_CLEAN_services")
     .select("walkthrough_first")
     .eq("id", input.serviceId)
     .maybeSingle();
   if (serviceRow?.walkthrough_first) {
-    throw new Error("This service needs a walkthrough first. Please book a walkthrough and we will send you a quote.");
+    const { count } = await supabase
+      .from("PS_CLEAN_bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customer.id)
+      .neq("status", "cancelled");
+    if (!count) {
+      throw new Error("This service needs a walkthrough first. Please book a walkthrough and we will send you a quote.");
+    }
   }
 
   const { data: booking, error } = await supabase

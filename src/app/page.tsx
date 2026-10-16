@@ -67,9 +67,9 @@ export default async function HomePage() {
   const featured = services.find((s) => s.is_featured && !s.walkthrough_first);
   const others = services.filter((s) => s !== featured);
   const walkthrough = findWalkthroughService(services);
-  // Returning customers pick from every clean except the walkthrough. Walkthrough
-  // first services can't be booked directly, so they aren't offered either.
-  const returningServices = services.filter((s) => !s.walkthrough_first && s.id !== walkthrough?.id);
+  // Returning customers pick from every clean except the walkthrough itself,
+  // including the walkthrough first ones (they have already had their visit).
+  const returningServices = services.filter((s) => s.id !== walkthrough?.id);
   const primaryHref = featured ? `/book/${featured.id}` : "/book";
   const primaryLabel = featured?.featured_message?.trim() || (featured ? "New here? Book a free walkthrough" : "Book a clean");
 
@@ -114,7 +114,7 @@ export default async function HomePage() {
               </a>
             </div>
             <div className="demo-rise" style={rise(4)}>
-              <ReturningButton label={copy.returning.button} />
+              {returningServices.length > 0 && <ReturningButton label={copy.returning.button} />}
             </div>
           </div>
 

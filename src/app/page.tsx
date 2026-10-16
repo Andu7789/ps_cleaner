@@ -28,6 +28,7 @@ import {
   formatDuration,
   servicePriceLabel,
 } from "@/lib/format";
+import { ScrollLink } from "@/components/home/scroll-link";
 import { ReturningButton, ReturningCard, ReturningProvider } from "@/components/home/returning-customer";
 import { Reveal } from "@/components/home/reveal";
 import type { Service } from "@/lib/types";
@@ -106,12 +107,12 @@ export default async function HomePage() {
                 {primaryLabel}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
-              <a
-                href="#services"
+              <ScrollLink
+                targetId="our-cleans"
                 className="rounded-full border border-white/40 px-6 py-3.5 text-base font-medium transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {copy.hero.secondaryCta}
-              </a>
+              </ScrollLink>
             </div>
             <div className="demo-rise" style={rise(4)}>
               {returningServices.length > 0 && <ReturningButton label={copy.returning.button} />}
@@ -170,7 +171,7 @@ export default async function HomePage() {
           </h2>
           <p className="mt-3 max-w-xl text-lg text-[#5d5258]">{copy.services.sub}</p>
 
-          <div className="mt-10 grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-5">
+          <div id="our-cleans" className="mt-10 grid scroll-mt-24 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-5">
             {featured && (
               <Reveal variant="fade-up" className="col-span-full">
               <Link

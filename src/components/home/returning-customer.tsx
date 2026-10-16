@@ -64,7 +64,7 @@ export function ReturningCard({
     <div
       ref={ref}
       id="returning-customer-card"
-      className="ps-clean-fade-in absolute inset-x-3 bottom-3 z-10 lg:inset-x-auto lg:-bottom-6 lg:-right-4 lg:w-80"
+      className="ps-clean-fade-in absolute inset-x-3 bottom-3 z-10 lg:inset-x-auto lg:bottom-auto lg:top-[calc(60%-20px)] lg:-right-[196px] lg:w-[24rem]"
     >
       <QuickBook services={services} title={title} hint={hint} cta={cta} />
     </div>

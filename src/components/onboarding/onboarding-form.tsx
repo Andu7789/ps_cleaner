@@ -130,6 +130,14 @@ export function OnboardingForm({
 }) {
   const [answers, setAnswers] = useState<Answers>(() => hydrate(initial));
   const [step, setStep] = useState(0);
+  // The furthest step reached, so the progress bar can jump back or forward to
+  // any step already visited (a form that is already complete can go anywhere).
+  const [furthest, setFurthest] = useState(() =>
+    alreadySubmitted || findIssues(hydrate(initial)).length === 0 ? STEPS.length - 1 : 0,
+  );
+  // Set when someone presses Fix on the review page: after fixing that one
+  // section they go straight back instead of through every step in between.
+  const [returnTo, setReturnTo] = useState<number | null>(null);
   const [slugState, setSlugState] = useState<{ status: "idle" | "checking" | "ok" | "bad"; message: string }>({
     status: "idle",
     message: "",
@@ -180,7 +188,23 @@ export function OnboardingForm({
       return;
     }
     await save();
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    const target = returnTo ?? Math.min(step + 1, STEPS.length - 1);
+    setReturnTo(null);
+    setStep(target);
+    setFurthest((f) => Math.max(f, target));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function fixFromReview(target: number) {
+    setReturnTo(STEPS.length - 1);
+    setStep(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function jumpTo(target: number) {
+    setProblem(null);
+    setReturnTo(null);
+    setStep(target);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -269,9 +293,9 @@ export function OnboardingForm({
               type="button"
               aria-label={`Go to ${name}`}
               aria-current={i === step ? "step" : undefined}
-              disabled={i > step}
-              onClick={() => i < step && setStep(i)}
-              className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand" : "bg-border"} ${i < step ? "cursor-pointer" : ""}`}
+              disabled={i > furthest}
+              onClick={() => i !== step && jumpTo(i)}
+              className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand" : i <= furthest ? "bg-brand/40" : "bg-border"} ${i <= furthest && i !== step ? "cursor-pointer" : ""}`}
             />
           ))}
         </div>
@@ -283,7 +307,7 @@ export function OnboardingForm({
       {step === 3 && <ServicesStep a={answers} set={update} />}
       {step === 4 && <TeamStep a={answers} set={update} />}
       {step === 5 && <PaymentsStep a={answers} set={update} />}
-      {last && <ReviewStep a={answers} goTo={setStep} errors={serverErrors} />}
+      {last && <ReviewStep a={answers} goTo={fixFromReview} errors={serverErrors} />}
 
       {problem && (
         <p role="alert" className="mt-6 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
@@ -293,7 +317,7 @@ export function OnboardingForm({
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
         <div className="flex items-center gap-4">
-          {step > 0 && (
+          {step > 0 && returnTo === null && (
             <button type="button" onClick={back} className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:border-foreground/30">
               Back
             </button>
@@ -312,7 +336,7 @@ export function OnboardingForm({
             </button>
           ) : (
             <button type="button" onClick={next} className="rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-brand-foreground">
-              Continue
+              {returnTo !== null ? "Back to review" : "Continue"}
             </button>
           )}
         </div>

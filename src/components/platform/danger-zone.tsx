@@ -26,7 +26,7 @@ export function DangerZone({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<DeleteMode>(slug ? "business" : "everything");
+  const [mode, setMode] = useState<DeleteMode>("everything");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ message: string; warnings: string[] } | null>(null);
@@ -39,21 +39,6 @@ export function DangerZone({
       <section className="rounded-xl border border-danger/30 p-4">
         <h2 className="text-base font-semibold text-danger">Danger zone</h2>
         <p className="mt-1 text-sm text-muted-foreground">This is the main business and it can&apos;t be deleted from here.</p>
-      </section>
-    );
-  }
-
-  if (done) {
-    return (
-      <section role="status" className="rounded-xl border border-border bg-card p-4">
-        <p className="text-sm font-medium text-foreground">{done.message}</p>
-        {done.warnings.length > 0 && (
-          <ul className="mt-2 list-disc pl-5 text-sm text-muted-foreground">
-            {done.warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        )}
       </section>
     );
   }
@@ -71,7 +56,13 @@ export function DangerZone({
         router.push("/platform");
         return;
       }
-      setDone({ message: result.message ?? "Deleted.", warnings: result.warnings ?? [] });
+      setDone({
+        message: `${result.message ?? "Deleted."} The owner's request is still in your list as ready to set up, so you can set it up again or delete it below.`,
+        warnings: result.warnings ?? [],
+      });
+      setOpen(false);
+      setMode("everything");
+      setConfirmation("");
       router.refresh();
     });
   }
@@ -79,6 +70,18 @@ export function DangerZone({
   return (
     <section className="rounded-xl border border-danger/30 p-4">
       <h2 className="text-base font-semibold text-danger">Danger zone</h2>
+      {done && (
+        <div role="status" className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">
+          <p className="font-medium">{done.message}</p>
+          {done.warnings.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+              {done.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {!open ? (
         <>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -99,15 +102,15 @@ export function DangerZone({
               </p>
               <fieldset className="mt-3 space-y-2">
                 <legend className="sr-only">What to delete</legend>
-                <label className={`block cursor-pointer rounded-lg border px-3 py-2 text-sm ${mode === "business" ? "border-danger bg-danger/5" : "border-border"}`}>
-                  <input type="radio" name="delete-mode" className="sr-only" checked={mode === "business"} onChange={() => setMode("business")} />
-                  <span className="block font-medium text-foreground">Delete the business, keep the owner&apos;s answers</span>
-                  <span className="block text-xs text-muted-foreground">The request goes back to &quot;ready to set up&quot; so you can set it up again.</span>
-                </label>
                 <label className={`block cursor-pointer rounded-lg border px-3 py-2 text-sm ${mode === "everything" ? "border-danger bg-danger/5" : "border-border"}`}>
                   <input type="radio" name="delete-mode" className="sr-only" checked={mode === "everything"} onChange={() => setMode("everything")} />
                   <span className="block font-medium text-foreground">Delete everything, including the request</span>
                   <span className="block text-xs text-muted-foreground">Nothing is kept.</span>
+                </label>
+                <label className={`block cursor-pointer rounded-lg border px-3 py-2 text-sm ${mode === "business" ? "border-danger bg-danger/5" : "border-border"}`}>
+                  <input type="radio" name="delete-mode" className="sr-only" checked={mode === "business"} onChange={() => setMode("business")} />
+                  <span className="block font-medium text-foreground">Delete the business, keep the owner&apos;s answers</span>
+                  <span className="block text-xs text-muted-foreground">The request goes back to &quot;ready to set up&quot; so you can set it up again.</span>
                 </label>
               </fieldset>
             </>

@@ -6,11 +6,16 @@ import { brandVars } from "@/lib/branding";
 import {
   DAY_NAMES,
   DAY_ORDER,
+  SECTION_LABEL,
+  SECTION_STEP,
+  countBySection,
   defaultHours,
+  findIssues,
   newKey,
   poundsToPence,
   type Answers,
   type Draft,
+  type Section,
 } from "@/lib/onboarding";
 import { formatPence } from "@/lib/format";
 import { StepHeading } from "./form-parts";
@@ -190,8 +195,13 @@ export function OnboardingForm({
   }
 
   async function submit() {
-    setSubmitting(true);
     setServerErrors([]);
+    // The review page already lists what's missing, so don't send it in yet.
+    if (findIssues(answers).length > 0) {
+      document.getElementById("review-summary")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setSubmitting(true);
     if (!(await save())) {
       setServerErrors(["We couldn't save your answers. Check your connection and try again."]);
       setSubmitting(false);
@@ -319,70 +329,140 @@ function Shell({ vars, children }: { vars: Record<string, string>; children: Rea
   );
 }
 
-function Row({ label, children, step, goTo }: { label: string; children: React.ReactNode; step: number; goTo: (s: number) => void }) {
+function Row({
+  label,
+  children,
+  step,
+  goTo,
+  problems,
+}: {
+  label: string;
+  children: React.ReactNode;
+  step: number;
+  goTo: (s: number) => void;
+  problems: string[];
+}) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <div className="mt-1 text-sm text-foreground">{children}</div>
+    <div className="py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+            {problems.length > 0 && (
+              <span className="rounded-full bg-danger px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white">
+                {problems.length} to fix
+              </span>
+            )}
+          </p>
+          <div className="mt-1 text-sm text-foreground">{children}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => goTo(step)}
+          className={`shrink-0 text-sm underline ${problems.length > 0 ? "font-semibold text-danger" : "text-muted-foreground"}`}
+        >
+          {problems.length > 0 ? "Fix" : "Edit"}
+        </button>
       </div>
-      <button type="button" onClick={() => goTo(step)} className="shrink-0 text-sm text-muted-foreground underline">
-        Edit
-      </button>
+      {problems.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-danger">
+          {problems.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
 function ReviewStep({ a, goTo, errors }: { a: Answers; goTo: (s: number) => void; errors: string[] }) {
   const days = DAY_ORDER.map((d) => a.hours.days.find((x) => x.day === d)!).filter((d) => d.on);
+  const issues = findIssues(a);
+  const bySection = countBySection(issues);
+  const msgs = (section: Section) => bySection[section].map((i) => i.message);
+  const failing = (Object.keys(bySection) as Section[]).filter((k) => bySection[k].length > 0);
+
   return (
     <div>
       <StepHeading title="Does this look right?" lead="Have a quick look. Nothing is final, we'll check it and you can change everything once you're live." />
-      {errors.length > 0 && (
-        <div role="alert" className="mb-5 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          <p className="font-medium">A few things need fixing first:</p>
-          <ul className="mt-1 list-disc pl-5">
+
+      <div id="review-summary" className="mb-5 scroll-mt-6">
+        {issues.length > 0 ? (
+          <div role="status" className="rounded-xl border border-danger/30 bg-danger/5 px-4 py-3">
+            <p className="text-sm font-semibold text-danger">
+              {issues.length} {issues.length === 1 ? "thing" : "things"} to fix before you can send this in
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {failing.map((section) => (
+                <li key={section}>
+                  <button
+                    type="button"
+                    onClick={() => goTo(SECTION_STEP[section])}
+                    className="flex items-center gap-1.5 rounded-full border border-danger/30 bg-card px-3 py-1 text-sm text-foreground hover:border-danger"
+                  >
+                    {SECTION_LABEL[section]}
+                    <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white">{bySection[section].length}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p role="status" className="rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm font-medium text-success">
+            Everything is filled in. Press &quot;Send it in&quot; when you&apos;re happy.
+          </p>
+        )}
+        {errors.length > 0 && (
+          <ul role="alert" className="mt-3 list-disc rounded-xl border border-danger/30 bg-danger/5 py-3 pl-8 pr-4 text-sm text-danger">
             {errors.map((e) => (
               <li key={e}>{e}</li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
+
       <div className="divide-y divide-border rounded-2xl border border-border bg-card px-4">
-        <Row label="You" step={0} goTo={goTo}>
-          {a.owner.name}, {a.owner.email}
+        <Row label="You" step={0} goTo={goTo} problems={msgs("owner")}>
+          {a.owner.name || <span className="text-muted-foreground">Not filled in</span>}
+          {a.owner.email && <>, {a.owner.email}</>}
         </Row>
-        <Row label="Business" step={0} goTo={goTo}>
-          {a.business.name}
+        <Row label="Business" step={0} goTo={goTo} problems={msgs("business")}>
+          {a.business.name || <span className="text-muted-foreground">Not filled in</span>}
           {a.business.area && <span className="block text-muted-foreground">{a.business.area}</span>}
         </Row>
-        <Row label="Web address" step={1} goTo={goTo}>
-          {a.address.customDomain || `${a.address.slug}.psclean.site`}
+        <Row label="Web address" step={1} goTo={goTo} problems={msgs("address")}>
+          {a.address.customDomain || (a.address.slug ? `${a.address.slug}.psclean.site` : <span className="text-muted-foreground">Not chosen yet</span>)}
         </Row>
-        <Row label="Look" step={2} goTo={goTo}>
+        <Row label="Look" step={2} goTo={goTo} problems={msgs("brand")}>
           <span className="inline-flex items-center gap-2">
             <span className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: a.brand.color }} />
             {a.brand.color}, {a.brand.headerStyle === "brand" ? "colour top bar" : "light top bar"}, {a.brand.logoUrl ? "logo added" : "no logo yet"}
           </span>
         </Row>
-        <Row label="Services" step={3} goTo={goTo}>
-          <ul className="space-y-0.5">
-            {a.services.map((s) => (
-              <li key={s.key}>
-                {s.name}
-                <span className="text-muted-foreground">
-                  {" "}
-                  {s.walkthrough ? "free visit" : s.pricing === "hourly" ? `${formatPence(poundsToPence(s.price))} an hour` : s.pricing === "quote" ? `from ${formatPence(poundsToPence(s.price))}, quoted per job` : formatPence(poundsToPence(s.price))}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <Row label="Services" step={3} goTo={goTo} problems={msgs("services")}>
+          {a.services.length === 0 ? (
+            <span className="text-muted-foreground">None added</span>
+          ) : (
+            <ul className="space-y-0.5">
+              {a.services.map((s) => (
+                <li key={s.key}>
+                  {s.name || <span className="text-muted-foreground">Unnamed service</span>}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    {s.walkthrough ? "free visit" : s.pricing === "hourly" ? `${formatPence(poundsToPence(s.price))} an hour` : s.pricing === "quote" ? `from ${formatPence(poundsToPence(s.price))}, quoted per job` : formatPence(poundsToPence(s.price))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Row>
-        <Row label="Team" step={4} goTo={goTo}>
-          {[a.team.ownerCleans ? `${a.owner.name} (you)` : null, ...a.team.cleaners.map((c) => c.name)].filter(Boolean).join(", ") || "No one yet"}
-          <span className="block text-muted-foreground">{days.map((d) => `${DAY_NAMES[d.day].slice(0, 3)} ${d.start} to ${d.end}`).join(", ")}</span>
+        <Row label="Team and hours" step={4} goTo={goTo} problems={msgs("team")}>
+          {[a.team.ownerCleans ? `${a.owner.name || "You"} (you)` : null, ...a.team.cleaners.map((c) => c.name || "Unnamed cleaner")].filter(Boolean).join(", ") || (
+            <span className="text-muted-foreground">No one yet</span>
+          )}
+          <span className="block text-muted-foreground">{days.map((d) => `${DAY_NAMES[d.day].slice(0, 3)} ${d.start} to ${d.end}`).join(", ") || "No working days"}</span>
         </Row>
-        <Row label="Payments" step={5} goTo={goTo}>
+        <Row label="Payments" step={5} goTo={goTo} problems={msgs("payments")}>
           {a.payments.method === "stripe" ? "Connect card payments" : a.payments.method === "later" ? "Not yet" : "Not sure yet"}
         </Row>
       </div>

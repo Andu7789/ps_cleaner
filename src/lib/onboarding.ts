@@ -12,7 +12,8 @@ export const RESERVED_SLUGS = new Set([
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour like #0f766e");
 const email = z.string().trim().toLowerCase().email("Enter a valid email address").max(200);
-const phone = z.string().trim().max(30);
+// Optional text is saved without the empty ones, so a missing value must read as blank.
+const phone = z.string().trim().max(30).default("");
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM");
 
 export const slugSchema = z
@@ -46,7 +47,7 @@ export const serviceSchema = z.object({
 export const cleanerSchema = z.object({
   key: z.string().max(40),
   name: z.string().trim().min(1, "Give each cleaner a name").max(80),
-  email: email.or(z.literal("")),
+  email: email.or(z.literal("")).default(""),
   phone,
 });
 
@@ -65,19 +66,19 @@ export const answersSchema = z.object({
   }),
   business: z.object({
     name: z.string().trim().min(2, "Your business name is needed").max(80),
-    contactEmail: email.or(z.literal("")),
+    contactEmail: email.or(z.literal("")).default(""),
     contactPhone: phone,
-    area: z.string().trim().max(200),
+    area: z.string().trim().max(200).default(""),
   }),
   address: z.object({
     slug: slugSchema,
-    customDomain: domain.or(z.literal("")),
+    customDomain: domain.or(z.literal("")).default(""),
   }),
   brand: z.object({
     color: hex,
-    headerStyle: z.enum(["light", "brand"]),
-    logoUrl: z.string().url().max(500).or(z.literal("")),
-    iconUrl: z.string().url().max(500).or(z.literal("")),
+    headerStyle: z.enum(["light", "brand"]).default("light"),
+    logoUrl: z.string().url().max(500).or(z.literal("")).default(""),
+    iconUrl: z.string().url().max(500).or(z.literal("")).default(""),
   }),
   services: z.array(serviceSchema).min(1, "Add at least one service").max(12),
   team: z.object({
@@ -89,10 +90,10 @@ export const answersSchema = z.object({
     days: z.array(dayHoursSchema).length(7),
   }),
   payments: z.object({
-    method: z.enum(["stripe", "later", "unsure"]),
-    notes: z.string().trim().max(500),
+    method: z.enum(["stripe", "later", "unsure"]).default("unsure"),
+    notes: z.string().trim().max(500).default(""),
   }),
-  notes: z.string().trim().max(1000),
+  notes: z.string().trim().max(1000).default(""),
 });
 
 export type Answers = z.infer<typeof answersSchema>;
@@ -104,29 +105,102 @@ export type DayHours = z.infer<typeof dayHoursSchema>;
 export const draftSchema = answersSchema.deepPartial();
 export type Draft = z.infer<typeof draftSchema>;
 
+// The parts of the form, as the review page groups them.
+export type Section = "owner" | "business" | "address" | "brand" | "services" | "team" | "payments";
+
+export interface Issue {
+  section: Section;
+  message: string;
+}
+
+export const SECTION_LABEL: Record<Section, string> = {
+  owner: "You",
+  business: "Business",
+  address: "Web address",
+  brand: "Look",
+  services: "Services",
+  team: "Team and hours",
+  payments: "Payments",
+};
+
+// Which form step edits each section, for the Edit buttons.
+export const SECTION_STEP: Record<Section, number> = {
+  owner: 0,
+  business: 0,
+  address: 1,
+  brand: 2,
+  services: 3,
+  team: 4,
+  payments: 5,
+};
+
+function sectionOf(path: (string | number)[]): Section {
+  switch (path[0]) {
+    case "owner": return "owner";
+    case "business": return "business";
+    case "address": return "address";
+    case "brand": return "brand";
+    case "services": return "services";
+    case "team":
+    case "hours": return "team";
+    default: return "payments";
+  }
+}
+
+function describe(path: (string | number)[], message: string): string {
+  const index = typeof path[1] === "number" ? path[1] + 1 : null;
+  if (path[0] === "services" && index) return `Service ${index}: ${message}`;
+  if (path[0] === "team" && path[1] === "cleaners" && typeof path[2] === "number") return `Cleaner ${path[2] + 1}: ${message}`;
+  return message;
+}
+
+// Everything still to fix before this can be sent in, each tied to the part
+// of the form it belongs to so the review page can count them per section.
+// Plain sentences, because the owner reads them.
+export function findIssues(draft: unknown): Issue[] {
+  const issues: Issue[] = [];
+  const parsed = answersSchema.safeParse(draft);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      issues.push({ section: sectionOf(issue.path), message: describe(issue.path, issue.message) });
+    }
+  }
+
+  const loose = (draft ?? {}) as Draft;
+  if (!loose.team?.ownerCleans && (loose.team?.cleaners?.length ?? 0) === 0) {
+    issues.push({ section: "team", message: "Add at least one cleaner. If it's just you, tick that you do cleans yourself." });
+  }
+  const days = loose.hours?.days ?? [];
+  if (!days.some((d) => d?.on)) issues.push({ section: "team", message: "Pick at least one working day." });
+  for (const d of days) {
+    if (d?.on && d.start && d.end && d.end <= d.start) {
+      issues.push({ section: "team", message: `${DAY_NAMES[d.day ?? 0]}: the finish time must be after the start time.` });
+    }
+  }
+
+  const seen = new Set<string>();
+  return issues.filter((i) => {
+    const key = `${i.section}|${i.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function countBySection(issues: Issue[]): Record<Section, Issue[]> {
+  const grouped = { owner: [], business: [], address: [], brand: [], services: [], team: [], payments: [] } as Record<Section, Issue[]>;
+  for (const i of issues) grouped[i.section].push(i);
+  return grouped;
+}
+
 // The full check run before an owner can send the form in and again before
-// anything is created. Plain sentences, because the owner reads them.
+// anything is created.
 export function validateAnswers(
   draft: unknown,
 ): { ok: true; data: Answers } | { ok: false; errors: string[] } {
-  const parsed = answersSchema.safeParse(draft);
-  const errors: string[] = [];
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      const where = issue.path.length > 0 ? `${issue.path.join(" ")}: ` : "";
-      errors.push(`${where}${issue.message}.`.replace(/\.\.$/, "."));
-    }
-    return { ok: false, errors: [...new Set(errors)] };
-  }
-  const a = parsed.data;
-  if (!a.team.ownerCleans && a.team.cleaners.length === 0) {
-    errors.push("Add at least one cleaner. If it's just you, tick that you clean too.");
-  }
-  if (!a.hours.days.some((d) => d.on)) errors.push("Pick at least one working day.");
-  for (const d of a.hours.days) {
-    if (d.on && d.end <= d.start) errors.push(`${DAY_NAMES[d.day]}: the finish time must be after the start time.`);
-  }
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, data: a };
+  const issues = findIssues(draft);
+  if (issues.length > 0) return { ok: false, errors: issues.map((i) => i.message) };
+  return { ok: true, data: answersSchema.parse(draft) };
 }
 
 export type OnboardingStatus = "invited" | "in_progress" | "submitted" | "provisioned" | "archived";

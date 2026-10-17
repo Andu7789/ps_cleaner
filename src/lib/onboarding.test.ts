@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   completeness,
+  countBySection,
+  findIssues,
   defaultHours,
   slugSchema,
   suggestSlug,
@@ -80,5 +82,67 @@ describe("completeness", () => {
     expect(done).toBe(1);
     expect(total).toBe(7);
     expect(missing).toContain("Services");
+  });
+});
+
+describe("optional answers", () => {
+  // The form saves without its empty fields, and the server checks what was saved.
+  function withoutBlanks(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutBlanks);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).filter(([, v]) => v !== "").map(([k, v]) => [k, withoutBlanks(v)]),
+      );
+    }
+    return value;
+  }
+
+  it("accepts saved answers with every optional field left blank", () => {
+    const result = validateAnswers(withoutBlanks(valid()));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.owner.phone).toBe("");
+      expect(result.data.business.area).toBe("");
+      expect(result.data.address.customDomain).toBe("");
+      expect(result.data.brand.logoUrl).toBe("");
+    }
+  });
+
+  it("still asks for the things that really are required", () => {
+    const a = withoutBlanks({ ...valid(), owner: { name: "", email: "", phone: "" } });
+    expect(findIssues(a).filter((i) => i.section === "owner").length).toBeGreaterThan(0);
+  });
+});
+
+describe("findIssues", () => {
+  it("finds nothing wrong with complete answers", () => {
+    expect(findIssues(valid())).toEqual([]);
+  });
+
+  it("files each problem under the section it belongs to", () => {
+    const a = valid();
+    a.owner.name = "";
+    a.owner.email = "nope";
+    a.business.name = "";
+    a.services = [{ ...a.services[0], name: "" }, { ...a.services[0], key: "b", name: "" }];
+    a.team = { ownerCleans: false, cleaners: [] };
+    const by = countBySection(findIssues(a));
+    expect(by.owner).toHaveLength(2);
+    expect(by.business).toHaveLength(1);
+    expect(by.services.map((i) => i.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining("Service 1:"), expect.stringContaining("Service 2:")]),
+    );
+    expect(by.team).toHaveLength(1);
+    expect(by.address).toHaveLength(0);
+    expect(by.brand).toHaveLength(0);
+  });
+
+  it("counts an empty form's problems rather than erroring", () => {
+    const a = valid();
+    a.address.slug = "";
+    a.hours.days = a.hours.days.map((d) => ({ ...d, on: false }));
+    const by = countBySection(findIssues(a));
+    expect(by.address).toHaveLength(1);
+    expect(by.team.map((i) => i.message)).toContain("Pick at least one working day.");
   });
 });

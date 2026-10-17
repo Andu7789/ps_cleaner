@@ -300,7 +300,7 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>
             <h2 className={`text-balance text-[clamp(2rem,3.6vw,3rem)] font-semibold leading-tight tracking-[-0.015em] ${display}`}>
-              {copy.standard.heading}
+              {business.business_name} {copy.standard.headingSuffix}
             </h2>
             <p className="mt-3 max-w-xl text-lg text-[#5d5258]">{copy.standard.sub}</p>
             <ul className="mt-8 space-y-4">

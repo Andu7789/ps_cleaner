@@ -36,7 +36,8 @@ export const HOME_COPY = {
     ],
   },
   standard: {
-    heading: "The white glove standard",
+    // Shown after the company name, e.g. "Shine Bright standard".
+    headingSuffix: "standard",
     sub: "It's the small things people notice. These are the habits that set our cleans apart.",
     imageAlt: "Someone vacuuming a bright loft living room with the music on, plants and a soft green throw on the sofa",
     points: [

@@ -18,6 +18,8 @@ import {
   sendWelcomeEmail,
 } from "@/lib/onboarding-server";
 import { validateAnswers, type LogEntry } from "@/lib/onboarding";
+import { CHECKLIST, type CheckStatus } from "@/lib/checklist-items";
+import { runChecklist } from "@/lib/platform-checklist";
 import { ensureConnectAccount, type PaymentMode } from "@/lib/stripe-connect";
 
 // Sign in for the platform portal. Same email and password as any Supabase
@@ -293,4 +295,58 @@ export async function deleteBusinessAction(id: string, mode: DeleteMode, confirm
   revalidatePath("/platform");
   revalidatePath(`/platform/${id}`);
   return { ok: true, message, warnings };
+}
+
+// ---- Checklist
+
+// Runs every automatic check and returns the answers. Read only: nothing
+// here changes Stripe, DNS, email or any business.
+export async function runChecklistAction(): Promise<{ results: Record<string, { status: CheckStatus; detail: string }>; checkedAt: string }> {
+  await requirePlatformAdmin();
+  const results = await runChecklist(createServiceClient());
+  return { results, checkedAt: new Date().toISOString() };
+}
+
+export async function setChecklistItemAction(key: string, done: boolean): Promise<{ ok: boolean; error?: string }> {
+  await requirePlatformAdmin();
+  const item = CHECKLIST.find((i) => i.key === key && i.kind === "manual");
+  if (!item) return { ok: false, error: "That item can't be ticked by hand." };
+  const { error } = await createServiceClient()
+    .from("PS_CLEAN_platform_checklist")
+    .upsert({ item_key: key, done, updated_at: new Date().toISOString() }, { onConflict: "item_key" });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/platform/checklist");
+  return { ok: true };
+}
+
+// ---- Platform admins
+
+export async function addPlatformAdminAction(email: string): Promise<{ ok: boolean; error?: string }> {
+  await requirePlatformAdmin();
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) return { ok: false, error: "Enter a valid email address." };
+  const { error } = await createServiceClient().from("PS_CLEAN_platform_admins").insert({ email: normalized });
+  if (error) {
+    return { ok: false, error: error.code === "23505" ? "That email is already a platform admin." : error.message };
+  }
+  revalidatePath("/platform/admins");
+  return { ok: true };
+}
+
+// An admin can't remove themselves, and the last admin can't be removed, so
+// the portal can never be left with nobody able to sign in.
+export async function removePlatformAdminAction(id: string): Promise<{ ok: boolean; error?: string }> {
+  const me = await requirePlatformAdmin();
+  const db = createServiceClient();
+  const { data: admins } = await db.from("PS_CLEAN_platform_admins").select("id, email, user_id");
+  const target = admins?.find((a) => a.id === id);
+  if (!target) return { ok: false, error: "Admin not found." };
+  if ((admins?.length ?? 0) <= 1) return { ok: false, error: "You can't remove the last platform admin." };
+  if (target.user_id === me.id || target.email === me.email?.toLowerCase()) {
+    return { ok: false, error: "You can't remove yourself. Ask another admin to do it." };
+  }
+  const { error } = await db.from("PS_CLEAN_platform_admins").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/platform/admins");
+  return { ok: true };
 }

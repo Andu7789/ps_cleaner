@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { PlatformNav } from "@/components/platform/platform-nav";
 import { requirePlatformAdmin } from "@/lib/platform-auth";
 import { signOutAction } from "@/lib/actions/customer";
 
@@ -11,10 +11,8 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   return (
     <div data-bare-page className="neutral-page mx-auto max-w-5xl px-4 py-6">
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-        <Link href="/platform" className="text-base font-semibold text-foreground">
-          Platform
-        </Link>
+      <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <PlatformNav />
         <form action={signOutAction}>
           <button type="submit" className="text-sm text-muted-foreground hover:underline">
             Sign out

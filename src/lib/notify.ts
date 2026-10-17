@@ -27,7 +27,7 @@ export interface Sender {
 
 // The bare address out of NOTIFY_FROM_EMAIL, which may be written either as
 // "bookings@psclean.site" or as "Name <bookings@psclean.site>".
-function fromAddress(configured: string | undefined): string {
+export function fromAddress(configured: string | undefined): string {
   const value = (configured ?? "bookings@example.com").trim();
   const match = value.match(/<([^<>]+)>/);
   return (match ? match[1] : value).trim();

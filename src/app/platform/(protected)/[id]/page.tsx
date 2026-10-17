@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { DangerZone } from "@/components/platform/danger-zone";
 import { OwnerLinkCard, SetupPanel } from "@/components/platform/request-actions";
 import { DEFAULT_BUSINESS_SLUG } from "@/lib/business";
@@ -20,7 +20,8 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
 export default async function PlatformRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const req = await loadRequestById(id);
-  if (!req) notFound();
+  // A request that has been deleted (or an old link) goes back to the list.
+  if (!req) redirect("/platform");
 
   const db = createServiceClient();
   const [{ data: businessRow }, bookings, customers, payments] = req.business_id

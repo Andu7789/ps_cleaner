@@ -293,7 +293,8 @@ export async function deleteBusinessAction(id: string, mode: DeleteMode, confirm
       .eq("id", req.id);
   }
   revalidatePath("/platform");
-  revalidatePath(`/platform/${id}`);
+  // The page of a request that no longer exists must not be re-rendered.
+  if (mode === "business") revalidatePath(`/platform/${id}`);
   return { ok: true, message, warnings };
 }
 

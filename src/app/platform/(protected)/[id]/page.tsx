@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DangerZone } from "@/components/platform/danger-zone";
 import { OwnerLinkCard, SetupPanel } from "@/components/platform/request-actions";
+import { DEFAULT_BUSINESS_SLUG } from "@/lib/business";
 import { formatPence } from "@/lib/format";
 import { createServiceClient } from "@/lib/supabase/server";
 import { loadRequestById, ownerLink, platformOrigin } from "@/lib/onboarding-server";
@@ -20,6 +22,15 @@ export default async function PlatformRequestPage({ params }: { params: Promise<
   const req = await loadRequestById(id);
   if (!req) notFound();
 
+  const db = createServiceClient();
+  const [{ data: businessRow }, bookings, customers, payments] = req.business_id
+    ? await Promise.all([
+        db.from("PS_CLEAN_businesses").select("slug").eq("id", req.business_id).maybeSingle(),
+        db.from("PS_CLEAN_bookings").select("id", { count: "exact", head: true }).eq("business_id", req.business_id),
+        db.from("PS_CLEAN_customers").select("id", { count: "exact", head: true }).eq("business_id", req.business_id),
+        db.from("PS_CLEAN_payments").select("id", { count: "exact", head: true }).eq("business_id", req.business_id),
+      ])
+    : [{ data: null }, null, null, null];
   const { data: live } = req.business_id
     ? await createServiceClient()
         .from("PS_CLEAN_businesses")
@@ -134,6 +145,14 @@ export default async function PlatformRequestPage({ params }: { params: Promise<
           {a.notes && <Item label="Other notes">{a.notes}</Item>}
         </dl>
       </div>
+
+      <DangerZone
+        id={req.id}
+        name={req.business_name || "this request"}
+        slug={businessRow?.slug ?? null}
+        counts={bookings ? { bookings: bookings.count ?? 0, customers: customers?.count ?? 0, payments: payments?.count ?? 0 } : null}
+        isMain={businessRow?.slug === DEFAULT_BUSINESS_SLUG}
+      />
     </div>
   );
 }

@@ -3,10 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getCurrentBusiness } from "@/lib/business";
+import { DEFAULT_BUSINESS_SLUG, getCurrentBusiness } from "@/lib/business";
 import { generateMagicLink } from "@/lib/magic-link";
 import { sendEmail } from "@/lib/notify";
 import { requirePlatformAdmin } from "@/lib/platform-auth";
+import { LOGO_BUCKET, cleanUpAfterDelete, removeFolder, type DeleteSummary } from "@/lib/delete-business";
 import {
   checkSiteLive,
   emailOwnerTheirLink,
@@ -218,4 +219,78 @@ export async function archiveRequestAction(id: string) {
     .neq("status", "provisioned");
   revalidatePath("/platform");
   redirect("/platform");
+}
+
+export type DeleteMode = "business" | "everything";
+
+export interface DeleteResult {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  warnings?: string[];
+}
+
+// Permanently removes a business and everything in it. Typing the address (or
+// the name, for a request that has no business yet) is the safety catch, and
+// it is checked here rather than trusted from the browser. The main business
+// can never be deleted.
+//   "business":   removes the business but keeps the owner's answers, so it
+//                 can be set up again from the same request.
+//   "everything": removes the business and the request with it.
+export async function deleteBusinessAction(id: string, mode: DeleteMode, confirmation: string): Promise<DeleteResult> {
+  await requirePlatformAdmin();
+  const req = await loadRequestById(id);
+  if (!req) return { ok: false, error: "Request not found." };
+  if (mode === "business" && !req.business_id) return { ok: false, error: "There's no business to delete yet." };
+
+  const db = createServiceClient();
+  let slug: string | null = null;
+  if (req.business_id) {
+    const { data } = await db.from("PS_CLEAN_businesses").select("slug").eq("id", req.business_id).maybeSingle();
+    slug = (data?.slug as string | undefined) ?? null;
+  }
+  if (slug === DEFAULT_BUSINESS_SLUG) return { ok: false, error: "The main business can't be deleted." };
+
+  const expected = (slug ?? req.business_name ?? "").trim().toLowerCase();
+  if (!expected || confirmation.trim().toLowerCase() !== expected) {
+    return { ok: false, error: `Type "${slug ?? req.business_name}" exactly to confirm.` };
+  }
+
+  let warnings: string[] = [];
+  let message = "";
+  if (req.business_id && slug) {
+    const { data, error } = await db.rpc("ps_clean_delete_business", { p_business_id: req.business_id });
+    if (error) {
+      const missing = /ps_clean_delete_business|function/i.test(error.message) && /not exist|find|schema cache/i.test(error.message);
+      return {
+        ok: false,
+        error: missing ? "The delete function isn't installed yet. Run migration 0049 in Supabase first." : error.message,
+      };
+    }
+    const summary = data as DeleteSummary;
+    warnings = await cleanUpAfterDelete(db, req.business_id, summary, mode === "everything" ? [`intake/${req.id}`] : []);
+    message = `Deleted ${slug}: ${summary.bookings} bookings, ${summary.customers} customers, ${summary.cleaners} cleaners, ${summary.services} services, ${summary.payments} payments.`;
+  } else {
+    await removeFolder(db, LOGO_BUCKET, `intake/${req.id}`).catch(() => undefined);
+    message = "Deleted the request.";
+  }
+
+  if (mode === "everything") {
+    await db.from("PS_CLEAN_onboarding_requests").delete().eq("id", req.id);
+  } else {
+    // Back to "ready to set up", so the same answers can be provisioned again.
+    await db
+      .from("PS_CLEAN_onboarding_requests")
+      .update({
+        status: "submitted",
+        business_id: null,
+        provision_log: [],
+        provisioned_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", req.id);
+  }
+  revalidatePath("/platform");
+  revalidatePath(`/platform/${id}`);
+  return { ok: true, message, warnings };
 }

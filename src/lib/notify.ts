@@ -14,20 +14,52 @@ export interface NotifyBookingContext {
   customerPhone: string | null;
   // True while the owner still has to confirm the price; nothing has been taken.
   quotePending?: boolean;
+  // The business's own contact email, so replies reach them.
+  replyTo?: string | null;
 }
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ id?: string }> {
+// Every business sends from the one verified address, but shows its own name
+// as the sender and gets replies at its own contact email.
+export interface Sender {
+  name?: string | null;
+  replyTo?: string | null;
+}
+
+// The bare address out of NOTIFY_FROM_EMAIL, which may be written either as
+// "bookings@psclean.site" or as "Name <bookings@psclean.site>".
+function fromAddress(configured: string | undefined): string {
+  const value = (configured ?? "bookings@example.com").trim();
+  const match = value.match(/<([^<>]+)>/);
+  return (match ? match[1] : value).trim();
+}
+
+// A display name safe to put in a header: no line breaks, quotes or angle
+// brackets, so a business name can never break out of the From line.
+export function buildFrom(configured: string | undefined, name?: string | null): string {
+  const address = fromAddress(configured);
+  const clean = (name ?? "").replace(/[\r\n\t]+/g, " ").replace(/["<>\\]/g, "").trim().slice(0, 80);
+  return clean ? `"${clean}" <${address}>` : address;
+}
+
+export function validReplyTo(value?: string | null): string | undefined {
+  const email = (value ?? "").trim();
+  return /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(email) ? email : undefined;
+}
+
+export async function sendEmail(to: string, subject: string, html: string, sender?: Sender): Promise<{ id?: string }> {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) throw new Error("Email isn't configured (RESEND_API_KEY missing)");
 
+  const replyTo = validReplyTo(sender?.replyTo);
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${process.env.NOTIFY_FROM_EMAIL ?? "bookings@example.com"}`,
+      from: buildFrom(process.env.NOTIFY_FROM_EMAIL, sender?.name),
       to,
       subject,
       html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   });
   if (!res.ok) throw new Error(`Resend request failed: ${res.status} ${await res.text()}`);
@@ -61,14 +93,19 @@ async function sendSms(to: string, body: string): Promise<{ sid?: string }> {
 // via the admin API (see requestMagicLinkAction) and sends it through this
 // email instead, rather than touching a template another live app depends
 // on. See DECISIONS.md.
-export async function sendMagicLinkEmail(businessName: string, email: string, actionLink: string): Promise<void> {
+export async function sendMagicLinkEmail(
+  businessName: string,
+  email: string,
+  actionLink: string,
+  replyTo?: string | null
+): Promise<void> {
   const html = emailShell(
     businessName,
     `<p>Click below to sign in to ${businessName}.</p>
      <p><a href="${actionLink}" style="color: #0f766e;">Sign in</a></p>
      <p style="font-size: 12px; color: #5b6b68;">If you didn't request this, you can safely ignore this email.</p>`
   );
-  await sendEmail(email, `Sign in to ${businessName}`, html);
+  await sendEmail(email, `Sign in to ${businessName}`, html, { name: businessName, replyTo });
 }
 
 // Carries a real one click sign in link, so the invite itself signs them
@@ -83,7 +120,8 @@ export async function sendStaffInviteEmail(
   name: string | null,
   role: "cleaner" | "admin",
   signInLink: string,
-  loginUrl: string
+  loginUrl: string,
+  replyTo?: string | null
 ): Promise<void> {
   const greeting = name ? `Hi ${name},` : "Hi,";
   const roleLine =
@@ -97,7 +135,7 @@ export async function sendStaffInviteEmail(
      <p><a href="${signInLink}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600;">Set your password</a></p>
      <p style="font-size: 12px; color: #5b6b68;">This button works once and expires after a while. Once your password is set, sign in at <a href="${loginUrl}" style="color: #0f766e;">${loginUrl}</a>. If the button has stopped working, use "Forgot password" on that page with ${email}.</p>`
   );
-  await sendEmail(email, `You've been added to ${businessName}`, html);
+  await sendEmail(email, `You've been added to ${businessName}`, html, { name: businessName, replyTo });
 }
 
 function emailShell(businessName: string, bodyHtml: string): string {
@@ -162,7 +200,8 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
           : ctx.quotePending
             ? `Booking received — ${dateLine}`
             : `Booking confirmed — ${dateLine}`,
-        html
+        html,
+        { name: ctx.businessName, replyTo: ctx.replyTo }
       );
       await logNotification(ctx.bookingId, "email", "confirmation", { ok: true, providerId: result.id });
     } catch (err) {
@@ -192,7 +231,10 @@ export async function sendBookingReminder(ctx: NotifyBookingContext): Promise<vo
         ctx.businessName,
         `<p>Reminder: your ${ctx.serviceName} with ${ctx.cleanerName} is coming up on <strong>${dateLine}</strong> at ${ctx.addressLine}.</p>`
       );
-      const result = await sendEmail(ctx.customerEmail, `Reminder: your clean is on ${dateLine}`, html);
+      const result = await sendEmail(ctx.customerEmail, `Reminder: your clean is on ${dateLine}`, html, {
+        name: ctx.businessName,
+        replyTo: ctx.replyTo,
+      });
       await logNotification(ctx.bookingId, "email", "reminder", { ok: true, providerId: result.id });
     } catch (err) {
       await logNotification(ctx.bookingId, "email", "reminder", { ok: false, error: String(err) });
@@ -220,7 +262,8 @@ export async function sendWaitlistOpeningEmail(
   email: string,
   serviceName: string,
   dateLabel: string,
-  bookingUrl: string
+  bookingUrl: string,
+  replyTo?: string | null
 ): Promise<void> {
   try {
     const html = emailShell(
@@ -228,7 +271,7 @@ export async function sendWaitlistOpeningEmail(
       `<p>A slot just opened up for <strong>${serviceName}</strong> on <strong>${dateLabel}</strong> — you asked to be notified.</p>
        <p><a href="${bookingUrl}" style="color: #0f766e;">Book it before it's gone</a></p>`
     );
-    await sendEmail(email, `A slot opened up for ${serviceName} on ${dateLabel}`, html);
+    await sendEmail(email, `A slot opened up for ${serviceName} on ${dateLabel}`, html, { name: businessName, replyTo });
   } catch {
     // Best-effort — see the file-level pattern used throughout this module.
   }
@@ -243,7 +286,10 @@ export async function sendCancellationNotice(ctx: NotifyBookingContext): Promise
         ctx.businessName,
         `<p>Your ${ctx.serviceName} on <strong>${dateLine}</strong> has been cancelled.</p>`
       );
-      const result = await sendEmail(ctx.customerEmail, `Booking cancelled — ${dateLine}`, html);
+      const result = await sendEmail(ctx.customerEmail, `Booking cancelled — ${dateLine}`, html, {
+        name: ctx.businessName,
+        replyTo: ctx.replyTo,
+      });
       await logNotification(ctx.bookingId, "email", "cancellation", { ok: true, providerId: result.id });
     } catch (err) {
       await logNotification(ctx.bookingId, "email", "cancellation", { ok: false, error: String(err) });
@@ -268,7 +314,7 @@ export async function sendQuoteRequestToOwner(
        <p>Open the booking to see their address, a map and the size of the home. This service needs an exact quote, so once the visit is done please confirm the price and the customer and cleaner will be told.</p>
        <p><a href="${adminUrl}" style="color: #0f766e;">View the booking</a></p>`
     );
-    await sendEmail(ownerEmail, `New booking: ${serviceName}, ${dateLine}`, html);
+    await sendEmail(ownerEmail, `New booking: ${serviceName}, ${dateLine}`, html, { name: businessName });
   } catch {
     // Best-effort, see above.
   }
@@ -283,6 +329,7 @@ export async function sendQuoteApprovedEmails(ctx: {
   pricePence: number;
   cleanerEmail: string | null;
   customerEmail: string | null;
+  replyTo?: string | null;
   // Set when the customer still has something to pay up front.
   payNow?: { amountPence: number; url: string };
 }): Promise<void> {
@@ -292,7 +339,10 @@ export async function sendQuoteApprovedEmails(ctx: {
         ctx.businessName,
         `<p>The price for the ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> has been confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>`
       );
-      await sendEmail(ctx.cleanerEmail, `Price confirmed: ${formatPence(ctx.pricePence)}`, html);
+      await sendEmail(ctx.cleanerEmail, `Price confirmed: ${formatPence(ctx.pricePence)}`, html, {
+        name: ctx.businessName,
+        replyTo: ctx.replyTo,
+      });
     } catch {
       // Best-effort.
     }
@@ -308,7 +358,10 @@ export async function sendQuoteApprovedEmails(ctx: {
              : ""
          }`
       );
-      await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html);
+      await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html, {
+        name: ctx.businessName,
+        replyTo: ctx.replyTo,
+      });
     } catch {
       // Best-effort.
     }

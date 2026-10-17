@@ -29,7 +29,7 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
   const { data } = await service
     .from("PS_CLEAN_bookings")
     .select(
-      "id, starts_at, amount_paid_pence, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name, slug, custom_domain)"
+      "id, starts_at, amount_paid_pence, PS_CLEAN_customers(email), PS_CLEAN_cleaners(email), PS_CLEAN_services(name), PS_CLEAN_businesses(business_name, slug, custom_domain, contact_email)"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -37,7 +37,7 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
     const customer = one(data.PS_CLEAN_customers as { email: string | null } | { email: string | null }[] | null);
     const cleaner = one(data.PS_CLEAN_cleaners as { email: string | null } | { email: string | null }[] | null);
     const svc = one(data.PS_CLEAN_services as { name: string } | { name: string }[] | null);
-    type BusinessInfo = { business_name: string; slug: string; custom_domain: string | null };
+    type BusinessInfo = { business_name: string; slug: string; custom_domain: string | null; contact_email: string | null };
     const business = one(data.PS_CLEAN_businesses as BusinessInfo | BusinessInfo[] | null);
     if (business) {
       const due = quoteAmountDue({
@@ -52,6 +52,7 @@ export async function approveQuoteAction(bookingId: string, priceGbp: number) {
         pricePence,
         cleanerEmail: cleaner?.email ?? null,
         customerEmail: customer?.email ?? null,
+        replyTo: business.contact_email,
         payNow:
           due > 0
             ? {

@@ -45,6 +45,7 @@ export async function confirmBookingAndNotify(service: SupabaseClient, bookingId
     customerEmail: customer?.email ?? null,
     customerPhone: customer?.phone ?? null,
     quotePending: booking.quote_status === "pending",
+    replyTo: business?.contact_email ?? null,
   });
 
   // Tell the cleaner on their phone, if they have notifications turned on.

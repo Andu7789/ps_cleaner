@@ -62,7 +62,7 @@ export async function notifyWaitlistOnCancellation(service: SupabaseClient, book
 
   const [{ data: svc }, { data: business }] = await Promise.all([
     service.from("PS_CLEAN_services").select("name").eq("id", booking.service_id).maybeSingle(),
-    service.from("PS_CLEAN_businesses").select("slug, custom_domain, business_name").eq("id", booking.business_id).maybeSingle(),
+    service.from("PS_CLEAN_businesses").select("slug, custom_domain, business_name, contact_email").eq("id", booking.business_id).maybeSingle(),
   ]);
 
   const siteUrl = business ? getBusinessOrigin(business) : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
@@ -81,7 +81,8 @@ export async function notifyWaitlistOnCancellation(service: SupabaseClient, book
         customer.email,
         svc?.name ?? "your service",
         formatDate(booking.starts_at),
-        bookingUrl
+        bookingUrl,
+        business?.contact_email
       );
     }
 

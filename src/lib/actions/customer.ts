@@ -35,7 +35,7 @@ export async function requestMagicLinkAction(email: string, next?: string) {
 
   const link = await generateMagicLink(business, normalizedEmail, next ?? "/account");
 
-  await sendMagicLinkEmail(business.business_name, normalizedEmail, link);
+  await sendMagicLinkEmail(business.business_name, normalizedEmail, link, business.contact_email);
 }
 
 export async function signOutAction() {

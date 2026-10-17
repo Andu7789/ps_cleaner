@@ -45,7 +45,7 @@ export async function requestCleanerPasswordSetupAction(email: string) {
   if (!cleaner) return;
 
   const link = await generateMagicLink(business, normalizedEmail, "/cleaner/set-password");
-  await sendMagicLinkEmail(business.business_name, normalizedEmail, link);
+  await sendMagicLinkEmail(business.business_name, normalizedEmail, link, business.contact_email);
 }
 
 export async function setCleanerPasswordAction(

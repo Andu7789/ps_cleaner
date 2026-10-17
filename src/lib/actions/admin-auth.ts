@@ -44,7 +44,7 @@ export async function requestAdminPasswordSetupAction(email: string) {
   if (!admin) return;
 
   const link = await generateMagicLink(business, normalizedEmail, "/admin/set-password");
-  await sendMagicLinkEmail(business.business_name, normalizedEmail, link);
+  await sendMagicLinkEmail(business.business_name, normalizedEmail, link, business.contact_email);
 }
 
 export async function setAdminPasswordAction(

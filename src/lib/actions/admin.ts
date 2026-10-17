@@ -81,7 +81,8 @@ export async function createCleanerAction(input: CleanerInput) {
         input.fullName,
         "cleaner",
         await generateMagicLink(business, email, "/cleaner/set-password"),
-        `${getBusinessOrigin(business)}/cleaner/login`
+        `${getBusinessOrigin(business)}/cleaner/login`,
+        business.contact_email
       );
     } catch (err) {
       console.error("Cleaner invite email failed", err);
@@ -106,7 +107,8 @@ export async function resendCleanerInviteAction(cleanerId: string) {
     cleaner.full_name,
     "cleaner",
     await generateMagicLink(business, cleaner.email.trim().toLowerCase(), "/cleaner/set-password"),
-        `${getBusinessOrigin(business)}/cleaner/login`
+        `${getBusinessOrigin(business)}/cleaner/login`,
+    business.contact_email
   );
 }
 
@@ -718,7 +720,8 @@ export async function inviteAdminAction(input: InviteAdminInput) {
       input.displayName?.trim() || null,
       "admin",
       await generateMagicLink(business, input.email.trim().toLowerCase(), "/admin/set-password"),
-        `${getBusinessOrigin(business)}/admin/login`
+        `${getBusinessOrigin(business)}/admin/login`,
+      business.contact_email
     );
   } catch (err) {
     console.error("Admin invite email failed", err);
@@ -743,7 +746,8 @@ export async function resendAdminInviteAction(id: string) {
     admin.display_name,
     "admin",
     await generateMagicLink(business, admin.email, "/admin/set-password"),
-        `${getBusinessOrigin(business)}/admin/login`
+        `${getBusinessOrigin(business)}/admin/login`,
+    business.contact_email
   );
 }
 

@@ -21,7 +21,7 @@ async function handler(request: Request) {
   // cross-tenant query with a single global window/name.
   const { data: businesses, error: businessesError } = await service
     .from("PS_CLEAN_businesses")
-    .select("id, business_name, reminder_hours_before");
+    .select("id, business_name, contact_email, reminder_hours_before");
   if (businessesError) return new Response(businessesError.message, { status: 500 });
 
   let checked = 0;
@@ -72,6 +72,7 @@ async function handler(request: Request) {
         customerName: customer?.full_name ?? null,
         customerEmail: customer?.email ?? null,
         customerPhone: customer?.phone ?? null,
+        replyTo: business.contact_email,
       });
       sent++;
     }

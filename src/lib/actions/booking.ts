@@ -6,6 +6,7 @@ import { notifyWaitlistOnCancellation } from "@/lib/bookings";
 import { confirmBookingAndNotify } from "@/lib/payments";
 import { quoteAmountDue } from "@/lib/format";
 import { getStripe } from "@/lib/stripe";
+import { paymentRoutingForBooking } from "@/lib/stripe-connect";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { BookingAccessMethod, Customer, PaymentType } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -50,11 +51,14 @@ async function createPaymentIntentForBooking(
   amountDuePence: number,
   paymentType: PaymentType
 ): Promise<string> {
+  // Sent on to the owner's own Stripe account when that is how they are set up.
+  const routing = await paymentRoutingForBooking(service, bookingId);
   const paymentIntent = await stripe.paymentIntents.create({
     amount: amountDuePence,
     currency: "gbp",
     customer: stripeCustomerId,
     setup_future_usage: "off_session",
+    ...routing,
     metadata: { ps_clean_booking_id: bookingId, ps_clean_payment_type: paymentType },
   });
 

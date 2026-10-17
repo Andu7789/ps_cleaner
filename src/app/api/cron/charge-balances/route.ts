@@ -1,4 +1,5 @@
 import { getStripe } from "@/lib/stripe";
+import { routingFor, type PaymentBusiness } from "@/lib/stripe-connect";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -28,13 +29,20 @@ async function handler(request: Request) {
   // per business rather than running a single cross-tenant query.
   const { data: businesses, error: businessesError } = await service
     .from("PS_CLEAN_businesses")
-    .select("id, balance_charge_days_before");
+    .select("id, balance_charge_days_before, payment_mode, stripe_connect_account_id, stripe_charges_enabled");
   if (businessesError) return new Response(businessesError.message, { status: 500 });
 
   let checked = 0;
   let charged = 0;
 
   for (const business of businesses ?? []) {
+    // A connect business that can't take payments yet has nothing to charge to.
+    let routing: ReturnType<typeof routingFor>;
+    try {
+      routing = routingFor(business as PaymentBusiness);
+    } catch {
+      continue;
+    }
     const windowEnd = new Date(Date.now() + business.balance_charge_days_before * 24 * 60 * 60 * 1000);
 
     const { data: bookings, error } = await service
@@ -73,6 +81,7 @@ async function handler(request: Request) {
           payment_method: customer.stripe_default_payment_method_id,
           off_session: true,
           confirm: true,
+          ...routing,
           metadata: { ps_clean_booking_id: booking.id, ps_clean_payment_type: "balance" },
         });
 

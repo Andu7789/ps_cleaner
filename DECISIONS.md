@@ -18,6 +18,8 @@ Log of decisions made without stopping to ask, per the overnight autonomy note. 
 
 ## 2. Single-tenant app, not multi-tenant
 
+> **Superseded (October 2026):** the app is now a multi-tenant white label. Migrations 0029 to 0035 added `PS_CLEAN_businesses`, a `business_id` column on every table, business scoped RLS and functions, and `src/lib/business.ts` resolves the business from the hostname (custom domain, then `<slug>.psclean.site`, then the `ps-clean` default). Two businesses exist today (`ps-clean`, `shine-bright`). Known gap: the public read policies on `PS_CLEAN_services` and `PS_CLEAN_cleaners` use `ps_clean_is_admin()` rather than `ps_clean_is_admin_for(business_id)`, so any admin can read another business's inactive rows. Writes are correctly scoped. The original reasoning is kept below for history.
+
 **Decision:** The app itself has no tenant-switching logic (no subdomain-based tenant resolution like Root Cafe's `getCurrentTenant()`). It is built for exactly one cleaning company.
 
 **Why:** The brief explicitly scopes this to single-tenant for now, with multi-tenancy deferred to the 5-star roadmap (see ROADMAP.md) if this is ever sold to more than one cleaning company. Building tenant-switching now would be speculative complexity the brief didn't ask for.
@@ -358,6 +360,27 @@ That meant the real gap was much narrower than feared: the server-side RPC just 
 - All test bookings deleted and the room type's `minutes_per_unit` reverted to `0` afterward — live data left exactly as found.
 
 **Reversibility:** High. One additive column (safe default), one function body change (no signature/overload risk), and client code that only takes a new optional path when a service actually has the calculator on and a room type actually carries `minutes_per_unit > 0`.
+
+---
+
+## 26. Platform onboarding: owner intake form plus a provisioning portal
+
+**Decision:** New businesses are onboarded in two halves. The owner opens a private link (`/start/<token>`) and answers a short guided form. The platform owner (Andrew) reviews the answers in `/platform` and presses one button to provision everything.
+
+**Why:** setting up a business by hand meant SQL inserts and chasing the owner for details one message at a time (see the manual steps in decision #2's superseding note). A single link collects everything in one sitting, can be saved and resumed, and the provisioning step is the same every time.
+
+**What was built (migration `0047_platform_onboarding.sql`):**
+- `PS_CLEAN_platform_admins` (email invited, linked to the auth user on first sign in, seeded with Andrew's email) and `PS_CLEAN_onboarding_requests` (token, status, answers jsonb, provision log). Both have RLS on and no policies, so only the service role can touch them.
+- The owner's link token is 48 hex characters of crypto randomness and is the only credential for the form. Every intake action re-checks it, and a provisioned or archived request locks the form.
+- Answers are validated by one Zod schema shared by the form, the save action and provisioning (`src/lib/onboarding.ts`). Drafts save section by section so a half typed email never discards the rest.
+- Provisioning (`src/lib/onboarding-server.ts`) runs steps in order: business row, owner admin invite, services (and default room types for a walkthrough), cleaners with every service enabled, working hours, welcome email, then a check that the site answers. Each step is logged, skips itself if it already succeeded, and only adds what is missing, so a failed run can simply be run again.
+- The welcome email carries the owner's one click set password link.
+
+**Deliberately not done:** DNS and Vercel/Cloudflare domain setup (the portal checks the site is reachable and says so, but wildcard `*.psclean.site` and custom domains are still set up outside the app), per business Stripe Connect, and per business sender email. Those need decisions that are not about onboarding.
+
+**Payments are hybrid per business (migration `0048_payment_mode.sql`).** `payment_mode` is `platform` (charged and kept on the platform Stripe account, the default and what every existing business does) or `connect` (charged on the platform account and sent on to the owner's own Stripe Express account as a destination charge). No application fee is taken, because the developer cost is billed per new account outside the app. Customers, saved cards, PaymentIntents and the webhook all stay on the platform account in both modes, so the only code that differs is one `transfer_data` field added where a PaymentIntent is created (checkout and the balance cron, via `src/lib/stripe-connect.ts`). A connect business cannot take card payments until Stripe reports the account ready (`account.updated` webhook, plus a direct check when the owner returns to Settings). Trade-off to know about: with destination charges the platform account stays the merchant of record, so refunds and disputes are the platform account holder's responsibility, and a dashboard refund should tick "reverse transfer". The platform account will be Paige's Stripe account once PS Clean goes live.
+
+**Reversibility:** High. Two additive tables and new routes only. The one change to existing code is that the header hides itself on `/start` and `/platform` pages.
 
 ---
 

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { cancelBookingAsSystem } from "@/lib/bookings";
 import { applySucceededPaymentIntent } from "@/lib/payments";
 import { getStripe } from "@/lib/stripe";
+import { accountIsReady } from "@/lib/stripe-connect";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -14,18 +15,27 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const stripe = getStripe();
   const signature = request.headers.get("stripe-signature");
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!signature || !webhookSecret) {
+  // Two endpoints can point here: the normal one, and a Connect one that
+  // listens for events on owners' connected accounts. Each has its own secret.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(
+    (s): s is string => Boolean(s),
+  );
+  if (!signature || secrets.length === 0) {
     return new Response("Webhook not configured", { status: 500 });
   }
 
   const rawBody = await request.text();
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (err) {
-    return new Response(`Invalid signature: ${err}`, { status: 400 });
+  let event: Stripe.Event | null = null;
+  let lastError: unknown;
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      break;
+    } catch (err) {
+      lastError = err;
+    }
   }
+  if (!event) return new Response(`Invalid signature: ${lastError}`, { status: 400 });
 
   const service = createServiceClient();
 
@@ -67,6 +77,16 @@ export async function POST(request: Request) {
           .update({ status: "refunded", updated_at: new Date().toISOString() })
           .eq("stripe_payment_intent_id", intentId);
       }
+      break;
+    }
+
+    // An owner finished (or changed) their Stripe onboarding.
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      await service
+        .from("PS_CLEAN_businesses")
+        .update({ stripe_charges_enabled: accountIsReady(account) })
+        .eq("stripe_connect_account_id", account.id);
       break;
     }
 

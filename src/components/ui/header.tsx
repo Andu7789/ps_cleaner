@@ -22,7 +22,10 @@ export function Header({
   // root layout was still showing above them regardless, since it wraps
   // every route, not just ones under those nested layouts.
   const isStandaloneDocument = pathname?.startsWith("/admin/invoice/") || pathname?.startsWith("/cleaner/invoice/");
-  if (isStandaloneDocument) return null;
+  // The owner intake form and the platform portal belong to the platform, not
+  // to whichever business the host happens to resolve to.
+  const isPlatformPage = pathname?.startsWith("/start/") || pathname?.startsWith("/platform");
+  if (isStandaloneDocument || isPlatformPage) return null;
 
   return (
     <header

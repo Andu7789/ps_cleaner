@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 function loginPathFor(next: string): string {
   if (next.startsWith("/cleaner")) return "/cleaner/login";
   if (next.startsWith("/admin")) return "/admin/login";
+  if (next.startsWith("/platform")) return "/platform/login";
   return "/login";
 }
 

@@ -326,4 +326,9 @@ export interface Business {
   // Any hex colour the owner picks; wins over background_style when set.
   background_color: string | null;
   header_style: "light" | "brand";
+  // Where card payments end up: kept on the platform Stripe account, or sent
+  // on to the owner's own connected account (see lib/stripe-connect.ts).
+  payment_mode: "platform" | "connect";
+  stripe_connect_account_id: string | null;
+  stripe_charges_enabled: boolean;
 }

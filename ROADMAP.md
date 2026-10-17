@@ -33,7 +33,7 @@ The database currently has placeholder demo data seeded for testing (cleaner "Ja
 - [x] Business reporting dashboard (revenue, popular services, repeat rate) — `/admin/reports`
 - [x] Cleaner-facing mobile view (today's jobs, mark complete, before/after photo upload) — `/cleaner`, magic-link sign-in same as customers/admins, first login links by email (see DECISIONS.md #3, #14)
 - [x] Installable PWA for customers — `public/manifest.webmanifest` + minimal service worker (static assets only, deliberately not offline-first for a live booking system)
-- [ ] Multi-tenant architecture (if sold to more than one cleaning company — see DECISIONS.md #2 for what this touches)
+- [x] Multi-tenant white label architecture: `PS_CLEAN_businesses`, `business_id` on every table, business scoped RLS, hostname resolution (migrations 0029 to 0035, see DECISIONS.md #2). A second business (`shine-bright`) exists in the database. Onboarding is a guided owner form plus a platform portal with a provision button (DECISIONS.md #26). Still open: wildcard DNS for `*.psclean.site`, per business Stripe Connect and sender email.
 
 ## Ideas surfaced during the Pro build (not yet tiered)
 

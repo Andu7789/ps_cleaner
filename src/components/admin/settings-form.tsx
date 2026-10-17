@@ -7,7 +7,7 @@ import type { Business } from "@/lib/types";
 // Favicons and PWA icons must be square, so a rectangular logo is scaled to
 // fit (never cropped or stretched) and centered on a transparent 512px canvas.
 // Done here because the server has no image processing (sharp is stubbed).
-async function makeSquareIcon(file: File): Promise<Blob | null> {
+export async function makeSquareIcon(file: File): Promise<Blob | null> {
   const src = URL.createObjectURL(file);
   try {
     const img = new Image();

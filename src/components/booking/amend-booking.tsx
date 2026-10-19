@@ -111,7 +111,12 @@ export function AmendBooking() {
 
       {!booking.canChange ? (
         <p className="text-sm text-muted-foreground">
-          This booking can&apos;t be changed online any more. Please give us a call and we&apos;ll help.
+          {booking.status === "cancelled"
+            ? "This booking was cancelled."
+            : booking.status === "completed"
+              ? "This clean has been completed."
+              : "The time for this booking has already passed, so it can't be moved online."}{" "}
+          Please give us a call and we&apos;ll help.
         </p>
       ) : choice ? (
         <div className="max-w-md rounded-xl border border-brand bg-card p-5">

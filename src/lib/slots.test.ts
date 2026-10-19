@@ -24,6 +24,16 @@ describe("candidateStartTimes", () => {
     expect(starts.map((d) => d.toISOString())).toEqual(["2026-01-05T09:15:00.000Z"]);
   });
 
+  it("drops start times that have already passed", () => {
+    const ranges = [{ free_start: "2026-01-05T09:00:00Z", free_end: "2026-01-05T11:00:00Z" }];
+    const starts = candidateStartTimes(ranges, {
+      durationMinutes: 30,
+      stepMinutes: 30,
+      notBefore: new Date("2026-01-05T09:40:00Z"),
+    });
+    expect(starts.map((d) => d.toISOString())).toEqual(["2026-01-05T10:00:00.000Z", "2026-01-05T10:30:00.000Z"]);
+  });
+
   it("returns nothing when the range is too short for the service", () => {
     const ranges = [{ free_start: "2026-01-05T09:00:00Z", free_end: "2026-01-05T09:20:00Z" }];
     const starts = candidateStartTimes(ranges, { durationMinutes: 30 });

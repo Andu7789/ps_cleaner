@@ -91,6 +91,9 @@ async function createBooking(raw: CreateBookingInput): Promise<{ reference: stri
   const parsed = bookingSchema.safeParse(raw);
   if (!parsed.success) throw new CustomerError(parsed.error.issues[0]?.message ?? "Please check your details");
   const input = parsed.data;
+  if (new Date(input.startsAt).getTime() <= Date.now()) {
+    throw new CustomerError("That time has already passed. Please go back and pick a later one.");
+  }
 
   const business = await getCurrentBusiness();
   const service = createServiceClient();

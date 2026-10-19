@@ -139,6 +139,7 @@ export function SlotPicker({
           // than choice. 30 minutes is plenty of precision for booking a
           // multi-hour clean and keeps the list scannable.
           stepMinutes: 30,
+          notBefore: new Date(),
         })
       );
     }

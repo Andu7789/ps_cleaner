@@ -21,6 +21,9 @@ export interface SlotOptions {
   bufferBeforeMinutes?: number;
   bufferAfterMinutes?: number;
   stepMinutes?: number;
+  // Start times before this are dropped, so today never offers a time that
+  // has already gone.
+  notBefore?: Date;
 }
 
 export function candidateStartTimes(ranges: FreeRange[], opts: SlotOptions): Date[] {
@@ -30,6 +33,7 @@ export function candidateStartTimes(ranges: FreeRange[], opts: SlotOptions): Dat
   const duration = opts.durationMinutes * 60_000;
   const before = bufferBefore * 60_000;
   const after = bufferAfter * 60_000;
+  const notBefore = opts.notBefore?.getTime() ?? -Infinity;
 
   const starts: Date[] = [];
 
@@ -44,7 +48,7 @@ export function candidateStartTimes(ranges: FreeRange[], opts: SlotOptions): Dat
     const latestStart = rangeEnd - duration - after;
 
     for (let jobStart = earliestStart; jobStart <= latestStart; jobStart += step) {
-      starts.push(new Date(jobStart));
+      if (jobStart > notBefore) starts.push(new Date(jobStart));
     }
   }
 

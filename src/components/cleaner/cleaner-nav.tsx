@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/cleaner", label: "Today" },
-  { href: "/cleaner/quotes", label: "Quotes" },
   { href: "/cleaner/schedule", label: "Schedule" },
   { href: "/cleaner/customers", label: "Customers" },
   { href: "/cleaner/invoices", label: "Invoices" },
 ];
 
-export function CleanerNav({ quotesWaiting }: { quotesWaiting: number }) {
+export function CleanerNav() {
   const pathname = usePathname();
 
   return (
@@ -30,15 +29,6 @@ export function CleanerNav({ quotesWaiting }: { quotesWaiting: number }) {
             }`}
           >
             {tab.label}
-            {tab.href === "/cleaner/quotes" && quotesWaiting > 0 ? (
-              <span
-                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs ${
-                  active ? "bg-brand-foreground/20 text-brand-foreground" : "bg-brand text-brand-foreground"
-                }`}
-              >
-                {quotesWaiting}
-              </span>
-            ) : null}
           </Link>
         );
       })}

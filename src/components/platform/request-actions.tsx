@@ -9,9 +9,7 @@ import {
   provisionAction,
   reopenRequestAction,
   resendWelcomeAction,
-  setPaymentModeAction,
 } from "@/lib/actions/platform";
-import type { PaymentMode } from "@/lib/stripe-connect";
 import type { LogEntry, OnboardingStatus } from "@/lib/onboarding";
 
 const STEP_LABEL: Record<string, string> = {
@@ -20,16 +18,10 @@ const STEP_LABEL: Record<string, string> = {
   services: "Services added",
   team: "Team added",
   hours: "Working hours set",
-  payments: "Card payments arranged",
   welcome: "Welcome email sent",
   live: "Site answering on its address",
 };
-const STEP_ORDER = ["business", "owner", "services", "team", "hours", "payments", "welcome", "live"];
-
-const MODE_OPTIONS: { value: PaymentMode; label: string; hint: string }[] = [
-  { value: "platform", label: "Platform Stripe account", hint: "Paid to you, passed on to the owner by you" },
-  { value: "connect", label: "Owner's own Stripe account", hint: "Paid straight to them, no fee taken" },
-];
+const STEP_ORDER = ["business", "owner", "services", "team", "hours", "welcome", "live"];
 
 const buttonClass = "rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground disabled:opacity-60";
 
@@ -79,21 +71,14 @@ export function SetupPanel({
   status,
   log,
   missing,
-  suggestedMode,
-  currentMode,
-  chargesEnabled,
 }: {
   id: string;
   status: OnboardingStatus;
   log: LogEntry[];
   missing: string[];
-  suggestedMode: PaymentMode;
-  currentMode: PaymentMode | null;
-  chargesEnabled: boolean;
 }) {
   const router = useRouter();
   const [sendWelcome, setSendWelcome] = useState(true);
-  const [mode, setMode] = useState<PaymentMode>(suggestedMode);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -122,25 +107,13 @@ export function SetupPanel({
             <input type="checkbox" checked={sendWelcome} onChange={(e) => setSendWelcome(e.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />
             Email the owner when it&apos;s done
           </label>
-          <fieldset className="mt-3">
-            <legend className="text-sm font-medium text-foreground">Where do card payments go?</legend>
-            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-              {MODE_OPTIONS.map((o) => (
-                <label key={o.value} className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${mode === o.value ? "border-brand bg-brand/5" : "border-border"}`}>
-                  <input type="radio" name="payment-mode" className="sr-only" checked={mode === o.value} onChange={() => setMode(o.value)} />
-                  <span className="block font-medium text-foreground">{o.label}</span>
-                  <span className="block text-xs text-muted-foreground">{o.hint}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               disabled={pending}
               onClick={() =>
                 run(async () => {
-                  const r = await provisionAction(id, sendWelcome, mode);
+                  const r = await provisionAction(id, sendWelcome);
                   if (!r.ok) setError(r.error ?? "Something went wrong.");
                 })
               }
@@ -187,27 +160,6 @@ export function SetupPanel({
             Resend welcome email
           </button>
           {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
-        </div>
-      )}
-
-      {status === "provisioned" && currentMode && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-          <span className="text-muted-foreground">
-            Card payments: {currentMode === "connect" ? (chargesEnabled ? "owner's own Stripe account, ready" : "owner's own Stripe account, owner still to finish setup") : "platform Stripe account"}
-          </span>
-          <button
-            type="button"
-            disabled={pending}
-            className="text-muted-foreground underline"
-            onClick={() =>
-              run(async () => {
-                const r = await setPaymentModeAction(id, currentMode === "connect" ? "platform" : "connect");
-                setMessage(r.ok ? "Switched." : (r.error ?? "Couldn't switch."));
-              })
-            }
-          >
-            Switch to {currentMode === "connect" ? "platform account" : "owner's own account"}
-          </button>
         </div>
       )}
 

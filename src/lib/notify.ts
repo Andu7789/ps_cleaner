@@ -16,6 +16,9 @@ export interface NotifyBookingContext {
   quotePending?: boolean;
   // The business's own contact email, so replies reach them.
   replyTo?: string | null;
+  // What the customer quotes to change the booking, and where they do it.
+  reference?: string;
+  amendUrl?: string;
 }
 
 // Every business sends from the one verified address, but shows its own name
@@ -179,27 +182,27 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
   const dateLine = `${formatDate(ctx.startsAt)} at ${formatTime(ctx.startsAt)}`;
   const paymentLine = ctx.quotePending
     ? ctx.pricePence <= 0
-      ? "You'll be given a quote at the end of the walkthrough."
-      : "We will check the details and be in touch with your exact price. Nothing has been taken yet."
-    : `The full amount of ${formatPence(ctx.pricePence)} has been taken.`;
+      ? "This appointment is free. You'll be given a quote at the end of the walkthrough."
+      : "We will check the details and email you a quote."
+    : "There is nothing to pay now. We will send you an invoice once your clean is complete.";
+  const referenceBlock = ctx.reference
+    ? `<p style="margin: 20px 0; padding: 14px 16px; background: #f4f1f2; border-radius: 10px;">Your booking reference is<br /><strong style="font-size: 22px; letter-spacing: 3px;">${ctx.reference}</strong></p>
+       <p>Keep this email. To change the date or time, ${
+         ctx.amendUrl ? `go to <a href="${ctx.amendUrl}" style="color: #0f766e;">Amend existing booking</a>` : "use Amend existing booking on our website"
+       } and enter your reference.</p>`
+    : "";
 
   if (ctx.customerEmail) {
     try {
       const html = emailShell(
         ctx.businessName,
-        ctx.quotePending
-          ? `<p>Thank you for booking your ${ctx.serviceName} for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}. Your slot is held.</p>
-         <p>${paymentLine}</p>`
-          : `<p>Your ${ctx.serviceName} is confirmed for <strong>${dateLine}</strong> at ${ctx.addressLine}, with ${ctx.cleanerName}.</p>
-         <p>${paymentLine}</p>`
+        `<p>Thank you${ctx.customerName ? `, ${escapeHtml(ctx.customerName)}` : ""}. Your ${ctx.serviceName} is booked for <strong>${dateLine}</strong> at ${escapeHtml(ctx.addressLine)}, with ${ctx.cleanerName}.</p>
+         <p>${paymentLine}</p>
+         ${referenceBlock}`
       );
       const result = await sendEmail(
         ctx.customerEmail,
-        ctx.quotePending && ctx.pricePence > 0
-          ? `Booking received, price to follow — ${dateLine}`
-          : ctx.quotePending
-            ? `Booking received — ${dateLine}`
-            : `Booking confirmed — ${dateLine}`,
+        ctx.reference ? `Booking confirmed, reference ${ctx.reference}` : `Booking confirmed, ${dateLine}`,
         html,
         { name: ctx.businessName, replyTo: ctx.replyTo }
       );
@@ -211,9 +214,9 @@ export async function sendBookingConfirmation(ctx: NotifyBookingContext): Promis
 
   if (ctx.customerPhone) {
     try {
-      const body = ctx.quotePending
-        ? `${ctx.businessName}: we have received your ${ctx.serviceName} booking for ${dateLine} ${ctx.pricePence <= 0 ? "and you'll be given a quote at the end of the walkthrough." : "and will be in touch with your exact price."} Reply STOP to opt out of texts.`
-        : `${ctx.businessName}: your ${ctx.serviceName} is confirmed for ${dateLine} at ${ctx.addressLine}. Reply STOP to opt out of texts.`;
+      const body = `${ctx.businessName}: your ${ctx.serviceName} is booked for ${dateLine}.${
+        ctx.reference ? ` Your booking reference is ${ctx.reference}.` : ""
+      } Reply STOP to opt out of texts.`;
       const result = await sendSms(ctx.customerPhone, body);
       await logNotification(ctx.bookingId, "sms", "confirmation", { ok: true, providerId: result.sid });
     } catch (err) {
@@ -297,8 +300,8 @@ export async function sendCancellationNotice(ctx: NotifyBookingContext): Promise
   }
 }
 
-// A booking has come in for a service priced by quote: tells the owner to
-// confirm the price. Best-effort, the bookings list also flags it.
+// A booking has come in for a service priced by quote (the walkthrough):
+// tells the owner to quote it after the visit. Best-effort.
 export async function sendQuoteRequestToOwner(
   businessName: string,
   ownerEmail: string,
@@ -311,7 +314,7 @@ export async function sendQuoteRequestToOwner(
     const html = emailShell(
       businessName,
       `<p>${customerName ?? "A customer"} has booked <strong>${serviceName}</strong> for ${dateLine}.</p>
-       <p>Open the booking to see their address, a map and the size of the home. This service needs an exact quote, so once the visit is done please confirm the price and the customer and cleaner will be told.</p>
+       <p>Open the booking to see their address, a map and the size of the home. After the visit, add the service required, hours and price on the bookings list and press Generate quote to email it to them.</p>
        <p><a href="${adminUrl}" style="color: #0f766e;">View the booking</a></p>`
     );
     await sendEmail(ownerEmail, `New booking: ${serviceName}, ${dateLine}`, html, { name: businessName });
@@ -320,45 +323,59 @@ export async function sendQuoteRequestToOwner(
   }
 }
 
-// The owner has confirmed the price: the cleaner gets it and the customer is
-// told what they will pay.
-export async function sendQuoteApprovedEmails(ctx: {
-  businessName: string;
-  serviceName: string;
-  dateLine: string;
-  pricePence: number;
-  cleanerEmail: string | null;
-  customerEmail: string | null;
-  replyTo?: string | null;
-  // Set when the customer still has something to pay up front.
-  payNow?: { amountPence: number; url: string };
-}): Promise<void> {
-  if (ctx.cleanerEmail) {
+// Customer typed text can end up in these emails (names, addresses), so it is
+// escaped before going into the HTML.
+export function escapeHtml(value: string): string {
+  const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return value.replace(/[&<>"']/g, (c) => map[c]);
+}
+
+// A short note to the owner (job finished, job overrunning, booking moved).
+// Best-effort: the bookings list shows the same information.
+export async function sendOwnerAlert(
+  businessName: string,
+  to: string[],
+  subject: string,
+  lines: string[],
+  link?: { url: string; label: string }
+): Promise<void> {
+  if (to.length === 0) return;
+  const html = emailShell(
+    businessName,
+    `${lines.map((l) => `<p>${l}</p>`).join("")}
+     ${link ? `<p><a href="${link.url}" style="color: #0f766e;">${link.label}</a></p>` : ""}`
+  );
+  for (const email of to) {
     try {
-      const html = emailShell(
-        ctx.businessName,
-        `<p>The price for the ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> has been confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>`
-      );
-      await sendEmail(ctx.cleanerEmail, `Price confirmed: ${formatPence(ctx.pricePence)}`, html, {
-        name: ctx.businessName,
-        replyTo: ctx.replyTo,
-      });
+      await sendEmail(email, subject, html, { name: businessName });
     } catch {
-      // Best-effort.
+      // Best-effort, see above.
     }
   }
+}
+
+// The customer moved their booking with their reference. Tells them, their
+// cleaner and the owner.
+export async function sendBookingMovedEmails(ctx: {
+  businessName: string;
+  serviceName: string;
+  reference: string;
+  oldDateLine: string;
+  newDateLine: string;
+  customerEmail: string | null;
+  cleanerEmail: string | null;
+  ownerEmails: string[];
+  adminUrl: string;
+  replyTo?: string | null;
+}): Promise<void> {
   if (ctx.customerEmail) {
     try {
       const html = emailShell(
         ctx.businessName,
-        `<p>The price for your ${ctx.serviceName} on <strong>${ctx.dateLine}</strong> is confirmed at <strong>${formatPence(ctx.pricePence)}</strong>.</p>
-         ${
-           ctx.payNow
-             ? `<p>To secure it, please pay <strong>${formatPence(ctx.payNow.amountPence)}</strong>: <a href="${ctx.payNow.url}">pay now</a>.</p>`
-             : ""
-         }`
+        `<p>Your ${ctx.serviceName} has moved to <strong>${ctx.newDateLine}</strong>.</p>
+         <p>Your booking reference is still <strong>${ctx.reference}</strong>.</p>`
       );
-      await sendEmail(ctx.customerEmail, `Your quote: ${formatPence(ctx.pricePence)}`, html, {
+      await sendEmail(ctx.customerEmail, `Booking moved to ${ctx.newDateLine}`, html, {
         name: ctx.businessName,
         replyTo: ctx.replyTo,
       });
@@ -366,4 +383,90 @@ export async function sendQuoteApprovedEmails(ctx: {
       // Best-effort.
     }
   }
+  if (ctx.cleanerEmail) {
+    try {
+      const html = emailShell(
+        ctx.businessName,
+        `<p>A ${ctx.serviceName} you are booked on has moved from ${ctx.oldDateLine} to <strong>${ctx.newDateLine}</strong>.</p>`
+      );
+      await sendEmail(ctx.cleanerEmail, `Job moved to ${ctx.newDateLine}`, html, { name: ctx.businessName });
+    } catch {
+      // Best-effort.
+    }
+  }
+  await sendOwnerAlert(
+    ctx.businessName,
+    ctx.ownerEmails,
+    `Booking ${ctx.reference} moved to ${ctx.newDateLine}`,
+    [`The customer moved their ${ctx.serviceName} (reference ${ctx.reference}) from ${ctx.oldDateLine} to <strong>${ctx.newDateLine}</strong>.`],
+    { url: ctx.adminUrl, label: "View the booking" }
+  );
+}
+
+export interface QuoteOrInvoiceEmail {
+  businessName: string;
+  customerEmail: string;
+  customerName: string | null;
+  reference: string;
+  serviceName: string;
+  dateLine: string;
+  addressLine: string;
+  hours: number | null;
+  paymentFormat: "set_price" | "hourly" | null;
+  hourlyRatePence: number | null;
+  amountPence: number;
+  replyTo?: string | null;
+  contactPhone?: string | null;
+}
+
+function priceTable(e: QuoteOrInvoiceEmail, totalLabel: string): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding: 6px 0; color: #5b6b68;">${label}</td><td style="padding: 6px 0; text-align: right;">${value}</td></tr>`;
+  const payment =
+    e.paymentFormat === "hourly"
+      ? `Hourly${e.hourlyRatePence ? `, ${formatPence(e.hourlyRatePence)} per hour` : ""}`
+      : e.paymentFormat === "set_price"
+        ? "Set price"
+        : null;
+  return `<table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+    ${row("Reference", e.reference)}
+    ${row("Service", escapeHtml(e.serviceName))}
+    ${row("Date", e.dateLine)}
+    ${row("Address", escapeHtml(e.addressLine))}
+    ${e.hours ? row("Hours", String(e.hours)) : ""}
+    ${payment ? row("Payment", payment) : ""}
+    <tr><td style="padding: 10px 0; border-top: 1px solid #e5e7eb; font-weight: 600;">${totalLabel}</td><td style="padding: 10px 0; border-top: 1px solid #e5e7eb; text-align: right; font-weight: 600;">${formatPence(e.amountPence)}</td></tr>
+  </table>`;
+}
+
+// The owner's estimate, emailed from the bookings list. Throws so the owner
+// is told if it didn't go.
+export async function sendQuoteEmail(e: QuoteOrInvoiceEmail): Promise<void> {
+  const html = emailShell(
+    e.businessName,
+    `<p>${e.customerName ? `Hi ${escapeHtml(e.customerName)},` : "Hi,"}</p>
+     <p>Thank you for having us round. Here is your quote.</p>
+     ${priceTable(e, e.paymentFormat === "hourly" ? "Estimated total" : "Quoted price")}
+     ${e.paymentFormat === "hourly" ? `<p style="font-size: 13px; color: #5b6b68;">Charged by the hour, so the final amount depends on the time the clean takes.</p>` : ""}
+     <p>Just reply to this email${e.contactPhone ? ` or call us on ${escapeHtml(e.contactPhone)}` : ""} to go ahead or ask a question.</p>`
+  );
+  await sendEmail(e.customerEmail, `Your quote from ${e.businessName}`, html, { name: e.businessName, replyTo: e.replyTo });
+}
+
+// The invoice once the job is done. The invoice number is the booking
+// reference, so it is unique and the customer already knows it.
+export async function sendInvoiceEmail(e: QuoteOrInvoiceEmail): Promise<void> {
+  const html = emailShell(
+    e.businessName,
+    `<p>${e.customerName ? `Hi ${escapeHtml(e.customerName)},` : "Hi,"}</p>
+     <p>Thank you for choosing us. Here is your invoice for your clean.</p>
+     ${priceTable(e, "Amount due")}
+     <p>Invoice number ${e.reference}. Please quote it with your payment. Reply to this email${
+       e.contactPhone ? ` or call us on ${escapeHtml(e.contactPhone)}` : ""
+     } with any questions.</p>`
+  );
+  await sendEmail(e.customerEmail, `Invoice ${e.reference} from ${e.businessName}`, html, {
+    name: e.businessName,
+    replyTo: e.replyTo,
+  });
 }

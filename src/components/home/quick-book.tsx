@@ -8,7 +8,6 @@ export interface QuickBookService {
   id: string;
   name: string;
   priceLabel: string;
-  duration: string;
 }
 
 // Service buttons in the hero. Picking one shows its price and time and points
@@ -57,7 +56,6 @@ export function QuickBook({
         <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#efe7ea] pt-4">
           <div aria-live="polite">
             <p className="text-xl font-semibold text-[var(--brand)] [font-family:var(--font-demo-display)]">{selected.priceLabel}</p>
-            <p className="text-sm text-[#5d5258]">{selected.duration}</p>
           </div>
           <Link
             href={`/book/${selected.id}?returning=1`}

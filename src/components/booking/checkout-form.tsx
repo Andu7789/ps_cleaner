@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBookingAction } from "@/lib/actions/booking";
-import { addAddressAction } from "@/lib/actions/customer";
 import { formatDate, formatPence, formatServicePrice, formatTime } from "@/lib/format";
-import { PaymentStep } from "@/components/booking/payment-step";
-import type { Addon, BookingAccessMethod, CustomerAddress, Service } from "@/lib/types";
+import type { Addon, BookingAccessMethod, Service } from "@/lib/types";
 
 interface RoomSelection {
   roomTypeId: string;
@@ -16,131 +14,76 @@ interface RoomSelection {
 }
 
 interface Props {
-  customerId: string;
   service: Service;
   cleanerId: string;
   cleanerName: string;
   startsAt: string;
-  addresses: CustomerAddress[];
   addons: Addon[];
-  creditBalancePence: number;
   roomSelections?: RoomSelection[];
-  businessName: string;
+  // Came from the "Returning customer" card, so we ask for the email they used before.
+  returning?: boolean;
 }
 
-export function CheckoutForm({
-  customerId,
-  service,
-  cleanerId,
-  cleanerName,
-  startsAt,
-  addresses: initialAddresses,
-  addons,
-  creditBalancePence,
-  roomSelections = [],
-  businessName,
-}: Props) {
+const ACCESS_OPTIONS: { value: BookingAccessMethod; label: string }[] = [
+  { value: "keys", label: "I will provide keys" },
+  { value: "let_in", label: "I will let them in" },
+  { value: "key_box", label: "I have a key box" },
+];
+
+const field = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground";
+
+// Customers don't have accounts: they give their details here and are emailed
+// a booking reference they can use to change the booking later. Nothing is
+// paid online.
+export function CheckoutForm({ service, cleanerId, cleanerName, startsAt, addons, roomSelections = [], returning = false }: Props) {
   const router = useRouter();
-  const [addresses] = useState(initialAddresses);
-  const [addressId, setAddressId] = useState(initialAddresses.find((a) => a.is_default)?.id ?? initialAddresses[0]?.id ?? "");
-  const [showNewAddress, setShowNewAddress] = useState(initialAddresses.length === 0);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
-  const [useCredit, setUseCredit] = useState(creditBalancePence > 0);
   const [parkingAvailable, setParkingAvailable] = useState(false);
   const [hasPets, setHasPets] = useState(false);
   const [accessMethod, setAccessMethod] = useState<BookingAccessMethod>("let_in");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [booking, setBooking] = useState<{ bookingId: string; clientSecret: string; amountDuePence: number } | null>(null);
 
   const addonTotal = addons.filter((a) => selectedAddonIds.includes(a.id)).reduce((sum, a) => sum + a.price_pence, 0);
   const roomTotal = roomSelections.reduce((sum, r) => sum + r.quantity * r.pricePerUnitPence, 0);
   const grandTotal = service.price_pence + addonTotal + roomTotal;
-  // The whole price is paid at booking. A quote service takes nothing now: the
-  // listed price is only an estimate, so it is paid once the final price is set.
-  const amountDueBeforeCredit = service.requires_quote ? 0 : grandTotal;
-  const creditApplied = useCredit ? Math.min(creditBalancePence, amountDueBeforeCredit) : 0;
-  const amountDue = amountDueBeforeCredit - creditApplied;
 
   function toggleAddon(addonId: string) {
     setSelectedAddonIds((prev) => (prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]));
   }
 
-  async function handleNewAddress(formData: FormData) {
+  async function handleSubmit(formData: FormData) {
     setPending(true);
     setError(null);
+    const text = (name: string) => String(formData.get(name) ?? "");
     try {
-      await addAddressAction(customerId, {
-        label: String(formData.get("label") ?? "Home"),
-        line1: String(formData.get("line1") ?? ""),
-        line2: String(formData.get("line2") ?? "") || undefined,
-        city: String(formData.get("city") ?? ""),
-        postcode: String(formData.get("postcode") ?? ""),
-        accessNotes: String(formData.get("accessNotes") ?? "") || undefined,
-        isDefault: addresses.length === 0,
-      });
-      // The server action revalidates /account/addresses, not this page — a
-      // full reload is the simplest way to pick up the new row without
-      // duplicating address-fetch logic here just for this one case.
-      window.location.reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save that address");
-      setPending(false);
-    }
-  }
-
-  async function handleBookAndPay() {
-    if (!addressId) {
-      setError("Please choose or add an address first.");
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      const result = await createBookingAction({
+      const { reference } = await createBookingAction({
         cleanerId,
         serviceId: service.id,
-        addressId,
         startsAt,
+        fullName: text("fullName"),
+        email: text("email"),
+        phone: text("phone"),
+        line1: text("line1"),
+        line2: text("line2"),
+        city: text("city"),
+        postcode: text("postcode"),
+        accessNotes: text("accessNotes"),
         addonIds: selectedAddonIds,
-        applyCreditPence: creditApplied,
         parkingAvailable,
         hasPets,
         accessMethod,
         roomSelections: roomSelections.map((r) => ({ roomTypeId: r.roomTypeId, quantity: r.quantity })),
       });
-      if (!result.clientSecret) {
-        // Credit covered the whole amount due — nothing left to pay, and
-        // the booking is already confirmed server-side.
-        router.push(`/book/confirmation?bookingId=${result.bookingId}`);
-        return;
-      }
-      setBooking({ bookingId: result.bookingId, clientSecret: result.clientSecret, amountDuePence: result.amountDuePence });
+      router.push(`/book/confirmation?ref=${encodeURIComponent(reference)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create this booking");
-    } finally {
+      setError(err instanceof Error ? err.message : "Couldn't make this booking");
       setPending(false);
     }
   }
 
-  if (booking) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="font-semibold text-foreground">Payment</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Almost done — confirm payment to secure your slot.</p>
-        <div className="mt-4">
-          <PaymentStep
-            bookingId={booking.bookingId}
-            clientSecret={booking.clientSecret}
-            amountDuePence={booking.amountDuePence}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Your booking</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -158,35 +101,66 @@ export function CheckoutForm({
             ))}
           </ul>
         )}
-        {service.requires_quote && grandTotal <= 0 ? (
-          <p className="mt-2 text-sm font-semibold text-brand">
-            This appointment is free. You&apos;ll be given a quote at the end of the walkthrough. Nothing to pay now.
-          </p>
-        ) : service.requires_quote ? (
-          <p className="mt-2 text-sm font-semibold text-brand">
-            Estimated {formatServicePrice(grandTotal)}. {businessName} will be in contact with your exact quote. Nothing
-            to pay now, you pay once your price is confirmed.
-          </p>
-        ) : amountDue <= 0 ? (
-          <p className="mt-2 text-sm font-semibold text-brand">{grandTotal <= 0 ? "Free, nothing to pay" : "Nothing to pay now"}</p>
-        ) : (
-          <p className="mt-2 text-sm font-semibold text-brand">
-            {formatPence(amountDue)} due now
-          </p>
-        )}
-        {creditApplied > 0 && (
-          <p className="mt-1 text-xs text-success">{formatPence(creditApplied)} credit applied</p>
-        )}
+        <p className="mt-2 text-sm font-semibold text-brand">
+          {service.requires_quote && grandTotal <= 0
+            ? "This appointment is free. You'll be given a quote at the end of the walkthrough. Nothing to pay now."
+            : "Nothing to pay now. We'll send you an invoice once your clean is complete."}
+        </p>
       </div>
 
-      {creditBalancePence > 0 && (
-        <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-sm">
-          <span className="flex items-center gap-2">
-            <input type="checkbox" className="accent-brand" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />
-            Use my {formatPence(creditBalancePence)} credit
-          </span>
-        </label>
-      )}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="font-semibold text-foreground">Your details</h2>
+        {returning && (
+          <p className="mt-1 text-sm text-muted-foreground">Please use the email address you booked with before.</p>
+        )}
+        <div className="mt-3 space-y-3">
+          <label className="block text-sm">
+            <span className="text-foreground">Full name</span>
+            <input name="fullName" required autoComplete="name" className={`mt-1 ${field}`} />
+          </label>
+          <label className="block text-sm">
+            <span className="text-foreground">Email</span>
+            <input name="email" type="email" required autoComplete="email" className={`mt-1 ${field}`} />
+            <span className="mt-1 block text-xs text-muted-foreground">We&apos;ll email your booking reference here.</span>
+          </label>
+          <label className="block text-sm">
+            <span className="text-foreground">Phone</span>
+            <input name="phone" type="tel" required autoComplete="tel" className={`mt-1 ${field}`} />
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="font-semibold text-foreground">Address</h2>
+        <div className="mt-3 space-y-3">
+          <label className="block text-sm">
+            <span className="text-foreground">Address line 1</span>
+            <input name="line1" required autoComplete="address-line1" className={`mt-1 ${field}`} />
+          </label>
+          <label className="block text-sm">
+            <span className="text-foreground">
+              Address line 2 <span className="text-muted-foreground">(optional)</span>
+            </span>
+            <input name="line2" autoComplete="address-line2" className={`mt-1 ${field}`} />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="text-foreground">Town or city</span>
+              <input name="city" required autoComplete="address-level2" className={`mt-1 ${field}`} />
+            </label>
+            <label className="block text-sm">
+              <span className="text-foreground">Postcode</span>
+              <input name="postcode" required autoComplete="postal-code" className={`mt-1 ${field}`} />
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="text-foreground">
+              Access notes <span className="text-muted-foreground">(optional)</span>
+            </span>
+            <textarea name="accessNotes" rows={2} className={`mt-1 ${field}`} />
+          </label>
+        </div>
+      </div>
 
       {addons.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-5">
@@ -216,123 +190,82 @@ export function CheckoutForm({
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Before your visit</h2>
         <div className="mt-3 space-y-4 text-sm">
-          <YesNoQuestion label="Is parking available nearby?" value={parkingAvailable} onChange={setParkingAvailable} />
-          <YesNoQuestion label="Do you have any pets?" value={hasPets} onChange={setHasPets} />
-          <div>
-            <p className="text-foreground">How will your cleaner access the property?</p>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAccessMethod("keys")}
-                className={`rounded-lg border px-3 py-1.5 font-medium ${
-                  accessMethod === "keys" ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
-                }`}
-              >
-                I will provide keys
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccessMethod("let_in")}
-                className={`rounded-lg border px-3 py-1.5 font-medium ${
-                  accessMethod === "let_in" ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
-                }`}
-              >
-                I will let them in
-              </button>
-            </div>
-          </div>
+          <ChoiceQuestion
+            label="Is parking available nearby?"
+            options={[
+              { value: "yes", label: "Yes" },
+              { value: "no", label: "No" },
+            ]}
+            value={parkingAvailable ? "yes" : "no"}
+            onChange={(v) => setParkingAvailable(v === "yes")}
+          />
+          <ChoiceQuestion
+            label="Do you have any pets?"
+            options={[
+              { value: "yes", label: "Yes" },
+              { value: "no", label: "No" },
+            ]}
+            value={hasPets ? "yes" : "no"}
+            onChange={(v) => setHasPets(v === "yes")}
+          />
+          <ChoiceQuestion
+            label="How will your cleaner access the property?"
+            options={ACCESS_OPTIONS}
+            value={accessMethod}
+            onChange={(v) => setAccessMethod(v as BookingAccessMethod)}
+          />
+          {accessMethod === "key_box" && (
+            <p className="text-muted-foreground">We&apos;ll be in touch to take the key box code before your visit.</p>
+          )}
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="font-semibold text-foreground">Address</h2>
-        {addresses.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {addresses.map((a) => (
-              <label key={a.id} className="flex items-start gap-2 rounded-lg border border-border p-3 text-sm">
-                <input
-                  type="radio"
-                  name="address"
-                  checked={addressId === a.id}
-                  onChange={() => setAddressId(a.id)}
-                  className="mt-1"
-                />
-                <span>
-                  <span className="font-medium text-foreground">{a.label}</span>
-                  <br />
-                  {a.line1}, {a.city} {a.postcode}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-        {!showNewAddress ? (
-          <button
-            type="button"
-            onClick={() => setShowNewAddress(true)}
-            className="mt-3 text-sm text-brand hover:underline"
-          >
-            + Add a new address
-          </button>
-        ) : (
-          <form action={handleNewAddress} className="mt-3 space-y-2">
-            <input name="label" placeholder="Label (e.g. Home)" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-            <input name="line1" required placeholder="Address line 1" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-            <input name="line2" placeholder="Address line 2 (optional)" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-            <div className="flex gap-2">
-              <input name="city" required placeholder="City" className="w-1/2 rounded-lg border border-border px-3 py-2 text-sm" />
-              <input name="postcode" required placeholder="Postcode" className="w-1/2 rounded-lg border border-border px-3 py-2 text-sm" />
-            </div>
-            <textarea name="accessNotes" placeholder="Access notes (optional)" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-            <button type="submit" disabled={pending} className="rounded-lg bg-muted px-3 py-1.5 text-sm font-medium">
-              Save address
-            </button>
-          </form>
-        )}
-      </div>
-
-      {error && <p className="text-sm text-danger">{error}</p>}
-      {!addressId && (
-        <p className="text-sm text-muted-foreground">
-          {showNewAddress ? "Save your address above to continue." : "Choose an address above to continue."}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
         </p>
       )}
 
       <button
-        type="button"
-        onClick={handleBookAndPay}
-        disabled={pending || !addressId}
-        className="w-full rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground disabled:opacity-60"
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-lg bg-brand px-4 py-2.5 font-semibold text-brand-foreground disabled:opacity-60"
       >
-        {pending ? "Booking…" : amountDue <= 0 ? "Confirm booking" : "Continue to payment"}
+        {pending ? "Booking…" : "Confirm booking"}
       </button>
-    </div>
+    </form>
   );
 }
 
-function YesNoQuestion({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function ChoiceQuestion({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <div>
+    <div role="radiogroup" aria-label={label}>
       <p className="text-foreground">{label}</p>
-      <div className="mt-2 flex gap-2">
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          className={`rounded-lg border px-3 py-1.5 font-medium ${
-            value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
-          }`}
-        >
-          Yes
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          className={`rounded-lg border px-3 py-1.5 font-medium ${
-            !value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
-          }`}
-        >
-          No
-        </button>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={value === o.value}
+            onClick={() => onChange(o.value)}
+            className={`rounded-lg border px-3 py-1.5 font-medium ${
+              value === o.value ? "border-brand bg-brand/5 text-foreground" : "border-border text-muted-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
       </div>
     </div>
   );

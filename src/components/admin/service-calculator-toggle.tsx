@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   setServiceCalculatorAction,
   setServiceRequiresQuoteAction,
+  setServiceReturningAction,
   setServiceRoomsNoChargeAction,
 } from "@/lib/actions/admin";
 
@@ -12,12 +13,15 @@ export function ServiceCalculatorToggle({
   initialEnabled,
   initialNoCharge,
   initialRequiresQuote,
+  initialReturning,
 }: {
   serviceId: string;
   initialEnabled: boolean;
   initialNoCharge: boolean;
   initialRequiresQuote: boolean;
+  initialReturning: boolean;
 }) {
+  const [returning, setReturning] = useState(initialReturning);
   const [enabled, setEnabled] = useState(initialEnabled);
   const [noCharge, setNoCharge] = useState(initialNoCharge);
   const [requiresQuote, setRequiresQuote] = useState(initialRequiresQuote);
@@ -25,6 +29,20 @@ export function ServiceCalculatorToggle({
 
   return (
     <div className="space-y-1">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          className="accent-brand"
+          checked={returning}
+          disabled={pending}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setReturning(next);
+            startTransition(() => setServiceReturningAction(serviceId, next));
+          }}
+        />
+        Offer to returning customers on the homepage
+      </label>
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input
           type="checkbox"
@@ -37,7 +55,7 @@ export function ServiceCalculatorToggle({
             startTransition(() => setServiceRequiresQuoteAction(serviceId, next));
           }}
         />
-        We will check the quote and provide a price (paid once the price is confirmed)
+        We will check the quote and provide a price
       </label>
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input

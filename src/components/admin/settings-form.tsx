@@ -43,7 +43,6 @@ export function SettingsForm({
   const [contactPhone, setContactPhone] = useState(settings.contact_phone ?? "");
   const [timezone, setTimezone] = useState(settings.timezone);
   const [reminderHoursBefore, setReminderHoursBefore] = useState(settings.reminder_hours_before);
-  const [balanceChargeDaysBefore, setBalanceChargeDaysBefore] = useState(settings.balance_charge_days_before);
   const [logoUrl, setLogoUrl] = useState(settings.logo_url ?? "");
   const [iconUrl, setIconUrl] = useState(settings.icon_url ?? "");
   const [uploading, setUploading] = useState(false);
@@ -83,7 +82,6 @@ export function SettingsForm({
           contactPhone,
           timezone,
           reminderHoursBefore,
-          balanceChargeDaysBefore,
           logoUrl,
           iconUrl,
         });
@@ -220,16 +218,6 @@ export function SettingsForm({
             min={1}
             value={reminderHoursBefore}
             onChange={(e) => setReminderHoursBefore(Number(e.target.value))}
-            className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Balance charge — days before the job</label>
-          <input
-            type="number"
-            min={0}
-            value={balanceChargeDaysBefore}
-            onChange={(e) => setBalanceChargeDaysBefore(Number(e.target.value))}
             className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-sm"
           />
         </div>

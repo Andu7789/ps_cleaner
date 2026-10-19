@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findWalkthroughService, hourlyPricePence, quoteAmountDue, servicePriceLabel } from "./format";
+import { estimatePricePence, findWalkthroughService, hourlyPricePence, normaliseReference, quoteAmountDue, servicePriceLabel } from "./format";
 
 describe("hourlyPricePence", () => {
   it("prorates the hourly rate over the clean time", () => {
@@ -67,5 +67,28 @@ describe("servicePriceLabel for hourly services", () => {
     expect(
       servicePriceLabel({ price_pence: 2400, requires_quote: false, price_is_from: true, hourly_rate_pence: 2400 })
     ).toBe("From £24.00 per hour");
+  });
+});
+
+describe("normaliseReference", () => {
+  it("strips spaces and dashes and upper cases", () => {
+    expect(normaliseReference(" k7qm-2xpa ")).toBe("K7QM2XPA");
+    expect(normaliseReference("K7QM 2XPA")).toBe("K7QM2XPA");
+  });
+});
+
+describe("estimatePricePence", () => {
+  it("multiplies the hourly rate by the hours", () => {
+    expect(estimatePricePence({ hourly_rate_pence: 3200, price_pence: 3200 }, 3)).toBe(9600);
+    expect(estimatePricePence({ hourly_rate_pence: 2400, price_pence: 2400 }, 2.5)).toBe(6000);
+  });
+  it("needs hours when the clean is hourly", () => {
+    expect(estimatePricePence({ hourly_rate_pence: 3200, price_pence: 3200 }, null)).toBeNull();
+  });
+  it("uses the fixed price when the clean has no hourly rate", () => {
+    expect(estimatePricePence({ hourly_rate_pence: null, price_pence: 25000 }, 4)).toBe(25000);
+  });
+  it("is null without a service", () => {
+    expect(estimatePricePence(null, 3)).toBeNull();
   });
 });

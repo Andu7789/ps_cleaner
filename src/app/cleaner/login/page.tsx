@@ -1,6 +1,6 @@
 import { PasswordLoginForm } from "@/components/auth/password-login-form";
 import { getUser } from "@/lib/auth";
-import { signOutAction } from "@/lib/actions/customer";
+import { signOutAction } from "@/lib/actions/auth";
 import { cleanerSignInAction, requestCleanerPasswordSetupAction } from "@/lib/actions/cleaner-auth";
 
 export default async function CleanerLoginPage({

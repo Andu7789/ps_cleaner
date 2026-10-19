@@ -54,6 +54,7 @@ export default async function AdminServicesPage() {
                   initialEnabled={s.use_calculator}
                   initialNoCharge={s.rooms_no_charge}
                   initialRequiresQuote={s.requires_quote}
+                  initialReturning={s.returning_customers_can_book !== false}
                 />
               </div>
             </div>

@@ -8,8 +8,6 @@ import { hourlyPricePence } from "@/lib/format";
 import { generateMagicLink } from "@/lib/magic-link";
 import { sendStaffInviteEmail } from "@/lib/notify";
 import { notifyWaitlistOnCancellation } from "@/lib/bookings";
-import { applySucceededPaymentIntent } from "@/lib/payments";
-import { getStripe } from "@/lib/stripe";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
@@ -59,11 +57,13 @@ export async function createCleanerAction(input: CleanerInput) {
   const business = await getCurrentBusiness();
   const supabase = await createClient();
   const email = input.email?.trim().toLowerCase() || null;
+  const phone = input.phone?.trim() || null;
+  if (!email || !phone) throw new Error("A cleaner needs an email address and a phone number");
   const { error } = await supabase.from("PS_CLEAN_cleaners").insert({
     business_id: business.id,
     full_name: input.fullName,
     email,
-    phone: input.phone ?? null,
+    phone,
     bio: input.bio ?? null,
     calendar_color: input.calendarColor ?? "#2563eb",
   });
@@ -182,7 +182,6 @@ export async function deleteBookingAction(bookingId: string): Promise<{ error: s
   if (!count) return { error: "Couldn't delete this booking." };
   revalidatePath("/admin/bookings");
   revalidatePath("/cleaner", "layout");
-  revalidatePath("/account", "layout");
 }
 
 export async function setCleanerActiveAction(cleanerId: string, isActive: boolean) {
@@ -460,52 +459,6 @@ export async function adminSetBookingStatusAction(bookingId: string, status: str
   revalidatePath("/admin/bookings");
 }
 
-export interface ReconcileResult {
-  outcome: "confirmed" | "still_pending" | "payment_failed" | "no_payment_found";
-  message: string;
-}
-
-// Manually re-checks a booking's payment against Stripe and applies the
-// same reconciliation the webhook would have — the recovery path for when
-// the webhook never reached us (most commonly in local dev with no `stripe
-// listen` running; see DECISIONS.md #10/#11, this happened for real during
-// this app's own testing). Safe to run on any booking at any time: it only
-// ever reads Stripe's current truth and applies it, never guesses.
-export async function reconcilePaymentAction(bookingId: string): Promise<ReconcileResult> {
-  await requireAdmin();
-  const service = createServiceClient();
-
-  const { data: payment } = await service
-    .from("PS_CLEAN_payments")
-    .select("stripe_payment_intent_id")
-    .eq("booking_id", bookingId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!payment?.stripe_payment_intent_id) {
-    return { outcome: "no_payment_found", message: "No payment has been started for this booking yet." };
-  }
-
-  const stripe = getStripe();
-  const intent = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent_id);
-
-  if (intent.status === "succeeded") {
-    await applySucceededPaymentIntent(service, intent);
-    revalidatePath("/admin/bookings");
-    return { outcome: "confirmed", message: "Payment had succeeded on Stripe — booking is now confirmed." };
-  }
-
-  if (intent.status === "canceled" || intent.last_payment_error) {
-    return {
-      outcome: "payment_failed",
-      message: intent.last_payment_error?.message ?? "Payment was not completed.",
-    };
-  }
-
-  return { outcome: "still_pending", message: `Stripe still shows this as "${intent.status}" — not paid yet.` };
-}
-
 export interface AppearanceInput {
   brandColor: string;
   backgroundStyle: "neutral" | "tinted";
@@ -547,7 +500,6 @@ export interface BusinessSettingsInput {
   contactPhone?: string;
   timezone: string;
   reminderHoursBefore: number;
-  balanceChargeDaysBefore: number;
   logoUrl?: string;
   iconUrl?: string;
 }
@@ -570,7 +522,6 @@ export async function updateBusinessSettingsAction(input: BusinessSettingsInput)
       contact_phone: input.contactPhone || null,
       timezone: input.timezone,
       reminder_hours_before: input.reminderHoursBefore,
-      balance_charge_days_before: input.balanceChargeDaysBefore,
       logo_url: input.logoUrl || null,
       icon_url: input.logoUrl ? input.iconUrl || null : null,
     })
@@ -661,6 +612,36 @@ export async function setServiceRequiresQuoteAction(serviceId: string, requiresQ
   if (error) throw new Error(error.message);
   revalidatePath("/admin/services");
   revalidatePath("/book", "layout");
+}
+
+// Set by the owner on a booking's address and shown to the cleaner. Blank clears it.
+export async function saveKeyBoxCodeAction(addressId: string, code: string): Promise<{ error: string } | undefined> {
+  await requireAdmin();
+  const value = code.trim();
+  if (value.length > 40) return { error: "Keep the code under 40 characters" };
+  const business = await getCurrentBusiness();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_customer_addresses")
+    .update({ key_box_code: value || null })
+    .eq("id", addressId)
+    .eq("business_id", business.id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/bookings", "layout");
+  revalidatePath("/cleaner", "layout");
+}
+
+// Whether the clean shows in the homepage's "Returning customer" card.
+export async function setServiceReturningAction(serviceId: string, offered: boolean) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("PS_CLEAN_services")
+    .update({ returning_customers_can_book: offered, updated_at: new Date().toISOString() })
+    .eq("id", serviceId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/services");
+  revalidatePath("/");
 }
 
 export async function createRoomTypeAction(name: string, pricePerUnitPence: number, minutesPerUnit = 0) {

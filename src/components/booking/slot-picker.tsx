@@ -8,7 +8,6 @@ import { candidateStartTimes, groupByTimeOfDay } from "@/lib/slots";
 import { toDateKey } from "@/lib/calendar";
 import { formatTime } from "@/lib/format";
 import { Calendar } from "@/components/booking/calendar";
-import { WaitlistButton } from "@/components/booking/waitlist-button";
 import { PricingCalculator } from "@/components/booking/pricing-calculator";
 import { customerMinutes, formatPence, servicePriceLabel } from "@/lib/format";
 import type { CalculatorRoomType, Cleaner, CleanerRating, FreeSlotRange, Service } from "@/lib/types";
@@ -59,11 +58,20 @@ export function SlotPicker({
   cleaners,
   ratings,
   roomTypes = [],
+  returning = false,
+  durationMinutes,
+  onChoose,
 }: {
   service: Service;
   cleaners: Cleaner[];
   ratings: Record<string, CleanerRating>;
   roomTypes?: CalculatorRoomType[];
+  // Carried on to checkout so a returning customer isn't sent back to the walkthrough.
+  returning?: boolean;
+  // Length to find room for, when moving a booking that already has one.
+  durationMinutes?: number;
+  // Picks a slot without going to checkout (used to move an existing booking).
+  onChoose?: (cleanerId: string, startsAt: Date) => void;
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -75,9 +83,8 @@ export function SlotPicker({
   const calculatorExtraMinutes = noCharge
     ? 0
     : roomTypes.reduce((sum, rt) => sum + (roomQuantities[rt.id] ?? 0) * rt.minutes_per_unit, 0);
-  const effectiveDurationMinutes = service.use_calculator
-    ? service.duration_minutes + calculatorExtraMinutes
-    : service.duration_minutes;
+  const effectiveDurationMinutes =
+    durationMinutes ?? (service.use_calculator ? service.duration_minutes + calculatorExtraMinutes : service.duration_minutes);
   // What the customer is told, which can be shorter than the time blocked in
   // the diary (effectiveDurationMinutes above, used for finding free slots).
   const shownMinutes = customerMinutes(service) + (service.use_calculator ? calculatorExtraMinutes : 0);
@@ -138,7 +145,12 @@ export function SlotPicker({
   const availableCleaners = Array.from(slotsByCleanerId.entries()).filter(([, starts]) => starts.length > 0);
 
   function chooseSlot(cleanerId: string, startsAt: Date) {
+    if (onChoose) {
+      onChoose(cleanerId, startsAt);
+      return;
+    }
     const params = new URLSearchParams({ cleanerId, startsAt: startsAt.toISOString() });
+    if (returning) params.set("returning", "1");
     if (service.use_calculator && roomTypes.length > 0) {
       const selections = roomTypes
         .filter((rt) => (roomQuantities[rt.id] ?? 0) > 0)
@@ -247,9 +259,8 @@ export function SlotPicker({
               <CalendarX2 className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-foreground">No availability on this day</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Try another date on the calendar — most days have open slots.
+                Try another date on the calendar, most days have open slots.
               </p>
-              <WaitlistButton serviceId={service.id} wantedDate={toDateKey(selectedDate)} />
             </div>
           )}
         </div>

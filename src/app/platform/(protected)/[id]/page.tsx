@@ -32,13 +32,6 @@ export default async function PlatformRequestPage({ params }: { params: Promise<
         db.from("PS_CLEAN_payments").select("id", { count: "exact", head: true }).eq("business_id", req.business_id),
       ])
     : [{ data: null }, null, null, null];
-  const { data: live } = req.business_id
-    ? await createServiceClient()
-        .from("PS_CLEAN_businesses")
-        .select("payment_mode, stripe_charges_enabled")
-        .eq("id", req.business_id)
-        .maybeSingle()
-    : { data: null };
   const a = req.answers;
   const progress = completeness(a);
   const origin = await platformOrigin();
@@ -70,9 +63,6 @@ export default async function PlatformRequestPage({ params }: { params: Promise<
         status={req.status}
         log={req.provision_log}
         missing={progress.missing}
-        suggestedMode={a.payments?.method === "stripe" ? "connect" : "platform"}
-        currentMode={live?.payment_mode ?? null}
-        chargesEnabled={Boolean(live?.stripe_charges_enabled)}
       />
 
       <div className="rounded-xl border border-border bg-card px-4">
@@ -139,9 +129,7 @@ export default async function PlatformRequestPage({ params }: { params: Promise<
             ) : null}
           </Item>
           <Item label="Payments">
-            {a.payments?.method
-              ? `${a.payments.method === "stripe" ? "Wants card payments connected" : a.payments.method === "later" ? "Not yet" : "Not sure"}${a.payments.notes ? `. ${a.payments.notes}` : ""}`
-              : null}
+            {a.payments?.notes || null}
           </Item>
           {a.notes && <Item label="Other notes">{a.notes}</Item>}
         </dl>

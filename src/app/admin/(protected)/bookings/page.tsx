@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { isOwner } from "@/lib/auth";
+import { findWalkthroughService } from "@/lib/format";
 import { BookingsTable } from "@/components/admin/bookings-table";
 import type { Booking, Cleaner, Customer, Service } from "@/lib/types";
 
@@ -29,7 +29,7 @@ function formatRelative(iso: string): string {
 export default async function AdminBookingsPage() {
   const business = await getCurrentBusiness();
   const supabase = await createClient();
-  const [{ data }, { data: changeLog }] = await Promise.all([
+  const [{ data }, { data: changeLog }, { data: serviceRows }] = await Promise.all([
     supabase
       .from("PS_CLEAN_bookings")
       .select("*, PS_CLEAN_services(*), PS_CLEAN_cleaners(*), PS_CLEAN_customers(*)")
@@ -42,7 +42,19 @@ export default async function AdminBookingsPage() {
       .eq("business_id", business.id)
       .order("changed_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("PS_CLEAN_services")
+      .select("*")
+      .eq("business_id", business.id)
+      .eq("is_active", true)
+      .order("price_pence", { ascending: true }),
   ]);
+  // The cleans a job can need: every active service except the walkthrough itself.
+  const allServices = (serviceRows ?? []) as Service[];
+  const walkthrough = findWalkthroughService(allServices);
+  const pricingServices = allServices
+    .filter((s) => s.id !== walkthrough?.id)
+    .map((s) => ({ id: s.id, name: s.name, hourly_rate_pence: s.hourly_rate_pence, price_pence: s.price_pence }));
 
   const bookings = (data ?? []) as Row[];
   const changes = (changeLog ?? []) as unknown as ChangeLogRow[];
@@ -51,7 +63,7 @@ export default async function AdminBookingsPage() {
     <div>
       <h1 className="text-xl font-semibold text-foreground">Bookings</h1>
       <div className="mt-4">
-        <BookingsTable bookings={bookings} isOwner={await isOwner()} />
+        <BookingsTable bookings={bookings} services={pricingServices} />
       </div>
 
       {changes.length > 0 && (

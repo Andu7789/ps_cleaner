@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getStripe } from "@/lib/stripe";
 
 // The parts of deleting a business that live outside the database. The rows
 // themselves go in one transaction (ps_clean_delete_business, migration
@@ -73,22 +72,5 @@ export async function cleanUpAfterDelete(
     warnings.push(`Some stored files weren't removed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  if (summary.stripe_customer_ids.length > 0 || summary.stripe_account_id) {
-    try {
-      const stripe = getStripe();
-      for (const customerId of summary.stripe_customer_ids.slice(0, 200)) {
-        await stripe.customers.del(customerId).catch(() => warnings.push(`Stripe customer ${customerId} wasn't removed.`));
-      }
-      if (summary.stripe_account_id) {
-        await stripe.accounts
-          .del(summary.stripe_account_id)
-          .catch((err: unknown) =>
-            warnings.push(`Stripe account ${summary.stripe_account_id} wasn't removed: ${err instanceof Error ? err.message : String(err)}`),
-          );
-      }
-    } catch (err) {
-      warnings.push(`Stripe clean up skipped: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
   return warnings;
 }

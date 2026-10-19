@@ -22,7 +22,8 @@ export default async function AdminOverviewPage() {
     .order("starts_at", { ascending: true });
 
   const todaysBookings = (data ?? []) as (Booking & { PS_CLEAN_services: Service; PS_CLEAN_cleaners: Cleaner })[];
-  const revenueToday = todaysBookings.reduce((sum, b) => sum + b.amount_paid_pence, 0);
+  // Nothing is paid online, so this is what has been invoiced for today's jobs.
+  const revenueToday = todaysBookings.reduce((sum, b) => sum + (b.invoice_sent_at ? (b.final_price_pence ?? 0) : 0), 0);
 
   return (
     <div>
@@ -33,7 +34,7 @@ export default async function AdminOverviewPage() {
           <p className="mt-1 text-2xl font-semibold text-foreground">{todaysBookings.length}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Collected today</p>
+          <p className="text-sm text-muted-foreground">Invoiced today</p>
           <p className="mt-1 text-2xl font-semibold text-foreground">{formatPence(revenueToday)}</p>
         </div>
         <Link href="/admin/bookings" className="rounded-xl border border-border bg-card p-4 hover:border-brand">

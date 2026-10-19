@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import type { Cleaner, Customer } from "./types";
+import type { Cleaner } from "./types";
 
 export async function getUser() {
   const supabase = await createClient();
@@ -13,34 +13,8 @@ export async function getUser() {
 
 export async function requireUser() {
   const user = await getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/");
   return user;
-}
-
-// Customer identity is global per auth user (not per-business — see
-// DECISIONS.md), but a customer only ever belongs to the ONE business they
-// signed up under. Scoped by business_id so a login that already has a
-// profile on a different white-labeled instance is correctly treated as
-// "no profile here yet" rather than silently reusing the wrong business's
-// row (which would then fail business-consistency checks the moment they
-// tried to book).
-export async function getCustomer(userId: string): Promise<Customer | null> {
-  const supabase = await createClient();
-  const business = await getCurrentBusiness();
-  const { data } = await supabase
-    .from("PS_CLEAN_customers")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("business_id", business.id)
-    .maybeSingle();
-  return (data as Customer | null) ?? null;
-}
-
-export async function requireCustomer() {
-  const user = await requireUser();
-  const customer = await getCustomer(user.id);
-  if (!customer) redirect("/account/setup");
-  return { user, customer };
 }
 
 // Same email-invite-then-link-on-first-login shape as requireCleaner()
@@ -110,7 +84,7 @@ export async function requireOwner() {
 }
 
 // Cleaners are added by the admin, never self-service (see DECISIONS.md
-// #3) — so unlike requireCustomer, there is no "create your profile" page.
+// #3) — so there is no "create your profile" page.
 // The first time a cleaner signs in, their auth user has no matching
 // PS_CLEAN_cleaners.user_id yet; link it by email instead of bouncing them
 // to a signup form, since the row (created by the admin) already exists.

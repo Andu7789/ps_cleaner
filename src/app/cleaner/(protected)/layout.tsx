@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { requireCleaner } from "@/lib/auth";
-import { signOutAction } from "@/lib/actions/customer";
-import { createClient } from "@/lib/supabase/server";
+import { signOutAction } from "@/lib/actions/auth";
 import { PushToggle } from "@/components/cleaner/push-toggle";
 import { CleanerNav } from "@/components/cleaner/cleaner-nav";
 
@@ -9,14 +8,6 @@ import { CleanerNav } from "@/components/cleaner/cleaner-nav";
 // this layout entirely, so it never runs requireCleaner() or renders nav.
 export default async function CleanerLayout({ children }: { children: ReactNode }) {
   const { cleaner } = await requireCleaner();
-  const supabase = await createClient();
-  const { count: quotesWaiting } = await supabase
-    .from("PS_CLEAN_bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("cleaner_id", cleaner.id)
-    .eq("quote_status", "pending")
-    .neq("status", "cancelled");
-
   return (
     <div className="neutral-page mx-auto max-w-md px-4 py-6">
       <div className="flex items-center justify-between border-b border-border pb-4">
@@ -31,7 +22,7 @@ export default async function CleanerLayout({ children }: { children: ReactNode 
         </form>
       </div>
       {process.env.VAPID_PUBLIC_KEY && <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY} />}
-      <CleanerNav quotesWaiting={quotesWaiting ?? 0} />
+      <CleanerNav />
       <div className="py-6">{children}</div>
     </div>
   );

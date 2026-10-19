@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Customers no longer have accounts (they use a booking reference), so
+  // links in older emails go to the homepage instead of a 404.
+  async redirects() {
+    return [
+      { source: "/account", destination: "/", permanent: false },
+      { source: "/account/:path*", destination: "/", permanent: false },
+      { source: "/login", destination: "/", permanent: false },
+    ];
+  },
   // Next's built-in image optimizer bundles `sharp`, which needs native
   // Node bindings Cloudflare Workers can't run (esbuild fails trying to
   // bundle the .node binary). Not a real loss — nothing in this app uses

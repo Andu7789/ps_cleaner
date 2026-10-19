@@ -17,7 +17,7 @@ export const HOME_COPY = {
     { title: "Fully insured", text: "Every clean is covered, so you never have to worry." },
     { title: "Vetted cleaners", text: "Background checked and trained to our standard." },
     { title: "Happiness guarantee", text: "Not delighted? We will come back and put it right." },
-    { title: "Pay securely online", text: "No cash, no chasing. Pay when you book." },
+    { title: "No upfront payment", text: "Nothing to pay when you book. We invoice you once the clean is done." },
   ],
   services: {
     heading: "Pick a clean, we'll do the rest",
@@ -31,7 +31,7 @@ export const HOME_COPY = {
     imageAlt: "A cleaner in yellow gloves wiping down a wooden shelf",
     steps: [
       { title: "Book a free walkthrough", text: "A short visit so we can see your home and learn what matters most to you." },
-      { title: "Get a fixed price", text: "We confirm a clear price before anything is charged. No surprises." },
+      { title: "Get your quote", text: "We email you a clear quote before your first clean. No surprises." },
       { title: "Relax while we clean", text: "Your cleaner arrives on time with everything needed. You come home to the result." },
     ],
   },
@@ -43,18 +43,18 @@ export const HOME_COPY = {
     points: [
       "The same friendly cleaner where possible, so they get to know your home",
       "Checklists for every room, so nothing gets missed",
-      "Eco friendly products, safe for children and pets",
+      "Eco-conscious cleaning using non-harsh products",
       "A quick check with you at the end, before we leave",
     ],
   },
   faq: {
-    heading: "Good questions",
+    heading: "Frequently asked questions",
     items: [
-      { q: "Do I need to be at home?", a: "No. Many customers leave a key or access details with us. Tell us how you would like to do it when you book." },
-      { q: "Do you bring your own supplies?", a: "Yes. Your cleaner arrives with products and equipment. If you prefer we use yours, just let us know." },
-      { q: "What if I need to change my booking?", a: "You can cancel or rearrange from your account. Please give us as much notice as you can." },
-      { q: "How do I pay?", a: "Securely online when you book. For clean types that need a quote, you pay once we have confirmed the price." },
-      { q: "Can I have the same cleaner every time?", a: "We always try. Once you set up a regular clean we keep the same person on your home wherever we can." },
+      { q: "Do I need to be at home?", a: "No. Many customers choose to leave us a key or provide access details so we can clean at a convenient time. We are happy to act as key holders for regular clients. Simply let us know your preferred access arrangements and we'll discuss the best option for you." },
+      { q: "Do you bring your own supplies?", a: "Yes. Your cleaner arrives with all the necessary products and equipment. If you have a preference for specific cleaning products, just let us know and we can discuss the options available." },
+      { q: "What if I need to change my booking?", a: "Press Amend existing booking at the top of the page and enter the booking reference from your confirmation email to pick a new date and time. Please give us as much notice as you can." },
+      { q: "How do I pay?", a: "There is nothing to pay when you book. We send you an invoice once your clean is complete." },
+      { q: "Can I have the same cleaner every time?", a: "We aim to provide you with the same cleaner for every visit, building consistency and familiarity in your home wherever possible." },
     ],
   },
   closing: {

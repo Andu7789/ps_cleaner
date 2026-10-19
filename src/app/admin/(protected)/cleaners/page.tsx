@@ -47,9 +47,9 @@ export default async function AdminCleanersPage() {
 
       <form action={addCleaner} className="mt-8 space-y-3 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Add a cleaner</h2>
-        <input name="fullName" required placeholder="Full name" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-        <input name="email" type="email" placeholder="Email (optional)" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
-        <input name="phone" type="tel" placeholder="Phone (optional)" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+        <input name="fullName" required aria-label="Full name" placeholder="Full name" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+        <input name="email" type="email" required aria-label="Email" placeholder="Email" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+        <input name="phone" type="tel" required aria-label="Phone" placeholder="Phone" className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
         <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground">
           Add cleaner
         </button>

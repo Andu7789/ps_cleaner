@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCleaner } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { notifyOwnerJobComplete } from "@/lib/booking-notify";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { PhotoKind } from "@/lib/types";
 
 const PHOTO_BUCKET = "ps-clean-booking-photos";
@@ -10,8 +11,10 @@ const PHOTO_BUCKET = "ps-clean-booking-photos";
 export async function completeBookingAction(bookingId: string) {
   await requireCleaner();
   const supabase = await createClient();
+  // The RPC refuses until there is a before and an after photo.
   const { error } = await supabase.rpc("ps_clean_cleaner_complete_booking", { p_booking_id: bookingId });
   if (error) throw new Error(error.message);
+  await notifyOwnerJobComplete(createServiceClient(), bookingId);
   revalidatePath("/cleaner");
   revalidatePath(`/cleaner/bookings/${bookingId}`);
 }

@@ -29,7 +29,7 @@ export default async function ServiceBookingPage({
 
   // New customers can't book a walkthrough first service directly: send them
   // to book the walkthrough instead. Returning customers arrive with ?returning=1
-  // (the booking action checks they really have booked before).
+  // (the booking action checks their email has booked before).
   if ((service as Service).walkthrough_first && returning !== "1") {
     const { data: others } = await supabase
       .from("PS_CLEAN_services")
@@ -93,17 +93,21 @@ export default async function ServiceBookingPage({
           </div>
         </div>
       </div>
-      {(service as Service).requires_quote && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Nothing to pay when you book · you pay once your exact price is confirmed
-        </p>
-      )}
+      <p className="mt-3 text-sm text-muted-foreground">
+        Nothing to pay when you book. We invoice you once the clean is done.
+      </p>
 
       <div className="mt-8">
         {cleaners.length === 0 ? (
           <p className="text-sm text-muted-foreground">No cleaners are currently qualified for this service.</p>
         ) : (
-          <SlotPicker service={service as Service} cleaners={cleaners} ratings={ratings} roomTypes={roomTypes} />
+          <SlotPicker
+            service={service as Service}
+            cleaners={cleaners}
+            ratings={ratings}
+            roomTypes={roomTypes}
+            returning={returning === "1"}
+          />
         )}
       </div>
     </div>

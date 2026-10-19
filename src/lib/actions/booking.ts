@@ -1,16 +1,13 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireCustomer } from "@/lib/auth";
-import { notifyWaitlistOnCancellation } from "@/lib/bookings";
-import { confirmBookingAndNotify } from "@/lib/payments";
-import { quoteAmountDue } from "@/lib/format";
-import { getStripe } from "@/lib/stripe";
-import { paymentRoutingForBooking } from "@/lib/stripe-connect";
+import { getCurrentBusiness } from "@/lib/business";
+import { confirmBookingAndNotify, notifyBookingMoved } from "@/lib/booking-notify";
+import { normaliseReference } from "@/lib/format";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import type { BookingAccessMethod, Customer, PaymentType } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type Stripe from "stripe";
+import type { Cleaner, Service } from "@/lib/types";
 
 export async function getAvailableSlotsAction(serviceId: string, date: string) {
   const supabase = await createClient();
@@ -22,297 +19,260 @@ export async function getAvailableSlotsAction(serviceId: string, date: string) {
   return (data ?? []) as { cleaner_id: string; free_start: string; free_end: string }[];
 }
 
-async function ensureStripeCustomerId(
-  stripe: Stripe,
-  supabase: SupabaseClient,
-  customer: Customer
-): Promise<string> {
-  if (customer.stripe_customer_id) return customer.stripe_customer_id;
+const bookingSchema = z.object({
+  cleanerId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  startsAt: z.string().datetime({ offset: true }),
+  fullName: z.string().trim().min(1, "Please enter your name").max(120),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address").max(200),
+  phone: z.string().trim().min(6, "Please enter your phone number").max(30),
+  line1: z.string().trim().min(1, "Please enter the first line of your address").max(200),
+  line2: z.string().trim().max(200).optional().default(""),
+  city: z.string().trim().min(1, "Please enter your town or city").max(100),
+  postcode: z.string().trim().min(2, "Please enter your postcode").max(12),
+  accessNotes: z.string().trim().max(1000).optional().default(""),
+  addonIds: z.array(z.string().uuid()).max(50).default([]),
+  parkingAvailable: z.boolean().default(false),
+  hasPets: z.boolean().default(false),
+  accessMethod: z.enum(["keys", "let_in", "key_box"]).default("let_in"),
+  roomSelections: z
+    .array(z.object({ roomTypeId: z.string().uuid(), quantity: z.number().int().min(0).max(100) }))
+    .max(50)
+    .default([]),
+});
 
-  const stripeCustomer = await stripe.customers.create({
-    email: customer.email ?? undefined,
-    name: customer.full_name ?? undefined,
-    metadata: { ps_clean_customer_id: customer.id },
-  });
-  await supabase.from("PS_CLEAN_customers").update({ stripe_customer_id: stripeCustomer.id }).eq("id", customer.id);
-  return stripeCustomer.id;
+export type CreateBookingInput = z.input<typeof bookingSchema>;
+
+// Escapes the wildcards ilike would otherwise read in an email address.
+function exactIlike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
-// Creates a fresh PaymentIntent for whatever's due on a booking and records
-// it as a 'pending' PS_CLEAN_payments row. The card isn't charged until the
-// browser confirms it against the returned client secret; the booking only
-// moves to 'confirmed' once the Stripe webhook sees the charge succeed (see
-// /src/app/api/webhooks/stripe/route.ts).
-async function createPaymentIntentForBooking(
-  stripe: Stripe,
-  service: SupabaseClient,
-  bookingId: string,
-  stripeCustomerId: string,
-  amountDuePence: number,
-  paymentType: PaymentType
-): Promise<string> {
-  // Sent on to the owner's own Stripe account when that is how they are set up.
-  const routing = await paymentRoutingForBooking(service, bookingId);
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: amountDuePence,
-    currency: "gbp",
-    customer: stripeCustomerId,
-    setup_future_usage: "off_session",
-    ...routing,
-    metadata: { ps_clean_booking_id: bookingId, ps_clean_payment_type: paymentType },
-  });
-
-  await service.from("PS_CLEAN_payments").insert({
-    booking_id: bookingId,
-    stripe_payment_intent_id: paymentIntent.id,
-    type: paymentType,
-    amount_pence: amountDuePence,
-    status: "pending",
-  });
-
-  if (!paymentIntent.client_secret) throw new Error("Couldn't start payment — please try again.");
-  return paymentIntent.client_secret;
+// Customers have no accounts: a customer is whoever books with a given email
+// at this business. Returns the most recent match so older duplicate rows
+// (from when there were accounts) don't matter.
+async function findCustomerByEmail(service: SupabaseClient, businessId: string, email: string) {
+  const { data } = await service
+    .from("PS_CLEAN_customers")
+    .select("id")
+    .eq("business_id", businessId)
+    .ilike("email", exactIlike(email))
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as { id: string } | null;
 }
 
-// What a customer pays at checkout: the whole price. A booking still waiting
-// on its quote only has an estimated price, so nothing is taken yet; the full
-// price is charged once the owner has confirmed it.
-function amountDueNow(b: { price_pence: number; quote_status: string | null }): number {
-  if (b.quote_status === "pending") return 0;
-  return b.price_pence;
-}
+// Books a clean for a guest. The ps_clean_create_booking RPC is still the
+// source of truth for "no double booking" (see DECISIONS.md #4). Nothing is
+// paid online, so the booking is confirmed straight away and the customer is
+// emailed their booking reference.
+export async function createBookingAction(raw: CreateBookingInput): Promise<{ reference: string }> {
+  const parsed = bookingSchema.safeParse(raw);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Please check your details");
+  const input = parsed.data;
 
-export interface RoomSelectionInput {
-  roomTypeId: string;
-  quantity: number;
-}
+  const business = await getCurrentBusiness();
+  const service = createServiceClient();
 
-export interface CreateBookingInput {
-  cleanerId: string;
-  serviceId: string;
-  addressId: string;
-  startsAt: string;
-  notes?: string;
-  addonIds?: string[];
-  applyCreditPence?: number;
-  parkingAvailable?: boolean;
-  hasPets?: boolean;
-  accessMethod?: BookingAccessMethod;
-  roomSelections?: RoomSelectionInput[];
-}
+  const { data: svc } = await service
+    .from("PS_CLEAN_services")
+    .select("id, walkthrough_first")
+    .eq("id", input.serviceId)
+    .eq("business_id", business.id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!svc) throw new Error("That clean isn't available to book.");
 
-export interface CreateBookingResult {
-  bookingId: string;
-  // null when credit fully covered the amount due — nothing left to pay,
-  // no PaymentIntent was created (Stripe doesn't support a £0 one), and
-  // the booking is already 'confirmed'.
-  clientSecret: string | null;
-  amountDuePence: number;
-}
-
-// Creates the booking row via the ps_clean_create_booking RPC — the actual
-// source of truth for "no double-booking" (see DECISIONS.md #4) — applies
-// any credit the customer chose to redeem, then starts payment for
-// whatever's left.
-export async function createBookingAction(input: CreateBookingInput): Promise<CreateBookingResult> {
-  const { customer } = await requireCustomer();
-  const supabase = await createClient();
+  let customer = await findCustomerByEmail(service, business.id, input.email);
 
   // Walkthrough first services are for returning customers only: someone who
   // has already booked with us (the walkthrough counts). New customers book the
   // walkthrough first and are quoted after the visit.
-  const { data: serviceRow } = await supabase
-    .from("PS_CLEAN_services")
-    .select("walkthrough_first")
-    .eq("id", input.serviceId)
-    .maybeSingle();
-  if (serviceRow?.walkthrough_first) {
-    const { count } = await supabase
-      .from("PS_CLEAN_bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("customer_id", customer.id)
-      .neq("status", "cancelled");
+  if (svc.walkthrough_first) {
+    const { count } = customer
+      ? await service
+          .from("PS_CLEAN_bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("customer_id", customer.id)
+          .neq("status", "cancelled")
+      : { count: 0 };
     if (!count) {
-      throw new Error("This service needs a walkthrough first. Please book a walkthrough and we will send you a quote.");
+      throw new Error(
+        "We can't find an earlier booking for that email address. Please book a free walkthrough first, or use the email you booked with before."
+      );
     }
   }
 
-  const { data: booking, error } = await supabase
+  if (customer) {
+    await service
+      .from("PS_CLEAN_customers")
+      .update({ full_name: input.fullName, phone: input.phone, updated_at: new Date().toISOString() })
+      .eq("id", customer.id);
+  } else {
+    const { data: created, error } = await service
+      .from("PS_CLEAN_customers")
+      .insert({ business_id: business.id, full_name: input.fullName, email: input.email, phone: input.phone })
+      .select("id")
+      .single();
+    if (error) throw new Error("We couldn't save your details. Please try again.");
+    customer = created;
+  }
+
+  // Reuse the same home when it has been booked before, so details the owner
+  // added to it (like a key box code) carry over to the next clean.
+  const postcode = input.postcode.toUpperCase().replace(/\s+/g, " ");
+  const { data: addresses } = await service
+    .from("PS_CLEAN_customer_addresses")
+    .select("id, line1, postcode")
+    .eq("customer_id", customer.id);
+  const sameHome = (addresses ?? []).find(
+    (a) =>
+      a.line1.trim().toLowerCase() === input.line1.toLowerCase() &&
+      a.postcode.replace(/\s+/g, "").toUpperCase() === postcode.replace(/\s+/g, "")
+  );
+  let addressId = sameHome?.id;
+  const addressFields = {
+    line2: input.line2 || null,
+    city: input.city,
+    postcode,
+    access_notes: input.accessNotes || null,
+  };
+  if (addressId) {
+    await service.from("PS_CLEAN_customer_addresses").update(addressFields).eq("id", addressId);
+  } else {
+    const { data: created, error } = await service
+      .from("PS_CLEAN_customer_addresses")
+      .insert({
+        business_id: business.id,
+        customer_id: customer.id,
+        label: "Home",
+        line1: input.line1,
+        ...addressFields,
+        is_default: (addresses ?? []).length === 0,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error("We couldn't save your address. Please try again.");
+    addressId = created.id;
+  }
+
+  const { data: booking, error } = await service
     .rpc("ps_clean_create_booking", {
       p_customer_id: customer.id,
       p_cleaner_id: input.cleanerId,
       p_service_id: input.serviceId,
-      p_address_id: input.addressId,
+      p_address_id: addressId,
       p_starts_at: input.startsAt,
-      p_notes: input.notes ?? null,
-      p_addon_ids: input.addonIds ?? [],
-      p_parking_available: input.parkingAvailable ?? false,
-      p_has_pets: input.hasPets ?? false,
-      p_access_method: input.accessMethod ?? "let_in",
-      p_room_selections: (input.roomSelections ?? []).map((r) => ({ room_type_id: r.roomTypeId, quantity: r.quantity })),
+      p_notes: null,
+      p_addon_ids: input.addonIds,
+      p_parking_available: input.parkingAvailable,
+      p_has_pets: input.hasPets,
+      p_access_method: input.accessMethod,
+      p_room_selections: input.roomSelections.map((r) => ({ room_type_id: r.roomTypeId, quantity: r.quantity })),
     })
     .single();
-
   if (error) throw new Error(error.message);
-  let bookingRow = booking as { id: string; price_pence: number; quote_status: string | null };
 
-  if (input.applyCreditPence && input.applyCreditPence > 0) {
-    const { data: redeemed, error: redeemError } = await supabase
-      .rpc("ps_clean_redeem_credit", { p_booking_id: bookingRow.id, p_amount_pence: input.applyCreditPence })
-      .single();
-    if (redeemError) throw new Error(redeemError.message);
-    bookingRow = redeemed as typeof bookingRow;
-  }
+  const row = booking as { id: string; reference: string };
+  await confirmBookingAndNotify(service, row.id);
+  revalidatePath("/admin/bookings");
+  return { reference: row.reference };
+}
 
-  const amountDuePence = amountDueNow(bookingRow);
+export interface AmendableBooking {
+  reference: string;
+  serviceId: string;
+  serviceName: string;
+  cleanerName: string;
+  startsAt: string;
+  durationMinutes: number;
+  status: string;
+  canChange: boolean;
+}
 
-  if (amountDuePence <= 0) {
-    const service = createServiceClient();
-    await confirmBookingAndNotify(service, bookingRow.id);
-    return { bookingId: bookingRow.id, clientSecret: null, amountDuePence: 0 };
-  }
-
-  const paymentType: PaymentType = "full";
-
-  const stripe = getStripe();
+async function bookingByReference(reference: string) {
+  const business = await getCurrentBusiness();
+  const ref = normaliseReference(reference);
+  if (ref.length !== 8) return null;
   const service = createServiceClient();
-  const stripeCustomerId = await ensureStripeCustomerId(stripe, supabase, customer);
-  const clientSecret = await createPaymentIntentForBooking(
-    stripe,
-    service,
-    bookingRow.id,
-    stripeCustomerId,
-    amountDuePence,
-    paymentType
-  );
-
-  return { bookingId: bookingRow.id, clientSecret, amountDuePence };
-}
-
-export interface ResumePaymentResult {
-  clientSecret: string;
-  amountDuePence: number;
-}
-
-// Gets a payable client secret for a booking stuck at 'pending_payment' —
-// either because the customer never finished the card step, or because
-// creating the PaymentIntent itself failed after the booking row was
-// already inserted (e.g. Stripe not configured yet), which otherwise
-// leaves a booking holding its slot with no way to ever pay for it.
-// Reuses the existing PaymentIntent if it's still payable; otherwise
-// creates a fresh one, same as createBookingAction does at booking time.
-export async function resumeBookingPaymentAction(bookingId: string): Promise<ResumePaymentResult> {
-  const { customer } = await requireCustomer();
-  const supabase = await createClient();
-
-  const { data: booking, error: bookingError } = await supabase
+  const { data } = await service
     .from("PS_CLEAN_bookings")
-    .select("id, status, price_pence, quote_status, customer_id")
-    .eq("id", bookingId)
-    .single();
-  if (bookingError) throw new Error(bookingError.message);
-  if (booking.customer_id !== customer.id) throw new Error("Not your booking");
-  if (booking.status !== "pending_payment") throw new Error("This booking doesn't need payment.");
-
-  const amountDuePence = amountDueNow(booking);
-  const paymentType: PaymentType = "full";
-
-  const stripe = getStripe();
-  const service = createServiceClient();
-
-  const { data: existingPayment } = await service
-    .from("PS_CLEAN_payments")
-    .select("stripe_payment_intent_id")
-    .eq("booking_id", bookingId)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .select("id, reference, service_id, status, starts_at, ends_at, PS_CLEAN_services(name), PS_CLEAN_cleaners(full_name)")
+    .eq("business_id", business.id)
+    .eq("reference", ref)
     .maybeSingle();
-
-  if (existingPayment?.stripe_payment_intent_id) {
-    const intent = await stripe.paymentIntents.retrieve(existingPayment.stripe_payment_intent_id);
-    if (
-      intent.client_secret &&
-      ["requires_payment_method", "requires_confirmation", "requires_action"].includes(intent.status)
-    ) {
-      return { clientSecret: intent.client_secret, amountDuePence };
-    }
-  }
-
-  const stripeCustomerId = await ensureStripeCustomerId(stripe, supabase, customer);
-  const clientSecret = await createPaymentIntentForBooking(
-    stripe,
-    service,
-    bookingId,
-    stripeCustomerId,
-    amountDuePence,
-    paymentType
-  );
-
-  return { clientSecret, amountDuePence };
+  return data;
 }
 
-// Takes the full price for a booking whose quote the owner has now confirmed.
-// Nothing is charged when a quote booking is made, so this is the first payment.
-export async function payQuotedBookingAction(bookingId: string): Promise<ResumePaymentResult> {
-  const { customer } = await requireCustomer();
-  const supabase = await createClient();
+const one = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.isArray(v) ? v[0] : (v ?? undefined));
 
-  const { data: booking, error } = await supabase
-    .from("PS_CLEAN_bookings")
-    .select("id, status, price_pence, amount_paid_pence, quote_status, customer_id")
-    .eq("id", bookingId)
-    .single();
-  if (error) throw new Error(error.message);
-  if (booking.customer_id !== customer.id) throw new Error("Not your booking");
-  if (booking.status !== "confirmed") throw new Error("This booking can't be paid for.");
-
-  const amountDuePence = quoteAmountDue(booking);
-  if (amountDuePence <= 0) throw new Error("Nothing is due on this booking right now.");
-
-  const stripe = getStripe();
-  const service = createServiceClient();
-
-  // Reuse an unfinished payment for the same amount so reopening the page
-  // doesn't leave a new unused PaymentIntent in Stripe each time.
-  const { data: existingPayment } = await service
-    .from("PS_CLEAN_payments")
-    .select("stripe_payment_intent_id")
-    .eq("booking_id", bookingId)
-    .eq("status", "pending")
-    .eq("amount_pence", amountDuePence)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existingPayment?.stripe_payment_intent_id) {
-    const intent = await stripe.paymentIntents.retrieve(existingPayment.stripe_payment_intent_id);
-    if (
-      intent.client_secret &&
-      intent.amount === amountDuePence &&
-      ["requires_payment_method", "requires_confirmation", "requires_action"].includes(intent.status)
-    ) {
-      return { clientSecret: intent.client_secret, amountDuePence };
-    }
-  }
-
-  const stripeCustomerId = await ensureStripeCustomerId(stripe, supabase, customer);
-  const clientSecret = await createPaymentIntentForBooking(
-    stripe,
-    service,
-    bookingId,
-    stripeCustomerId,
-    amountDuePence,
-    "full"
-  );
-  return { clientSecret, amountDuePence };
+// The customer's reference is their only proof of who they are, so this only
+// ever hands back what they need to pick a new time.
+export async function findBookingByReferenceAction(reference: string): Promise<AmendableBooking | null> {
+  const data = await bookingByReference(reference);
+  if (!data) return null;
+  const svc = one(data.PS_CLEAN_services as { name: string } | { name: string }[] | null);
+  const cleaner = one(data.PS_CLEAN_cleaners as { full_name: string } | { full_name: string }[] | null);
+  return {
+    reference: data.reference,
+    serviceId: data.service_id,
+    serviceName: svc?.name ?? "Clean",
+    cleanerName: cleaner?.full_name ?? "your cleaner",
+    startsAt: data.starts_at,
+    durationMinutes: Math.round((new Date(data.ends_at).getTime() - new Date(data.starts_at).getTime()) / 60_000),
+    status: data.status,
+    canChange: (data.status === "confirmed" || data.status === "pending_payment") && new Date(data.starts_at) > new Date(),
+  };
 }
 
-export async function cancelBookingAction(bookingId: string, reason?: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("ps_clean_cancel_booking", {
-    p_booking_id: bookingId,
-    p_reason: reason ?? null,
+export async function rescheduleBookingAction(reference: string, cleanerId: string, startsAt: string): Promise<AmendableBooking> {
+  if (!z.string().uuid().safeParse(cleanerId).success || !z.string().datetime({ offset: true }).safeParse(startsAt).success) {
+    throw new Error("Please pick a time from the calendar.");
+  }
+  const data = await bookingByReference(reference);
+  if (!data) throw new Error("We couldn't find a booking with that reference.");
+
+  const service = createServiceClient();
+  const previousStart = data.starts_at;
+  const { error } = await service.rpc("ps_clean_reschedule_booking", {
+    p_booking_id: data.id,
+    p_cleaner_id: cleanerId,
+    p_starts_at: startsAt,
   });
   if (error) throw new Error(error.message);
-  await notifyWaitlistOnCancellation(createServiceClient(), bookingId);
-  revalidatePath("/account");
+
+  await notifyBookingMoved(service, data.id, previousStart);
+  revalidatePath("/admin/bookings");
+  const updated = await findBookingByReferenceAction(data.reference);
+  if (!updated) throw new Error("We couldn't find a booking with that reference.");
+  return updated;
+}
+
+export interface RescheduleOptions {
+  booking: AmendableBooking;
+  service: Service;
+  // Only what the calendar shows, not the cleaners' contact details.
+  cleaners: Pick<Cleaner, "id" | "full_name" | "calendar_color" | "is_active">[];
+}
+
+// Everything the calendar needs to offer new times for a booking, found by
+// its reference.
+export async function getRescheduleOptionsAction(reference: string): Promise<RescheduleOptions | null> {
+  const booking = await findBookingByReferenceAction(reference);
+  if (!booking) return null;
+  const service = createServiceClient();
+  const [{ data: svc }, { data: links }] = await Promise.all([
+    service.from("PS_CLEAN_services").select("*").eq("id", booking.serviceId).maybeSingle(),
+    service
+      .from("PS_CLEAN_cleaner_services")
+      .select("PS_CLEAN_cleaners(id, full_name, calendar_color, is_active)")
+      .eq("service_id", booking.serviceId),
+  ]);
+  if (!svc) return null;
+  type C = RescheduleOptions["cleaners"][number];
+  const cleaners = (links ?? [])
+    .map((l) => one(l.PS_CLEAN_cleaners as C | C[] | null))
+    .filter((c): c is C => Boolean(c?.is_active));
+  return { booking, service: svc as Service, cleaners };
 }

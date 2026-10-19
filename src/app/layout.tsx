@@ -4,7 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/ui/header";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getCurrentBusiness } from "@/lib/business";
-import { getUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { findWalkthroughService } from "@/lib/format";
 import { backgroundAttrs, brandCss } from "@/lib/branding";
 import "./globals.css";
 
@@ -42,7 +43,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [business, user] = await Promise.all([getCurrentBusiness(), getUser()]);
+  const business = await getCurrentBusiness();
+  // "Book now" in the header goes to the walkthrough, where every new customer starts.
+  const supabase = await createClient();
+  const { data: services } = await supabase
+    .from("PS_CLEAN_services")
+    .select("id, name, is_featured, walkthrough_first")
+    .eq("business_id", business.id)
+    .eq("is_active", true);
+  const walkthrough = findWalkthroughService(services ?? []);
 
   return (
     <html
@@ -62,7 +71,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <Header
           businessName={business.business_name}
           logoUrl={business.logo_url}
-          signedIn={Boolean(user)}
+          bookNowHref={walkthrough ? `/book/${walkthrough.id}` : "/book"}
+          phone={business.contact_phone}
           brandHeader={business.header_style === "brand"}
         />
         <main className="relative z-10 w-full flex-1">{children}</main>

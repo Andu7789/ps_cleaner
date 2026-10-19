@@ -487,7 +487,7 @@ function ReviewStep({ a, goTo, errors }: { a: Answers; goTo: (s: number) => void
           <span className="block text-muted-foreground">{days.map((d) => `${DAY_NAMES[d.day].slice(0, 3)} ${d.start} to ${d.end}`).join(", ") || "No working days"}</span>
         </Row>
         <Row label="Payments" step={5} goTo={goTo} problems={msgs("payments")}>
-          {a.payments.method === "stripe" ? "Connect card payments" : a.payments.method === "later" ? "Not yet" : "Not sure yet"}
+          {a.payments.notes || "Nothing added"}
         </Row>
       </div>
     </div>

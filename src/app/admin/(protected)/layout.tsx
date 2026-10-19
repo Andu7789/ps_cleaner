@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { requireAdmin } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { signOutAction } from "@/lib/actions/customer";
+import { signOutAction } from "@/lib/actions/auth";
 
 // The (protected) route group keeps /admin/login as a sibling outside this
 // layout entirely — it never runs requireAdmin() or renders this nav, no

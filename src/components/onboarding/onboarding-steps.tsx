@@ -492,18 +492,11 @@ export function TeamStep({ a, set }: StepProps) {
 export function PaymentsStep({ a, set }: StepProps) {
   return (
     <div>
-      <StepHeading title="Getting paid" lead="Customers pay when they book. We'll sort the payment side with you, so there's nothing to set up here." />
-      <Segmented
-        legend="Card payments"
-        value={a.payments.method}
-        onChange={(v) => set((x) => ({ ...x, payments: { ...x.payments, method: v } }))}
-        options={[
-          { value: "stripe", label: "Yes, connect my payments", hint: "We'll be in touch" },
-          { value: "later", label: "Not yet", hint: "Set up later" },
-          { value: "unsure", label: "Not sure", hint: "Let's talk" },
-        ]}
+      <StepHeading
+        title="Getting paid"
+        lead="Customers don't pay online. You email them a quote and an invoice from your bookings list, and they pay you directly."
       />
-      <Field label="Anything about payments we should know?" hint="Optional." className="mt-5">
+      <Field label="Anything about payments we should know?" hint="Optional, for example how you like to be paid." className="mt-5">
         <textarea className={`${inputClass} min-h-20`} value={a.payments.notes} onChange={(e) => set((x) => ({ ...x, payments: { ...x.payments, notes: e.target.value } }))} />
       </Field>
       <Field label="Anything else?" hint="Special requests, things you want on the site, questions. Optional." className="mt-5">

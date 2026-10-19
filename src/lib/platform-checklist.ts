@@ -1,12 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type Stripe from "stripe";
 import { DEFAULT_BUSINESS_SLUG } from "@/lib/business";
 import { CHECKLIST, type CheckStatus, type ItemState } from "@/lib/checklist-items";
 import { fromAddress } from "@/lib/notify";
-import { getStripe } from "@/lib/stripe";
 
 // The automatic checks behind the platform portal's checklist. Each one only
-// reads: nothing here changes Stripe, DNS, email or any business. A check that
+// reads: nothing here changes DNS, email or any business. A check that
 // can't tell (a restricted API key, a service that is down) says "unknown"
 // rather than guessing, so a tick always means something.
 
@@ -35,77 +33,13 @@ async function withTimeout<T>(work: Promise<T>, ms = 12000): Promise<T> {
   }
 }
 
-const isLive = (key: string | undefined) => /^(sk|rk|pk)_live_/.test(key ?? "");
 const present = (name: string) => Boolean(process.env[name]?.trim());
 
-async function stripeChecks(): Promise<Record<string, Result>> {
-  const out: Record<string, Result> = {};
-  const secret = process.env.STRIPE_SECRET_KEY;
-  const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-  if (!secret) {
-    const missing = fail("STRIPE_SECRET_KEY isn't set.");
-    for (const key of ["stripe_account", "stripe_verified", "stripe_connect", "stripe_webhook_main", "stripe_webhook_connect"]) out[key] = missing;
-  } else {
-    const stripe = getStripe();
-
-    let account: Stripe.Account | null = null;
-    try {
-      account = await withTimeout(stripe.accounts.retrieveCurrent());
-      const name = account.business_profile?.name || account.settings?.dashboard?.display_name || account.email || account.id;
-      out.stripe_account = pass(`Connected to ${name} in ${isLive(secret) ? "live" : "test"} mode.`);
-    } catch (err) {
-      out.stripe_account = fail(`Stripe didn't accept the key: ${message(err)}`);
-    }
-
-    if (account) {
-      const missing = [
-        !account.details_submitted && "business details not finished",
-        !account.charges_enabled && "can't take payments yet",
-        !account.payouts_enabled && "can't pay out yet",
-      ].filter(Boolean);
-      out.stripe_verified = missing.length === 0 ? pass("Details submitted, payments and payouts are enabled.") : fail(`Still to sort in Stripe: ${missing.join(", ")}.`);
-    } else {
-      out.stripe_verified = unknown("Couldn't read the account.");
-    }
-
-    try {
-      await withTimeout(stripe.accounts.list({ limit: 1 }));
-      out.stripe_connect = pass("Connect is available on this account.");
-    } catch (err) {
-      out.stripe_connect = /connect/i.test(message(err)) ? fail("Connect isn't switched on for this account yet.") : unknown(`Couldn't tell: ${message(err)}`);
-    }
-
-    try {
-      const endpoints = (await withTimeout(stripe.webhookEndpoints.list({ limit: 100 }))).data.filter(
-        (e) => e.status === "enabled" && e.url.includes("/api/webhooks/stripe"),
-      );
-      const hears = (e: Stripe.WebhookEndpoint, event: string) => e.enabled_events.includes("*") || e.enabled_events.includes(event);
-      const main = endpoints.find((e) => hears(e, "payment_intent.succeeded"));
-      const connect = endpoints.find((e) => hears(e, "account.updated"));
-      out.stripe_webhook_main = main ? pass(`Listening at ${main.url}.`) : fail("No enabled webhook for payment_intent.succeeded pointing at /api/webhooks/stripe.");
-      out.stripe_webhook_connect = connect ? pass(`Listening at ${connect.url}.`) : fail("No enabled webhook for account.updated pointing at /api/webhooks/stripe.");
-    } catch (err) {
-      const note = unknown(`Couldn't list webhooks (the key may be restricted): ${message(err)}`);
-      out.stripe_webhook_main = note;
-      out.stripe_webhook_connect = note;
-    }
-  }
-
-  if (!secret || !publishable) {
-    out.stripe_keys_match = fail(!secret ? "STRIPE_SECRET_KEY isn't set." : "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY isn't set.");
-  } else {
-    out.stripe_keys_match =
-      isLive(secret) === isLive(publishable)
-        ? pass(`Both are ${isLive(secret) ? "live" : "test"} keys.`)
-        : fail(`The secret key is a ${isLive(secret) ? "live" : "test"} key but the publishable key is a ${isLive(publishable) ? "live" : "test"} key.`);
-  }
-
-  const missingSecrets = ["STRIPE_WEBHOOK_SECRET", "STRIPE_CONNECT_WEBHOOK_SECRET"].filter((n) => !present(n));
-  out.stripe_secrets = missingSecrets.length === 0 ? pass("Both are set.") : fail(`Not set in Vercel: ${missingSecrets.join(", ")}.`);
-
-  out.stripe_live = isLive(secret) ? pass("Using live keys.") : fail("Still on test keys.");
-  return out;
+// The overdue job alert relies on pg_cron calling the site (migration 0052).
+async function overdueScheduleCheck(db: SupabaseClient): Promise<Result> {
+  const { data, error } = await db.from("PS_CLEAN_private_settings").select("key").eq("key", "cron_key").maybeSingle();
+  if (error) return fail("Migration 0051 hasn't been run yet.");
+  return data ? pass("The scheduler key exists. Check cron.job in Supabase lists ps-clean-overdue-jobs.") : fail("The scheduler key is missing.");
 }
 
 async function wildcardCheck(db: SupabaseClient): Promise<Result> {
@@ -156,8 +90,8 @@ async function testBusinessesCheck(db: SupabaseClient): Promise<Result> {
 
 // Runs every automatic check at once and remembers each answer.
 export async function runChecklist(db: SupabaseClient): Promise<Record<string, Result>> {
-  const [stripe, wildcard, emailDomain, deleteFn, testBusinesses] = await Promise.all([
-    stripeChecks().catch((err) => ({ __error: unknown(message(err)) }) as Record<string, Result>),
+  const [overdue, wildcard, emailDomain, deleteFn, testBusinesses] = await Promise.all([
+    overdueScheduleCheck(db).catch((err) => unknown(message(err))),
     wildcardCheck(db),
     emailDomainCheck(),
     deleteFunctionCheck(db).catch((err) => unknown(message(err))),
@@ -166,7 +100,7 @@ export async function runChecklist(db: SupabaseClient): Promise<Record<string, R
 
   const emailOk = present("RESEND_API_KEY") && present("NOTIFY_FROM_EMAIL") && !/example\.com/.test(process.env.NOTIFY_FROM_EMAIL ?? "");
   const results: Record<string, Result> = {
-    ...stripe,
+    overdue_schedule: overdue,
     domain_wildcard: wildcard,
     email_configured: emailOk ? pass(`Sending from ${fromAddress(process.env.NOTIFY_FROM_EMAIL)}.`) : fail("RESEND_API_KEY or NOTIFY_FROM_EMAIL isn't set properly."),
     email_domain: emailDomain,
@@ -174,7 +108,6 @@ export async function runChecklist(db: SupabaseClient): Promise<Record<string, R
     delete_function: deleteFn,
     test_businesses: testBusinesses,
   };
-  delete results.__error;
 
   const now = new Date().toISOString();
   const autoKeys = CHECKLIST.filter((i) => i.kind === "auto").map((i) => i.key);

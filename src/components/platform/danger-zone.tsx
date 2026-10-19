@@ -98,7 +98,7 @@ export function DangerZone({
               <p className="text-sm text-foreground">
                 This permanently deletes <strong>{slug}</strong>
                 {counts ? `, including ${counts.bookings} bookings, ${counts.customers} customers and ${counts.payments} payments` : ""}. It also removes their sign in
-                accounts, photos and logo, and any Stripe account or customers created for it. It cannot be undone.
+                accounts, photos and logo. It cannot be undone.
               </p>
               <fieldset className="mt-3 space-y-2">
                 <legend className="sr-only">What to delete</legend>

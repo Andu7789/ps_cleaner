@@ -2,20 +2,13 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
 import { formatPence } from "@/lib/format";
-import type { PaymentStatus, PaymentType } from "@/lib/types";
-
-interface PaymentRow {
-  amount_pence: number;
-  type: PaymentType;
-  status: PaymentStatus;
-  created_at: string;
-}
-
 interface BookingRow {
   id: string;
   customer_id: string;
   status: string;
   price_pence: number;
+  final_price_pence: number | null;
+  invoice_sent_at: string | null;
   service_id: string;
   PS_CLEAN_services: { name: string } | null;
 }
@@ -39,26 +32,18 @@ export default async function AdminReportsPage() {
   const business = await getCurrentBusiness();
   const supabase = await createClient();
 
-  const [{ data: paymentData }, { data: bookingData }] = await Promise.all([
-    supabase
-      .from("PS_CLEAN_payments")
-      .select("amount_pence, type, status, created_at")
-      .eq("business_id", business.id)
-      .eq("status", "succeeded"),
-    supabase
-      .from("PS_CLEAN_bookings")
-      .select("id, customer_id, status, price_pence, service_id, PS_CLEAN_services(name)")
-      .eq("business_id", business.id)
-      .neq("status", "cancelled"),
-  ]);
+  const { data: bookingData } = await supabase
+    .from("PS_CLEAN_bookings")
+    .select("id, customer_id, status, price_pence, final_price_pence, invoice_sent_at, service_id, PS_CLEAN_services(name)")
+    .eq("business_id", business.id)
+    .neq("status", "cancelled");
 
-  const payments = (paymentData ?? []) as PaymentRow[];
   const bookings = (bookingData ?? []) as unknown as BookingRow[];
 
-  // Revenue: every succeeded payment counts, except a refund reverses it —
-  // this is actual cash movement, not just booking face value, so it stays
-  // correct even for a booking that was partially refunded after the fact.
-  const totalRevenue = payments.reduce((sum, p) => sum + (p.type === "refund" ? -p.amount_pence : p.amount_pence), 0);
+  // Nothing is paid online, so revenue is what has been invoiced: the final
+  // price of every job whose invoice has gone out, by the month it was sent.
+  const invoiced = bookings.filter((b) => b.invoice_sent_at && b.final_price_pence != null);
+  const totalRevenue = invoiced.reduce((sum, b) => sum + (b.final_price_pence ?? 0), 0);
 
   const now = new Date();
   const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
@@ -67,11 +52,9 @@ export default async function AdminReportsPage() {
     const d = new Date(Date.UTC(sixMonthsAgo.getUTCFullYear(), sixMonthsAgo.getUTCMonth() + i, 1));
     revenueByMonth.set(monthKey(d.toISOString()), 0);
   }
-  for (const p of payments) {
-    const key = monthKey(p.created_at);
-    if (revenueByMonth.has(key)) {
-      revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + (p.type === "refund" ? -p.amount_pence : p.amount_pence));
-    }
+  for (const b of invoiced) {
+    const key = monthKey(b.invoice_sent_at!);
+    if (revenueByMonth.has(key)) revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + (b.final_price_pence ?? 0));
   }
   const maxMonthRevenue = Math.max(1, ...Array.from(revenueByMonth.values()));
 
@@ -85,7 +68,7 @@ export default async function AdminReportsPage() {
       revenue: 0,
     };
     existing.count += 1;
-    existing.revenue += b.price_pence;
+    existing.revenue += b.final_price_pence ?? b.price_pence;
     serviceStats.set(b.service_id, existing);
   }
   const popularServices = Array.from(serviceStats.values()).sort((a, b) => b.count - a.count);
@@ -108,7 +91,7 @@ export default async function AdminReportsPage() {
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total revenue</p>
+          <p className="text-sm text-muted-foreground">Total invoiced</p>
           <p className="mt-1 text-2xl font-semibold text-foreground">{formatPence(totalRevenue)}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">

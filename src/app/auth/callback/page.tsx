@@ -5,7 +5,7 @@ function loginPathFor(next: string): string {
   if (next.startsWith("/cleaner")) return "/cleaner/login";
   if (next.startsWith("/admin")) return "/admin/login";
   if (next.startsWith("/platform")) return "/platform/login";
-  return "/login";
+  return "/";
 }
 
 // Landing page for a magic-link email — deliberately requires a real click
@@ -19,7 +19,7 @@ export default async function AuthCallbackPage({
   searchParams: Promise<{ token_hash?: string; type?: string; next?: string }>;
 }) {
   const { token_hash, type, next } = await searchParams;
-  const nextPath = next || "/account";
+  const nextPath = next || "/";
 
   if (!token_hash || !type) {
     redirect(`${loginPathFor(nextPath)}?error=auth`);

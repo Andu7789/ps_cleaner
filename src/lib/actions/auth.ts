@@ -12,7 +12,8 @@ function loginPathFor(next: string): string {
   if (next.startsWith("/cleaner")) return "/cleaner/login";
   if (next.startsWith("/admin")) return "/admin/login";
   if (next.startsWith("/platform")) return "/platform/login";
-  return "/login";
+  // Customers don't sign in any more, so anything else goes home.
+  return "/";
 }
 
 // Verifies the `token_hash` from a magic-link email and establishes a real
@@ -34,7 +35,7 @@ function loginPathFor(next: string): string {
 export async function confirmSignInAction(formData: FormData) {
   const tokenHash = String(formData.get("token_hash") ?? "");
   const type = formData.get("type") as EmailOtpType | null;
-  const next = String(formData.get("next") || "/account");
+  const next = String(formData.get("next") || "/");
   const loginPath = loginPathFor(next);
 
   if (!tokenHash || !type) {
@@ -44,4 +45,10 @@ export async function confirmSignInAction(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
   redirect(error ? `${loginPath}?error=auth` : next);
+}
+
+export async function signOutAction() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/");
 }

@@ -3,7 +3,6 @@ import { getBusinessOrigin, getCurrentBusiness } from "@/lib/business";
 import { generateMagicLink } from "@/lib/magic-link";
 import { sendEmail } from "@/lib/notify";
 import { hourlyPricePence } from "@/lib/format";
-import { ensureConnectAccount, type PaymentMode } from "@/lib/stripe-connect";
 import {
   TOKEN_PATTERN,
   poundsToPence,
@@ -277,34 +276,13 @@ async function stepHours({ db, a, businessId }: Ctx): Promise<string> {
   return `Set working hours on ${days.length} day${days.length === 1 ? "" : "s"}.`;
 }
 
-// Gives the business its own Stripe account when it should be paid directly.
-// Kept out of the main steps: if Stripe Connect isn't switched on yet the
-// business can still go live on platform payments and be switched later.
-async function stepPayments({ db, businessId }: Ctx, mode: PaymentMode): Promise<string> {
-  if (mode === "platform") return "Card payments stay on the platform Stripe account.";
-  const { data: business } = await db
-    .from("PS_CLEAN_businesses")
-    .select("id, business_name, contact_email, stripe_connect_account_id")
-    .eq("id", businessId)
-    .single();
-  if (!business) throw new Error("Business not found.");
-  const accountId = await ensureConnectAccount(db, business);
-  const { error } = await db.from("PS_CLEAN_businesses").update({ payment_mode: "connect" }).eq("id", businessId);
-  if (error) throw new Error(error.message);
-  return `Created Stripe account ${accountId}. The owner finishes verification from Settings.`;
-}
-
 export async function sendWelcomeEmail(
-  business: { slug: string; custom_domain: string | null; business_name: string; payment_mode?: PaymentMode },
+  business: { slug: string; custom_domain: string | null; business_name: string },
   a: Pick<Answers, "owner">,
 ): Promise<void> {
   const origin = getBusinessOrigin(business);
   const link = await generateMagicLink(business, a.owner.email, "/admin/set-password");
   const first = a.owner.name.trim().split(/\s+/)[0];
-  const payments =
-    business.payment_mode === "connect"
-      ? `<li>Set up your payouts so card payments reach your own account: <a href="${origin}/admin/payments/connect" style="color: #0f766e;">set up payouts</a>. It takes about five minutes, and customers can't pay by card until it's done.</li>`
-      : "<li>Card payments are already taken care of.</li>";
   const body = `
     <p>Hi ${esc(first)},</p>
     <p>${esc(business.business_name)} now has its own booking site, already filled in with what you told us.</p>
@@ -322,7 +300,6 @@ export async function sendWelcomeEmail(
       <li>Open Services and check the prices and times look right.</li>
       <li>Add add-ons, photos and anything else you want customers to see.</li>
       <li>Invite any other staff from Team.</li>
-      ${payments}
     </ul>
     <p style="font-size: 12px; color: #5b6b68;">The password button works once and expires. If it stops working, use "Forgot password" on the admin sign in page.</p>`;
   await sendEmail(a.owner.email, `${business.business_name} is ready`, shell(`${business.business_name} is ready`, body));
@@ -339,7 +316,7 @@ export interface ProvisionResult {
 // what is missing, so nothing is duplicated.
 export async function provisionBusiness(
   requestId: string,
-  opts: { sendWelcome: boolean; paymentMode: PaymentMode },
+  opts: { sendWelcome: boolean },
 ): Promise<ProvisionResult> {
   const db = createServiceClient();
   const req = await loadRequestById(requestId);
@@ -385,17 +362,9 @@ export async function provisionBusiness(
     return { ok: false, error: `${failedStep}: ${message}`, log };
   }
 
-  if (!ok("payments")) {
-    try {
-      await record(entry("payments", true, await stepPayments({ db, req, a, businessId: businessId! }, opts.paymentMode)));
-    } catch (err) {
-      await record(entry("payments", false, err instanceof Error ? err.message : "Couldn't set up payments."));
-    }
-  }
-
   const { data: business } = await db
     .from("PS_CLEAN_businesses")
-    .select("slug, custom_domain, business_name, payment_mode")
+    .select("slug, custom_domain, business_name")
     .eq("id", businessId!)
     .single();
 

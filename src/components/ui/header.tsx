@@ -2,17 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOutAction } from "@/lib/actions/customer";
+import { Phone } from "lucide-react";
+
+// Same gold as the homepage's main call to action.
+const GOLD = "#e8c47c";
 
 export function Header({
   businessName,
   logoUrl,
-  signedIn,
+  bookNowHref,
+  phone,
   brandHeader = false,
 }: {
   businessName: string;
   logoUrl?: string | null;
-  signedIn: boolean;
+  // The walkthrough booking page, where every new customer starts.
+  bookNowHref: string;
+  phone?: string | null;
   brandHeader?: boolean;
 }) {
   const pathname = usePathname();
@@ -27,14 +33,18 @@ export function Header({
   const isPlatformPage = pathname?.startsWith("/start/") || pathname?.startsWith("/platform");
   if (isStandaloneDocument || isPlatformPage) return null;
 
+  const tel = phone?.replace(/[^\d+]/g, "");
+
   return (
     <header
       className={`sticky top-0 z-20 border-b ${
         brandHeader ? "border-transparent bg-brand text-brand-foreground" : "border-border bg-card"
       }`}
     >
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className={`flex items-center gap-2 text-base font-semibold ${brandHeader ? "text-brand-foreground" : "text-foreground"}`}
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+        <Link
+          href="/"
+          className={`flex items-center gap-2 text-base font-semibold ${brandHeader ? "text-brand-foreground" : "text-foreground"}`}
         >
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
@@ -42,26 +52,35 @@ export function Header({
           )}
           {businessName}
         </Link>
-        <nav className="flex shrink-0 items-center gap-3 whitespace-nowrap text-sm sm:gap-4">
-          <Link href="/book" className={brandHeader ? "text-brand-foreground hover:underline" : "text-foreground hover:text-brand"}>
-            Book a clean
+        <nav aria-label="Main" className="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
+          {tel && (
+            <a
+              href={`tel:${tel}`}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap px-1 font-medium hover:underline ${
+                brandHeader ? "text-brand-foreground" : "text-foreground"
+              }`}
+            >
+              <Phone className="size-4" aria-hidden="true" />
+              Call us on {phone}
+            </a>
+          )}
+          <Link
+            href="/amend"
+            className={`whitespace-nowrap rounded-full border px-4 py-2 font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+              brandHeader
+                ? "border-white/40 text-brand-foreground hover:bg-white/10 focus-visible:outline-white"
+                : "border-border text-foreground hover:border-brand focus-visible:outline-brand"
+            }`}
+          >
+            Amend existing booking
           </Link>
           <Link
-            href={signedIn ? "/account" : "/login"}
-            className={`font-medium hover:underline ${brandHeader ? "text-brand-foreground" : "text-brand"}`}
+            href={bookNowHref}
+            className="whitespace-nowrap rounded-full px-5 py-2 text-base font-semibold text-[#2a1018] transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+            style={{ backgroundColor: GOLD }}
           >
-            {signedIn ? "My account" : "Sign in"}
+            Book now
           </Link>
-          {signedIn && (
-            <form action={signOutAction}>
-              <button
-                type="submit"
-                className={brandHeader ? "text-brand-foreground hover:underline" : "text-muted-foreground hover:text-foreground"}
-              >
-                Sign out
-              </button>
-            </form>
-          )}
         </nav>
       </div>
     </header>

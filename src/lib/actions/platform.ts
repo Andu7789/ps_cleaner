@@ -20,7 +20,6 @@ import {
 import { validateAnswers, type LogEntry } from "@/lib/onboarding";
 import { CHECKLIST, type CheckStatus } from "@/lib/checklist-items";
 import { runChecklist } from "@/lib/platform-checklist";
-import { ensureConnectAccount, type PaymentMode } from "@/lib/stripe-connect";
 
 // Sign in for the platform portal. Same email and password as any Supabase
 // login, then requirePlatformAdmin() decides whether that person gets in.
@@ -127,10 +126,9 @@ export async function emailOwnerLinkAction(id: string): Promise<{ ok: boolean; e
 export async function provisionAction(
   id: string,
   sendWelcome: boolean,
-  paymentMode: PaymentMode,
 ): Promise<{ ok: boolean; error?: string; log: LogEntry[] }> {
   await requirePlatformAdmin();
-  const result = await provisionBusiness(id, { sendWelcome, paymentMode: paymentMode === "connect" ? "connect" : "platform" });
+  const result = await provisionBusiness(id, { sendWelcome });
   revalidatePath("/platform");
   revalidatePath(`/platform/${id}`);
   return result;
@@ -145,7 +143,7 @@ export async function resendWelcomeAction(id: string): Promise<{ ok: boolean; er
   const db = createServiceClient();
   const { data: business } = await db
     .from("PS_CLEAN_businesses")
-    .select("slug, custom_domain, business_name, payment_mode")
+    .select("slug, custom_domain, business_name")
     .eq("id", req.business_id)
     .single();
   if (!business) return { ok: false, error: "Business not found." };
@@ -171,32 +169,6 @@ export async function checkSiteLiveAction(id: string): Promise<{ live: boolean; 
   return checkSiteLive(business);
 }
 
-// Switches where a live business's card payments go. Moving to connect makes
-// the owner's Stripe account (they finish verification from Settings); moving
-// back to platform just stops routing, so nothing in flight is lost.
-export async function setPaymentModeAction(id: string, mode: PaymentMode): Promise<{ ok: boolean; error?: string }> {
-  await requirePlatformAdmin();
-  const req = await loadRequestById(id);
-  if (!req?.business_id) return { ok: false, error: "This business hasn't been set up yet." };
-  const db = createServiceClient();
-  try {
-    if (mode === "connect") {
-      const { data: business } = await db
-        .from("PS_CLEAN_businesses")
-        .select("id, business_name, contact_email, stripe_connect_account_id")
-        .eq("id", req.business_id)
-        .single();
-      if (!business) return { ok: false, error: "Business not found." };
-      await ensureConnectAccount(db, business);
-    }
-    const { error } = await db.from("PS_CLEAN_businesses").update({ payment_mode: mode }).eq("id", req.business_id);
-    if (error) return { ok: false, error: error.message };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Couldn't switch payments." };
-  }
-  revalidatePath(`/platform/${id}`);
-  return { ok: true };
-}
 
 // Lets the owner correct something after sending it in, before it's set up.
 export async function reopenRequestAction(id: string) {

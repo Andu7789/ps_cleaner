@@ -98,3 +98,29 @@ export function formatDuration(minutes: number): string {
   if (mins === 0) return `${hours} hr`;
   return `${hours} hr ${mins} min`;
 }
+
+// Booking references are 8 characters (see migration 0051). Customers may
+// type them with spaces, dashes or in lower case.
+export function normaliseReference(input: string): string {
+  return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// Estimated price for a job: the clean's hourly rate times the hours needed,
+// or its fixed price when it has no hourly rate. Null until both are known.
+export function estimatePricePence(
+  service: { hourly_rate_pence: number | null; price_pence: number } | null | undefined,
+  hours: number | null | undefined
+): number | null {
+  if (!service) return null;
+  if (service.hourly_rate_pence && service.hourly_rate_pence > 0) {
+    if (!hours || hours <= 0) return null;
+    return Math.round(service.hourly_rate_pence * hours);
+  }
+  return service.price_pence;
+}
+
+export function accessMethodLabel(method: string, who: "customer" | "you"): string {
+  if (method === "keys") return "Customer will provide keys";
+  if (method === "key_box") return "Customer has a key box";
+  return who === "you" ? "Customer will let you in" : "Customer will let the cleaner in";
+}

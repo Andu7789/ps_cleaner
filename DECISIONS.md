@@ -393,3 +393,19 @@ Running Supabase's security advisor against the shared project surfaced two pre-
 - **`storage.objects` has a project-wide "Allow all" permissive policy** (`with_check`/`using` = `true` for every command, role `public`) that lets any authenticated (or even anonymous) request read/write/delete any file in any bucket in this shared project — found while building the cleaner photo-upload feature (decision #14, Bug B). PS Cleaning added `RESTRICTIVE` policies to genuinely protect its own bucket without touching this, but the underlying policy itself is still there, still project-wide, and presumably still relied on by whichever other app(s) in this project use unrestricted storage access (candidates: the bare `photos` table's bucket, or others). Worth the project owner reviewing whether every app sharing storage here actually needs that, but not PS Cleaning's call to change.
 
 Everything else the advisor flagged (`SECURITY DEFINER` functions callable by `anon`/`authenticated`) is expected and intentional for `ps_clean_*` functions — see DECISIONS.md #4 and the RLS design in `0005_rls.sql` — and matches the same pattern already used by other apps' functions in this project (`is_staff_for`, `buster_is_owner`, etc.).
+
+---
+
+## 26. No customer accounts, no Stripe, owner prices jobs (October 2026)
+
+**What the owner asked for** (Cleaning Website Updates 19/10): drop customer accounts and give each booking a reference number instead, stop using Stripe, price jobs on the admin bookings list (service required, hours, payment format, estimate emailed as a quote, final price emailed as an invoice), a key box access option with a code only the owner enters, cleaners blocked from completing a job without before and after photos, and owner emails when a job is completed or is still open 15 minutes after it should have finished.
+
+- **Guest checkout.** `createBookingAction` finds or creates the customer by email within the business (`user_id` stays null) and books through `ps_clean_create_booking` as the service role, which the function already allowed. Bookings are confirmed straight away. A walkthrough first clean still needs a previous booking, now matched by email instead of by signed in account.
+- **Booking references** are 8 characters from a no look alike alphabet, stamped by a trigger (migration 0051) so every insert path gets one. The reference is the only proof of identity for `/amend`; at 31^8 combinations it isn't guessable. Moving a booking goes through `ps_clean_reschedule_booking`, executable by the service role only, with the same working hours, time off and `EXCLUDE` checks as a new booking.
+- **`service_required_id` is not a foreign key on purpose.** A second link from bookings to services would make every existing `PS_CLEAN_services(...)` embed on bookings ambiguous to PostgREST (PGRST201).
+- **The key box code lives on the address**, so a returning customer's next booking at the same home already has it.
+- **Overdue alerts run from pg_cron** (migration 0052) every 5 minutes, because Vercel's free plan only runs daily crons. The job sends a random key from `PS_CLEAN_private_settings` (RLS on, no policies) so no secret has to be copied out of Vercel.
+- **Stripe is gone from the code**: checkout, webhook, Connect, the balance cron, the platform payment mode and the Stripe checklist items. The Stripe columns and `PS_CLEAN_payments` stay for history. Reports now count invoiced final prices.
+
+**Reversibility:** Medium. Accounts and Stripe could come back from git history, but anyone who books in the meantime has no login.
+

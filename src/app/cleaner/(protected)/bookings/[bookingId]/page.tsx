@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { requireCleaner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { customerMinutes, formatDate, formatDuration, formatPence, formatTime } from "@/lib/format";
+import { accessMethodLabel, customerMinutes, formatDate, formatDuration, formatTime } from "@/lib/format";
 import { CompleteButton } from "@/components/cleaner/complete-button";
 import { PhotoUpload } from "@/components/cleaner/photo-upload";
 import { PhotoThumb } from "@/components/cleaner/photo-thumb";
@@ -78,23 +79,6 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
         </span>
       </div>
 
-      {job.quote_status && job.status !== "cancelled" && (
-        <div
-          className={`mt-4 rounded-xl border p-5 ${
-            job.quote_status === "pending" ? "border-border bg-muted" : "border-border bg-card"
-          }`}
-        >
-          <h2 className="font-semibold text-foreground">
-            {job.quote_status === "pending" ? "Price not confirmed yet" : "Price confirmed"}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {job.quote_status === "pending"
-              ? "This job needs an exact quote. The owner has been asked to confirm the price and you will be emailed when they do."
-              : `The owner confirmed the price at ${formatPence(job.price_pence)}.`}
-          </p>
-        </div>
-      )}
-
       <div className="mt-4 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold text-foreground">Customer</h2>
         <p className="mt-1 text-sm text-foreground">{job.PS_CLEAN_customers.full_name}</p>
@@ -124,7 +108,15 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
 
         <h2 className="mt-4 font-semibold text-foreground">Before you arrive</h2>
         <ul className="mt-1 space-y-1 text-sm text-foreground">
-          <li>{job.access_method === "keys" ? "Customer will provide keys" : "Customer will let you in"}</li>
+          <li>{accessMethodLabel(job.access_method, "you")}</li>
+          {job.PS_CLEAN_customer_addresses.key_box_code && (
+            <li className="font-semibold">
+              Key box code: <span className="font-mono tracking-wider">{job.PS_CLEAN_customer_addresses.key_box_code}</span>
+            </li>
+          )}
+          {job.access_method === "key_box" && !job.PS_CLEAN_customer_addresses.key_box_code && (
+            <li className="text-muted-foreground">Key box code not added yet. Ask the office before you go.</li>
+          )}
           {job.has_pets && <li>Has pets</li>}
           <li className="text-muted-foreground">
             Parking nearby: {job.parking_available ? "Yes" : "No"}
@@ -146,7 +138,19 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
       </div>
 
       {(job.status === "confirmed" || job.status === "completed") && (
-        <div className="mt-4 space-y-5 rounded-xl border border-border bg-card p-5">
+        <section
+          aria-labelledby="photos-heading"
+          className="mt-4 space-y-5 rounded-xl border-2 border-red-600 bg-red-50 p-5 dark:bg-red-950/30"
+        >
+          <div>
+            <h2 id="photos-heading" className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400">
+              <Camera className="size-5" aria-hidden="true" />
+              Photos needed
+            </h2>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-300">
+              Take at least one before photo and one after photo. You can&apos;t mark the job complete without them.
+            </p>
+          </div>
           <div>
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-foreground">Before photos</h2>
@@ -168,12 +172,12 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
               {after.length === 0 && <p className="text-xs text-muted-foreground">No after photos yet.</p>}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
       {job.status === "confirmed" && (
         <div className="mt-4">
-          <CompleteButton bookingId={job.id} />
+          <CompleteButton bookingId={job.id} hasBefore={before.length > 0} hasAfter={after.length > 0} />
         </div>
       )}
     </div>

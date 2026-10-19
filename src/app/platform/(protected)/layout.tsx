@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { PlatformNav } from "@/components/platform/platform-nav";
 import { requirePlatformAdmin } from "@/lib/platform-auth";
-import { signOutAction } from "@/lib/actions/customer";
+import { signOutAction } from "@/lib/actions/auth";
 
 export const metadata: Metadata = { title: { absolute: "Platform" }, robots: { index: false } };
 

@@ -21,7 +21,6 @@ import { default as handler } from "./.open-next/worker.js";
 const CRON_ROUTES: Record<string, string> = {
   "*/15 * * * *": "/api/cron/cancel-stale-bookings",
   "0 * * * *": "/api/cron/send-reminders",
-  "0 6 * * *": "/api/cron/charge-balances",
 };
 
 const worker = {

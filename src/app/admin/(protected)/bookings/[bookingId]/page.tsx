@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentBusiness } from "@/lib/business";
-import { isOwner } from "@/lib/auth";
-import { customerMinutes, formatDate, formatDuration, formatPence, formatTime } from "@/lib/format";
+import { accessMethodLabel, customerMinutes, findWalkthroughService, formatDate, formatDuration, formatTime } from "@/lib/format";
 import { JobMap } from "@/components/cleaner/job-map";
-import { QuoteForm } from "@/components/admin/quote-form";
+import { JobPricing } from "@/components/admin/job-pricing";
+import { KeyBoxForm } from "@/components/admin/key-box-form";
 import type { Booking, BookingCalculatorSelection, Cleaner, Customer, CustomerAddress, Service } from "@/lib/types";
 
 type Row = Booking & {
@@ -38,8 +38,18 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
     .select("*")
     .eq("booking_id", bookingId);
   const roomSelections = (roomRows ?? []) as BookingCalculatorSelection[];
-  const owner = await isOwner();
-  const canQuote = owner && job.quote_status && (job.status === "confirmed" || job.status === "pending_payment");
+
+  const { data: serviceRows } = await supabase
+    .from("PS_CLEAN_services")
+    .select("*")
+    .eq("business_id", business.id)
+    .eq("is_active", true)
+    .order("price_pence", { ascending: true });
+  const allServices = (serviceRows ?? []) as Service[];
+  const walkthrough = findWalkthroughService(allServices);
+  const pricingServices = allServices
+    .filter((s) => s.id !== walkthrough?.id)
+    .map((s) => ({ id: s.id, name: s.name, hourly_rate_pence: s.hourly_rate_pence, price_pence: s.price_pence }));
 
   return (
     <div className="mx-auto max-w-lg">
@@ -58,22 +68,30 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
           {formatDuration(Math.round((new Date(job.ends_at).getTime() - new Date(job.starts_at).getTime()) / 60_000))})
         </p>
         <p className="mt-1 text-sm text-muted-foreground">Cleaner: {job.PS_CLEAN_cleaners?.full_name ?? "Unassigned"}</p>
+        <p className="text-sm text-muted-foreground">
+          Reference: <span className="font-mono text-foreground">{job.reference}</span>
+        </p>
         <span className="mt-2 inline-block text-xs capitalize text-muted-foreground">{job.status.replace("_", " ")}</span>
       </div>
 
-      {job.quote_status && job.status !== "cancelled" && (
-        <div className="mt-4 rounded-xl border border-border bg-muted p-5">
-          <h2 className="font-semibold text-foreground">
-            {job.quote_status === "pending" ? "Price not confirmed yet" : `Quoted ${formatPence(job.price_pence)}`}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {job.quote_status === "pending"
-              ? `Estimate ${formatPence(job.price_pence)}. ${owner ? "Set the exact price below." : "Waiting for an owner to confirm the price."}`
-              : "The price has been confirmed."}
-          </p>
-          {canQuote && (
-            <QuoteForm bookingId={job.id} estimatePence={job.price_pence} quoted={job.quote_status === "quoted"} />
-          )}
+      {job.status !== "cancelled" && (
+        <div className="mt-4">
+          <h2 className="mb-2 font-semibold text-foreground">Pricing</h2>
+          <JobPricing
+            bookingId={job.id}
+            services={pricingServices}
+            initial={{
+              serviceRequiredId: job.service_required_id ?? null,
+              hoursRequired: job.hours_required == null ? null : Number(job.hours_required),
+              paymentFormat: job.payment_format ?? null,
+              estimatedPricePence: job.estimated_price_pence ?? null,
+              finalPricePence: job.final_price_pence ?? null,
+            }}
+            quoteSentAt={job.quote_sent_at ?? null}
+            invoiceSentAt={job.invoice_sent_at ?? null}
+            completed={job.status === "completed"}
+            stacked
+          />
         </div>
       )}
 
@@ -100,6 +118,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
               {address.city} {address.postcode}
             </p>
             {address.access_notes && <p className="mt-2 text-sm text-muted-foreground">Access notes: {address.access_notes}</p>}
+            <KeyBoxForm addressId={address.id} initialCode={address.key_box_code ?? null} />
           </>
         )}
         {job.notes && <p className="mt-2 text-sm text-muted-foreground">Booking notes: {job.notes}</p>}
@@ -108,7 +127,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
 
         <h2 className="mt-4 font-semibold text-foreground">Before the visit</h2>
         <ul className="mt-1 space-y-1 text-sm text-foreground">
-          <li>{job.access_method === "keys" ? "Customer will provide keys" : "Customer will let the cleaner in"}</li>
+          <li>{accessMethodLabel(job.access_method, "customer")}</li>
           {job.has_pets && <li>Has pets</li>}
           <li className="text-muted-foreground">Parking nearby: {job.parking_available ? "Yes" : "No"}</li>
         </ul>

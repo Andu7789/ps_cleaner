@@ -52,6 +52,8 @@ export interface Service {
   walkthrough_first: boolean;
   is_featured: boolean;
   featured_message: string | null;
+  // Offered in the homepage's "Returning customer" card.
+  returning_customers_can_book: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -115,7 +117,8 @@ export interface TimeOff {
 export interface Customer {
   id: string;
   business_id: string;
-  user_id: string;
+  // Null for everyone who booked after accounts were removed.
+  user_id: string | null;
   full_name: string | null;
   email: string | null;
   phone: string | null;
@@ -147,13 +150,17 @@ export interface CustomerAddress {
   city: string;
   postcode: string;
   access_notes: string | null;
+  // Entered by the owner, shown to the cleaner.
+  key_box_code: string | null;
   is_default: boolean;
   created_at: string;
 }
 
 export type QuoteStatus = "pending" | "quoted";
 
-export type BookingAccessMethod = "keys" | "let_in";
+export type BookingAccessMethod = "keys" | "let_in" | "key_box";
+
+export type PaymentFormat = "set_price" | "hourly";
 
 export interface Booking {
   id: string;
@@ -178,6 +185,17 @@ export interface Booking {
   recurring_booking_id: string | null;
   quote_status: QuoteStatus | null;
   quoted_at: string | null;
+  // What the customer quotes to change their booking. Customers have no accounts.
+  reference: string;
+  // Set by the owner when pricing the job.
+  service_required_id: string | null;
+  hours_required: number | null;
+  payment_format: PaymentFormat | null;
+  estimated_price_pence: number | null;
+  final_price_pence: number | null;
+  quote_sent_at: string | null;
+  invoice_sent_at: string | null;
+  overdue_alert_sent_at: string | null;
   created_at: string;
   updated_at: string;
 }

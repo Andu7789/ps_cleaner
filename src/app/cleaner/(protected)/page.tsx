@@ -57,7 +57,6 @@ export default async function CleanerTodayPage() {
             </div>
             <p className="mt-1 text-sm text-foreground">
               {job.PS_CLEAN_services.name}
-              {job.quote_status === "pending" && <span className="ml-2 text-xs text-muted-foreground">Price to be confirmed</span>}
             </p>
             <p className="text-sm text-muted-foreground">
               {job.PS_CLEAN_customer_addresses.line1}, {job.PS_CLEAN_customer_addresses.postcode}

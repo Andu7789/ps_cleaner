@@ -24,7 +24,7 @@ export function AmendBooking() {
     setError(null);
     setMessage(null);
     startTransition(async () => {
-      const found = await getRescheduleOptionsAction(reference);
+      const found = await getRescheduleOptionsAction(reference).catch(() => null);
       if (!found) {
         setError("We couldn't find a booking with that reference. Please check it against your confirmation email.");
         return;
@@ -40,11 +40,15 @@ export function AmendBooking() {
     startTransition(async () => {
       try {
         const updated = await rescheduleBookingAction(options.booking.reference, choice.cleanerId, choice.startsAt.toISOString());
+        if ("error" in updated) {
+          setError(updated.error);
+          return;
+        }
         setOptions({ ...options, booking: updated });
         setChoice(null);
         setMessage(`Done. Your booking is now ${formatDate(updated.startsAt)} at ${formatTime(updated.startsAt)}. We've emailed you to confirm.`);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't move your booking");
+      } catch {
+        setError("Couldn't move your booking. Please check your connection and try again.");
       }
     });
   }

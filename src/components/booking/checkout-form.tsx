@@ -57,7 +57,7 @@ export function CheckoutForm({ service, cleanerId, cleanerName, startsAt, addons
     setError(null);
     const text = (name: string) => String(formData.get(name) ?? "");
     try {
-      const { reference } = await createBookingAction({
+      const result = await createBookingAction({
         cleanerId,
         serviceId: service.id,
         startsAt,
@@ -75,9 +75,14 @@ export function CheckoutForm({ service, cleanerId, cleanerName, startsAt, addons
         accessMethod,
         roomSelections: roomSelections.map((r) => ({ roomTypeId: r.roomTypeId, quantity: r.quantity })),
       });
-      router.push(`/book/confirmation?ref=${encodeURIComponent(reference)}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't make this booking");
+      if ("error" in result) {
+        setError(result.error);
+        setPending(false);
+        return;
+      }
+      router.push(`/book/confirmation?ref=${encodeURIComponent(result.reference)}`);
+    } catch {
+      setError("Couldn't make this booking. Please check your connection and try again.");
       setPending(false);
     }
   }

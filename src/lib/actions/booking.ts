@@ -67,9 +67,29 @@ async function findCustomerByEmail(service: SupabaseClient, businessId: string, 
 // source of truth for "no double booking" (see DECISIONS.md #4). Nothing is
 // paid online, so the booking is confirmed straight away and the customer is
 // emailed their booking reference.
-export async function createBookingAction(raw: CreateBookingInput): Promise<{ reference: string }> {
+// A message meant for the customer. Anything else that goes wrong is logged
+// and shown as a general "try again".
+class CustomerError extends Error {}
+
+// Errors are returned, not thrown: production replaces a thrown server action
+// error with "Minified React error #441", so the customer would never see why.
+async function asResult<T>(work: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await work();
+  } catch (err) {
+    if (err instanceof CustomerError) return { error: err.message };
+    console.error(err);
+    return { error: "Something went wrong. Please try again, or give us a call." };
+  }
+}
+
+export async function createBookingAction(raw: CreateBookingInput): Promise<{ reference: string } | { error: string }> {
+  return asResult(() => createBooking(raw));
+}
+
+async function createBooking(raw: CreateBookingInput): Promise<{ reference: string }> {
   const parsed = bookingSchema.safeParse(raw);
-  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Please check your details");
+  if (!parsed.success) throw new CustomerError(parsed.error.issues[0]?.message ?? "Please check your details");
   const input = parsed.data;
 
   const business = await getCurrentBusiness();
@@ -82,7 +102,7 @@ export async function createBookingAction(raw: CreateBookingInput): Promise<{ re
     .eq("business_id", business.id)
     .eq("is_active", true)
     .maybeSingle();
-  if (!svc) throw new Error("That clean isn't available to book.");
+  if (!svc) throw new CustomerError("That clean isn't available to book.");
 
   let customer = await findCustomerByEmail(service, business.id, input.email);
 
@@ -98,7 +118,7 @@ export async function createBookingAction(raw: CreateBookingInput): Promise<{ re
           .neq("status", "cancelled")
       : { count: 0 };
     if (!count) {
-      throw new Error(
+      throw new CustomerError(
         "We can't find an earlier booking for that email address. Please book a free walkthrough first, or use the email you booked with before."
       );
     }
@@ -115,7 +135,7 @@ export async function createBookingAction(raw: CreateBookingInput): Promise<{ re
       .insert({ business_id: business.id, full_name: input.fullName, email: input.email, phone: input.phone })
       .select("id")
       .single();
-    if (error) throw new Error("We couldn't save your details. Please try again.");
+    if (error) throw new CustomerError("We couldn't save your details. Please try again.");
     customer = created;
   }
 
@@ -153,7 +173,7 @@ export async function createBookingAction(raw: CreateBookingInput): Promise<{ re
       })
       .select("id")
       .single();
-    if (error) throw new Error("We couldn't save your address. Please try again.");
+    if (error) throw new CustomerError("We couldn't save your address. Please try again.");
     addressId = created.id;
   }
 
@@ -172,7 +192,7 @@ export async function createBookingAction(raw: CreateBookingInput): Promise<{ re
       p_room_selections: input.roomSelections.map((r) => ({ room_type_id: r.roomTypeId, quantity: r.quantity })),
     })
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new CustomerError(error.message);
 
   const row = booking as { id: string; reference: string };
   await confirmBookingAndNotify(service, row.id);
@@ -226,12 +246,20 @@ export async function findBookingByReferenceAction(reference: string): Promise<A
   };
 }
 
-export async function rescheduleBookingAction(reference: string, cleanerId: string, startsAt: string): Promise<AmendableBooking> {
+export async function rescheduleBookingAction(
+  reference: string,
+  cleanerId: string,
+  startsAt: string
+): Promise<AmendableBooking | { error: string }> {
+  return asResult(() => rescheduleBooking(reference, cleanerId, startsAt));
+}
+
+async function rescheduleBooking(reference: string, cleanerId: string, startsAt: string): Promise<AmendableBooking> {
   if (!z.string().uuid().safeParse(cleanerId).success || !z.string().datetime({ offset: true }).safeParse(startsAt).success) {
-    throw new Error("Please pick a time from the calendar.");
+    throw new CustomerError("Please pick a time from the calendar.");
   }
   const data = await bookingByReference(reference);
-  if (!data) throw new Error("We couldn't find a booking with that reference.");
+  if (!data) throw new CustomerError("We couldn't find a booking with that reference.");
 
   const service = createServiceClient();
   const previousStart = data.starts_at;
@@ -240,12 +268,12 @@ export async function rescheduleBookingAction(reference: string, cleanerId: stri
     p_cleaner_id: cleanerId,
     p_starts_at: startsAt,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new CustomerError(error.message);
 
   await notifyBookingMoved(service, data.id, previousStart);
   revalidatePath("/admin/bookings");
   const updated = await findBookingByReferenceAction(data.reference);
-  if (!updated) throw new Error("We couldn't find a booking with that reference.");
+  if (!updated) throw new CustomerError("We couldn't find a booking with that reference.");
   return updated;
 }
 

@@ -8,12 +8,14 @@ import type { PhotoKind } from "@/lib/types";
 
 const PHOTO_BUCKET = "ps-clean-booking-photos";
 
-export async function completeBookingAction(bookingId: string) {
+// Returns the error instead of throwing, so the cleaner sees the real reason
+// rather than production's "Minified React error".
+export async function completeBookingAction(bookingId: string): Promise<{ error: string } | undefined> {
   await requireCleaner();
   const supabase = await createClient();
   // The RPC refuses until there is a before and an after photo.
   const { error } = await supabase.rpc("ps_clean_cleaner_complete_booking", { p_booking_id: bookingId });
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   await notifyOwnerJobComplete(createServiceClient(), bookingId);
   revalidatePath("/cleaner");
   revalidatePath(`/cleaner/bookings/${bookingId}`);

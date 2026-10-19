@@ -21,9 +21,10 @@ export function CompleteButton({ bookingId, hasBefore, hasAfter }: { bookingId: 
           startTransition(async () => {
             setError(null);
             try {
-              await completeBookingAction(bookingId);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Couldn't mark this job complete");
+              const result = await completeBookingAction(bookingId);
+              if (result?.error) setError(result.error);
+            } catch {
+              setError("Couldn't mark this job complete. Please check your signal and try again.");
             }
           })
         }

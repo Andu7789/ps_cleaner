@@ -107,7 +107,10 @@ export function SlotPicker({
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Couldn't load availability");
+        if (!cancelled) {
+          console.error(err);
+          setError("Couldn't load availability. Please refresh the page and try again.");
+        }
       });
     return () => {
       cancelled = true;

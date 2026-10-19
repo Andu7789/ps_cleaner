@@ -48,7 +48,7 @@ export function Header({
         >
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- per-business logo, arbitrary external URL
-            <img src={logoUrl} alt="" className="h-8 w-auto max-w-40 object-contain" />
+            <img src={logoUrl} alt="" className="h-10 w-auto max-w-40 object-contain" />
           )}
           {businessName}
         </Link>

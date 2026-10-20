@@ -123,6 +123,7 @@ async function emailDetails(bookingId: string): Promise<{ error: string } | { ro
       hourlyRatePence: required?.hourly_rate_pence ?? null,
       replyTo: business.contact_email,
       contactPhone: business.contact_phone,
+      paymentDetails: business.payment_details,
     },
   };
 }

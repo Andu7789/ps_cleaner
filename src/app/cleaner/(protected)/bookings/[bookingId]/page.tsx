@@ -148,7 +148,7 @@ export default async function CleanerBookingPage({ params }: { params: Promise<{
               Photos needed
             </h2>
             <p className="mt-1 text-sm text-red-800 dark:text-red-300">
-              Take at least one before photo and one after photo. You can&apos;t mark the job complete without them.
+              You must take a before photo and an after photo of every room. You can&apos;t mark the job complete without them.
             </p>
           </div>
           <div>

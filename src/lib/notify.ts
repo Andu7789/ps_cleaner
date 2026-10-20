@@ -417,6 +417,7 @@ export interface QuoteOrInvoiceEmail {
   amountPence: number;
   replyTo?: string | null;
   contactPhone?: string | null;
+  paymentDetails?: string | null;
 }
 
 function priceTable(e: QuoteOrInvoiceEmail, totalLabel: string): string {
@@ -461,6 +462,12 @@ export async function sendInvoiceEmail(e: QuoteOrInvoiceEmail): Promise<void> {
     `<p>${e.customerName ? `Hi ${escapeHtml(e.customerName)},` : "Hi,"}</p>
      <p>Thank you for choosing us. Here is your invoice for your clean.</p>
      ${priceTable(e, "Amount due")}
+     ${
+       e.paymentDetails
+         ? `<p style="margin-bottom: 4px;"><strong>Pay by bank transfer to:</strong></p>
+     <p style="margin-top: 0; padding: 12px; background: #f4f6f5; border-radius: 6px; font-size: 14px;">${escapeHtml(e.paymentDetails).replace(/\n/g, "<br>")}</p>`
+         : ""
+     }
      <p>Invoice number ${e.reference}. Please quote it with your payment. Reply to this email${
        e.contactPhone ? ` or call us on ${escapeHtml(e.contactPhone)}` : ""
      } with any questions.</p>`

@@ -337,6 +337,8 @@ export interface Business {
   icon_url: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  // Bank details shown on customer invoices, one line per line break.
+  payment_details: string | null;
   timezone: string;
   reminder_hours_before: number;
   balance_charge_days_before: number;
